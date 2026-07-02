@@ -1,0 +1,138 @@
+# Tech stack
+
+- SvelteKit + TypeScript (Svelte 5 with runes: $state, $derived, $effect, $props)
+- No CSS framework - hand-written CSS with CSS variables (see src/app.css)
+- No external UI component library
+- Assets in `static/`:
+  - `quappe.png` / `favicon.png`: logo + browser tab icon
+  - `dialog_network.png`: About-page visual
+
+
+# Layout (desktop)
+
+Three-column shell:
+
+```
+┌────────────┬──────────────────────┬───────────────┐
+│ Sidebar-L  │   Main content       │  Sidebar-R    │
+│            │                      │               │
+│ Brand      │                      │ (top spacer)  │
+│ Logo+Title │                      │               │
+│ ────────── │                      │ Budget panel  │
+│ Trending   │                      │ Activity      │
+│ Top        │                      │  streamgraph  │
+│ My Theses  │                      │ Complexity    │
+│ [+ New]    │                      │  slider       │
+│ ────────── │                      │ Settings link │
+│ About      │                      │               │
+└────────────┴──────────────────────┴───────────────┘
+```
+
+- Left sidebar (220px): Brand + primary nav (Trending / Top / My Theses / New Thesis button). Separator. Secondary nav (About).
+- Right sidebar (280px): Budget (3-bucket progress bars), compact Activity streamgraph, Complexity slider, Settings link. Top spacer mirrors brand height for visual balance.
+- Both sidebars are sticky.
+
+## Responsive
+- <= 1024px: right sidebar hides (budget still visible via other means later).
+- <= 768px: left sidebar becomes a hamburger drawer, topbar with brand+menu appears.
+
+
+# Views
+
+## Landing (/) - "Trending"
+- Page head: title + subtitle.
+- Category tiles (drill-down): size scales by count. Click filters. "Clear filter" button when active.
+- Grid of ThesisCards (2 columns on desktop).
+- Complexity slider limits how many are shown.
+
+## Top (/top)
+- Same layout as landing.
+- Ordered by all-time support count.
+- Each card has a rank badge (#1, #2, ...).
+- Category selector also available (drill-down).
+
+## My Theses (/my)
+- Theses the current anonymous user created or voted on.
+
+## Thesis detail (/thesis/[id])
+- Title, description, categories.
+- Vote row for the thesis itself.
+- Author-only Edit button. Anyone with admin rights can Archive.
+- Two columns: **Supporting** (green) | **Rejecting** (red).
+  - Each has an "+ Add" button (uses respective budget bucket).
+  - Arguments show fork icon (create fork) and, if author, edit icon.
+  - Forks display "based on: ..." note and are connected by red dashed thread to parent.
+
+## About (/about)
+- Left (220px, small): dialog_network.png in card frame.
+- Right: Purpose, How it works, Rules (highlighted yellow cards), What this is not, CTA.
+
+## Settings (/settings)
+- Anonymous ID display.
+- Role badge (MVP: everyone is admin).
+- Categories management (add/remove/reset).
+- About section.
+
+
+# Components
+
+- `Logo.svelte`: renders `/quappe.png`, configurable size.
+- `ThesisCard.svelte`: card with title, description, categories, badges (argument count + lifecycle), heat-colored left border, vote row.
+- `ArgumentCard.svelte`: card with fork-note (if applicable), content, primary evidence badge + source-list (chips linking to detected URLs), vote row + fork/edit icons. **Users do NOT pick evidence type** — it is derived server-side.
+- `VoteRow.svelte`: shared voting UI. Shows abbreviated counts (K/M/B) and support/reject/neutral buttons. Clicking a button once = weight 1. Clicking again on the same type increments weight up to 3 (each extra weight costs 1 budget). Clicking the same type at max weight retracts the vote.
+- `ForkLines.svelte`: SVG overlay drawing red dashed bezier curves between forked arguments in a column.
+- `ActivityGraph.svelte`: streamgraph (pastel green/purple/gray/red), symmetric around centerline, 5-day rolling average.
+- `ComplexitySlider.svelte`: single slider bound to `complexityBoundsStore.min`..`max` (configurable in Settings).
+
+
+# UI Basic Requirements
+
+- Lightweight
+- State of the art 2026
+- Focus on snappiness
+- Focus on readability
+- Fully anonymous (no usernames visible)
+
+
+# Design tokens (CSS variables in src/app.css)
+
+- Neutral background (#fafafa), white surface, subtle borders.
+- Accent: primary indigo (#4f46e5).
+- Vote colors: support green (#16a34a), reject red (#dc2626), neutral gray.
+- Pastel palette for activity streamgraph.
+- Monospaced font for numbers/IDs.
+
+
+# Complexity slider
+
+- Present in right sidebar on all views (except settings).
+- Affects both list view AND graph view.
+- Bounds are configurable in Settings (`complexityBoundsStore`), persisted in localStorage.
+- **Default bounds**:
+  - Theses: min 3, max 62 (golden ratio ~61.8).
+  - Arguments per stance per Thesis: min 3, max 7.
+- **Hard limits** (safety cap admins can't exceed):
+  - Theses: 3 to 200.
+  - Arguments: 3 to 20.
+- Simplified language mode at low complexity (later).
+- TL;DR summaries generated at low complexity (later).
+
+
+# Fork visualization
+
+- Fork icon on ArgumentCard opens the argument form pre-filled with the source content.
+- On submit: new argument gets `forked_from_id` pointing to the source.
+- In the argument column, a **red dashed bezier curve** is drawn from the parent's bottom-left to the fork's top-left (via `ForkLines.svelte`).
+- The forked card also shows a small "based on: ..." note in red at the top.
+
+
+# Interaction patterns
+
+- Voting toggles: same type+weight twice = retract.
+- Weighted voting: click a vote button again to raise weight (up to ×3). Each extra weight costs 1 budget point.
+- Large vote counts are abbreviated: values ≥ 10 000 shown as `12k`, `1.5M`, `3.2B`.
+- ThesisCard: entire card is a link to the detail page; vote buttons stop propagation.
+- Fork keeps the same stance as the source (support stays support, reject stays reject).
+- Editing does not cost budget. Creating and forking do. Weight votes cost from the matching stance bucket.
+- Anonymous UUID is stored in localStorage. Same browser = same identity.
+- Categories are shown as **horizontal scrollable chip bar** — no wrapping, keeps vertical space free.

@@ -1,0 +1,212 @@
+# Object types
+
+## Thesis
+Central entity. A claim, question or subject to discuss.
+
+Fields:
+- `id`: UUID
+- `title`: string
+- `description`: string
+- `categories`: string[] (dynamic list, admin-managed)
+- `votes`: Vote[] (support | reject | neutral)
+- `related_thesis_ids`: string[] (graph edges to other Theses)
+- `archived`: boolean (admin can archive, not delete)
+- `lifecycle`: LifecycleInfo (see Lifecycle section)
+- `meta`: Meta
+
+## Argument
+Supports or rejects a Thesis.
+
+Fields:
+- `id`: UUID
+- `thesis_id`: UUID (parent thesis)
+- `stance`: 'support' | 'reject' (mandatory - one column per stance on the UI)
+- `content`: string (the argument text)
+- `attributes`: ArgumentAttribute[] (evidence_type + optional source_url + optional source_comment)
+- `votes`: Vote[]
+- `forked_from_id?`: UUID (points to source argument if this is a fork; must be from same thesis + same stance)
+- `meta`: Meta
+
+Notes:
+- No parent-child reply chains. **Fork = create a new argument based on an existing one**. Both coexist; users vote which they support.
+- Forks are visually connected to their source by a red dashed thread in the UI.
+- Arguments per Thesis are limited by the complexity slider (1 to 7 per stance).
+- Arguments inherit their thesis's lifecycle state implicitly.
+
+
+## Vote
+Fields:
+- `user_id`: anonymous UUID (persisted in browser localStorage)
+- `type`: 'support' | 'reject' | 'neutral'
+- `weight`: integer >= 1 (default 1). Additional weight costs 1 budget point per extra weight (from the matching stance bucket - support or reject). Retracting a weighted vote refunds nothing (design: extra weight is a signal, not a stake).
+- `cast_at`: ISO timestamp
+
+Rules:
+- Each user has one active vote per Thesis or Argument.
+- Casting the same `(type, weight)` again retracts the vote (toggle).
+- Casting the same type with a different weight re-weights the vote in place.
+- Weight is capped at 5 server-side, and 3 in the standard UI.
+- Reading a vote is always free. Casting `weight=1` is free. Casting `weight=k` costs `k-1` budget points from the matching bucket.
+
+
+## Meta
+Every object has:
+- `created_at`: ISO timestamp
+- `updated_at`: ISO timestamp
+- `author_id`: anonymous UUID
+- `location?`: coarse-grained (country/region, never precise)
+
+
+# Lifecycle
+
+Theses go through a deterministic lifecycle. State is a **pure function** of age, votes, arguments, and last activity - no I/O, no history required.
+
+## States
+
+| State | Meaning | Storage tier |
+|-------|---------|--------------|
+| `seedling` | Newly created (< 7 d), gathering initial reactions | hot |
+| `discussed` | Healthy activity, no clear consensus yet | hot |
+| `contested` | Active but polarised (support ≈ reject, split ≤ 20 %) | hot |
+| `crystallized` | Clear majority (≥ 65 %) + solid arguments (≥ 3) | hot |
+| `faded` | Activity dropped, no consensus reached | warm |
+| `dormant` | Inactive for 90+ days | cold |
+
+Canonical (long-term crystallised) is planned for a later phase.
+
+## LifecycleInfo (stored on each thesis)
+
+- `state`: LifecycleState
+- `state_since`: ISO timestamp of the last state change
+- `quality_score`: number in [0..1] (see Quality Score below)
+
+## Transition thresholds (single source of truth in `lib/models/lifecycle.ts`)
+
+- `seedlingMaxDays`: 7
+- `seedlingMinVotes`: 3 (below after 14 d ⇒ faded)
+- `discussedMinVotes`: 5 (needed to leave seedling)
+- `crystallizedMinVotes`: 20
+- `crystallizedMinArgs`: 3
+- `crystallizedConsensus`: 0.65 (support/(support+reject) ≥ this)
+- `contestedSplitBand`: 0.2 (|support-reject|/(support+reject) ≤ this)
+- `fadedInactivityDays`: 30
+- `dormantInactivityDays`: 90
+
+## Quality Score
+
+`quality = 0.4·consensus_strength + 0.3·argument_depth + 0.2·peer_engagement + 0.1·evidence_density`
+
+- `consensus_strength`: how far the support ratio is from 0.5, scaled 0..1
+- `argument_depth`: `min(1, arg_count/7)`
+- `peer_engagement`: `min(1, unique_voters/20)`
+- `evidence_density`: fraction of arguments carrying "study" or "authority" evidence
+
+Steers ranking on `/top` and, later, similarity matching.
+
+
+# Storage tiers
+
+The in-memory store is split into three maps to keep hot paths small.
+
+- **hot** (`theses_hot`): seedling / discussed / contested / crystallized. Full data.
+- **warm** (`theses_warm`): faded. Full data still, but excluded from listings.
+- **cold** (`theses_cold`): dormant. Full data now (MVP), later pruned to summary only.
+
+A reverse index `args_by_thesis: Map<thesisId, Set<argId>>` enables O(1) argument lookup by thesis (used by heat map, activity calendar, argument counts, delete cascade).
+
+On every mutation:
+1. The mutation is applied.
+2. `reevaluateLifecycle(thesis_id)` recomputes state + quality_score.
+3. If the tier changed, the thesis is moved between maps.
+4. The derived-query cache is invalidated (`bumpVersion()`).
+
+
+# Input Budget
+
+Three separate daily buckets per user (browser-local, resets at midnight):
+- `thesis`: 7 per day
+- `support`: 7 support arguments per day
+- `reject`: 7 reject arguments per day
+
+Editing your own thesis or argument does not cost budget.
+Forking counts as a new argument in the respective stance bucket.
+Weighted voting: `weight=1` is free, each additional weight point costs 1 from the matching bucket
+(support-vote weight uses `support` bucket, reject-vote weight uses `reject` bucket, neutral uses `support` as default).
+
+
+# Categories
+
+Dynamic string list, managed centrally by admin.
+Default categories: education, policy, health, family, fairness, environment, economy, technology, culture, other.
+Admin can add/remove via settings page. Reset to defaults available.
+Landing page renders categories as size-scaled tiles (drill-down).
+
+
+# Argument evidence auto-detection
+
+Users no longer pick an evidence type in the UI. They write their argument and optionally
+mark it as **emotional** (single checkbox: "Herzensangelegenheit" — heart matter).
+
+Server-side derivation (`lib/utils/evidence.ts`):
+- Emotional checkbox wins entirely → single attribute `{ evidence_type: 'emotional' }`, no URL parsing.
+- Otherwise: extract URLs from the raw content by regex.
+  - Each URL is classified by domain:
+    - `study`: `.edu`, `.ac.*`, `doi.org`, `arxiv.org`, `nature.com`, `sciencemag.org`, `pubmed`, `nih.gov`, `who.int`, `sciencedirect.com`, `plos*.org`, `cochrane*.org`, `mpg.de`, `fraunhofer.de`, ...
+    - `authority`: `.gov`, `europa.eu`, `wikipedia.org`, `bundestag.de`, `bundesregierung.de`, `oecd.org`, `imf.org`, `worldbank.org`, `destatis.de`, `ipcc.ch`, `unicef.org`, ...
+    - Everything else (including no URL): `logical`.
+- One attribute per URL. The "primary" type for badge display is the best-ranked type
+  (study > authority > experiential/emotional > logical).
+
+The user only chooses stance (support/reject) and the emotional flag. Everything else is derived.
+
+
+# Similarity (future)
+
+Similarity between Theses is detected automatically via a local LLM (embedding-based).
+- Clustering groups similar Theses to surface commonality.
+- Low-confidence matches are suggested but not auto-linked.
+- Implementation: local small LLM for embeddings + vector similarity search.
+
+
+# Activity / Heat
+
+Two derived metrics from raw events (votes + creates):
+- **Heat**: per-thesis ratio of 24 h activity vs. platform average. 4 levels (hot/warm/cool/cold). Rendered as colored left-border on ThesisCard. Computed only over the hot tier - warm/cold theses are, by definition, inactive.
+- **Activity Streamgraph**: daily buckets over the last 84 days, 4 stacked series (support, creates, neutral, reject) with 5-day rolling average. Context-aware (platform-wide or per-thesis). Rendered in the right sidebar.
+
+Both metrics are cached (30 s TTL) and invalidated on writes.
+
+
+# Scale (stress-tested)
+
+Target: max one country per instance (~80M users).
+Expected volume at scale: ~100M theses. Similarity clustering is essential.
+
+Stress test with 1 000 000 theses (~1.85 M arguments, ~17.5 M vote objects, 50 000 users):
+
+- Seed + lifecycle sweep: ~23 s once at boot.
+- Heap: ~3.6 GB (all in memory).
+- Tier distribution (with the seeded age profile): ~35 % hot, ~45 % warm, ~20 % cold.
+- Hot-tier queries: `getTrendingTheses(200)` ~85 ms, `getTopTheses(200)` ~160 ms.
+- Cross-tier queries: `getHeatMap()` ~2 s cold, ~0 ms cached.
+- Per-thesis queries: `getActivityCalendar(thesisId)` ~15 ms.
+
+This is the ceiling for a single Node process without persistence. Beyond ~2 M theses in RAM, a proper DB is required (see Phase 2 in `.project`).
+
+
+# Storage / Load
+
+- MVP: in-memory Maps + reverse index for arguments. Seeded lazily on first read (~100 example theses).
+- Phase 2+: persistent DB (Postgres + likely a vector DB for similarity).
+- We don't need strict transactional safety. Best-effort is fine.
+- History is stored as a changelog (event-sourcing style), not full snapshots.
+
+
+# Retention
+
+Since this is a social experiment, discussions should be traceable over years / decades:
+- Time graph indicates peaks in discussion.
+- Color shifts show change in tone / direction.
+- Active discussion in cache; older material in cold storage.
+- Dormant theses are kept as cold references (ID + summary) and can be reactivated on new engagement.
+

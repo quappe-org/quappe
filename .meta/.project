@@ -1,0 +1,165 @@
+# The Problem
+
+Language isn't precise - it always needs definition.
+To formalize positions, find commonality is a problem.
+
+Social Media as we know it from Instagram, TikTok etc creates bubbles or fronts, hate.
+
+
+# Target
+
+An argumentation graph platform to come to defined positions on a specific topic.
+What leads me to an opinion.
+A position based on beliefs and best case on facts - real facts (studies, real peer reviewed studies with a proper setup) or valid authorities which act with integrity and moral standards.
+Show dependencies between Theses.
+We want a grammar solving the issue to come to coexisting, defined and valid positions.
+
+Truth is even with facts relative to subjects and circumstances.
+We want to find as much consent on topics and show disagreement with respect.
+Other positions are ok.
+But qualify yourself.
+Opinion without a proper argumentation line weighs simply less in a discourse.
+
+We search commonalities (can be several) to a specific Thesis.
+
+
+# Base Mechanics of the Tool/platform
+
+## Thesis
+- A Thesis is the central entity. Someone proposes a claim, question or subject to discuss.
+- If you enter a Thesis it's probably already there but tackled differently - start from there and do a link.
+- Theses can depend on or relate to other Theses (graph edges).
+- A Thesis is never "closed" - it evolves. History is tracked as a changelog.
+- Author can edit their own Thesis (title, description, categories).
+- Admin can **archive** (not delete) a Thesis. Archived Theses stay reachable via link but are removed from trending/top lists.
+- Every Thesis carries a **lifecycle state** (seedling → discussed → contested → crystallized → faded → dormant) computed deterministically from age, votes, arguments and last activity. See `.data.skill` for thresholds.
+- Theses in "hot" states (seedling / discussed / contested / crystallized) are surfaced in listings. Faded / dormant theses stay reachable but are quiet by default.
+
+## Arguments
+- Arguments support or reject a Thesis (**stance** field, mandatory: `support` | `reject`).
+- Arguments are votable (support | reject | neutral).
+- Arguments carry evidence attributes (evidence_type + optional source_url).
+- Arguments per Thesis: max 7 (adjustable down to 1 via complexity slider).
+- **No reply chains.** Instead of replying to an argument, users **fork** it: copy the content, adapt it, and submit as new argument in the same stance. Both versions coexist; the crowd decides via votes which version they support.
+- A fork is visually connected to its parent by a **red dashed thread** in the UI.
+- Same principle will later apply to Thesis (fork instead of edit-war).
+
+## Voting
+- Support | Reject | Neutral, for both Theses and Arguments.
+- Each anonymous user votes once. Casting the same vote again retracts it (toggle).
+- Reading and voting are always free (no budget cost).
+
+## Weighting
+- Theses and arguments carry weight based on:
+  - Linked evidence (quality and quantity)
+  - Chain of reasoning (logical coherence)
+  - Peer endorsement (others vouch for structure, not conclusion)
+- Unqualified opinions are visible but carry less weight.
+
+## Input Budget
+- Participation is a currency. Users have **three separate daily buckets**, each 7 actions per day, resetting at midnight (local browser day):
+  - **Thesis**: 7 new theses per day
+  - **Support argument**: 7 support arguments per day
+  - **Reject argument**: 7 reject arguments per day
+- Reading, exploring, voting is free.
+- Editing your own thesis/argument does **not** cost budget.
+- Forking an argument costs budget (it counts as a new argument in the respective stance bucket).
+- This forces thoughtfulness and naturally limits trolling.
+- Budget is generous - it's a nudge, not a gate.
+- The point: input must have value. This is not a comment section.
+
+## Categories
+- Every Thesis has 1..n categories (e.g. education, policy, health, ...).
+- Categories are dynamic strings, managed centrally by an admin (default categories are provided; admin can add/remove).
+- On the landing page, categories are visualized as **tiles** whose size scales with the number of theses in that category (drill-down).
+
+## Commonality Search
+- The platform actively surfaces where Theses overlap.
+- Consent is highlighted. Disagreement is shown with respect.
+- Similarity detection via local small LLM / embedding-based clustering (later phase).
+
+## Activity Visualization
+- **Streamgraph** (pastel colors, symmetric around centerline) showing:
+  - Support votes (green)
+  - Creates (theses + arguments, purple)
+  - Neutral votes (gray)
+  - Reject votes (red)
+- Rolling 5-day average for smooth curves.
+- Time range: last 12 weeks (~84 days).
+- Rendered in the right sidebar; context-aware:
+  - Platform-wide on Trending/Top/My pages
+  - Per-thesis on Thesis-detail page
+
+## Heat Indicator
+- Every ThesisCard shows a colored left-border indicating relative 24h activity:
+  - **hot** (orange): ratio >= 1.5x platform average
+  - **warm** (yellow): ratio >= 0.75x average
+  - **cool** (light blue): some activity, below average
+  - **cold** (blue): no 24h activity
+
+## Complexity Slider
+- Users can choose depth: top 3 arguments vs. full graph (up to 7 arguments / 62 Theses).
+- Simplified language mode available (later).
+- TL;DR summaries generated from the argumentation structure (later).
+- Affects both the list view and the graph view.
+- Present in right sidebar on all views (except settings).
+
+
+# What it is not
+
+It's not an exposure of the vulnerable.
+It's not a fighting place (only inside arguments).
+It's not a comment section.
+
+
+# Ethics
+
+We respect each other as long as we respect the rules.
+Good faith assumption.
+Separation of person from position.
+
+
+# Rules
+
+1. The integrity of a being is untouchable. Always.
+2. Separate the person from the position. Always.
+3. Good faith. Assume it. Earn it.
+4. Minorities deserve a voice and a safe space, but majority is majority.
+5. Trolls get marked kindly first, firmly later. Repeated disturbance leads to ignore or exclusion.
+6. Qualify yourself. Bring reasoning, bring evidence, bring nuance.
+
+
+# Challenges
+
+There are people who want to disturb.
+Claim the right position.
+Change and erode definition and meaning of words - this needs to be shown.
+The rule framework needs to hold.
+We need to prevent bots or several accounts.
+Theses will repeat over time and maybe adjust - history tracked via changelog.
+We limit input via budget (not the mistake of endless comment sections).
+It needs a UID, but we want full anonymity (no visible username, only arguments count).
+
+
+# Implementation
+
+## MVP (Phase 1) - current
+- Single instance, no login, in-memory data store, seeded with ~100 example theses.
+- Core: Thesis CRUD (create, edit, archive), Arguments with stance + fork, Voting (with toggle), Category drill-down, Complexity Slider, Input Budget (3 buckets), Activity Streamgraph, Heat Indicator, About page.
+- **Lifecycle model**: theses transition through seedling → discussed → contested → crystallized → faded → dormant deterministically; storage tiers (hot/warm/cold) keep hot paths small.
+- **Realistic scale ceiling**: 1 M theses / ~17 M vote objects run in one Node process (~3.6 GB heap, ~85 ms trending list, ~2 s cold heat map, cached queries near-instant). Beyond that a real DB is required.
+- Anonymous UUID per browser (localStorage), used for vote uniqueness and author check on edit.
+- No auth, no rate limiting yet.
+
+## Phase 2
+- Persistent DB (Postgres or similar).
+- Auth (UUID + magic link), API keys, configurable rate limits.
+- Multi-user with anonymous identity.
+- RBAC roles: user | qualified user | moderator | admin.
+- Similarity detection via local LLM.
+
+## Phase 3
+- Scale: API backbone for mobile apps.
+- Regional instances.
+- SSO for enterprise contexts.
+- Server-side event log / changelog persistence.

@@ -1,0 +1,76 @@
+# Server
+
+- lightweight
+- SvelteKit as full-stack framework (API routes + SSR).
+- MVP: in-memory data store (single Node process, seeded on first read).
+- Later: scalable via Kubernetes; persistent DB (Postgres + optional vector DB for similarity).
+
+
+# API
+
+- stateless REST.
+- API-driven so different UI versions (web / mobile / third-party) can consume the same backend.
+- OpenAPI format planned (once server logic is finalized).
+- API key per user + per instance (Phase 2+).
+- Rate limits configurable via admin config (no UI needed):
+  - default: 5 Thesis creations per min per user (Phase 2+).
+  - applies to all write operations (Thesis + Arguments).
+- Reading is free. Bot protection to be added later.
+- Editing requires the caller to be the author (checked server-side via `user_id`).
+- Archiving requires admin (in MVP: everyone is admin).
+
+
+# Current API endpoints (MVP)
+
+## Theses
+- `GET  /api/theses` (query: `trending=true` | `top=true` | `limit=N`) - list.
+- `POST /api/theses` (body: `{ title, description, categories, author_id?, location? }`) - create.
+- `GET  /api/theses/[id]` - single thesis + vote_summary.
+- `PUT  /api/theses/[id]` (body: `{ title?, description?, categories?, user_id }`) - update (author only).
+- `DELETE /api/theses/[id]` - hard delete (admin, rarely used - prefer archive).
+- `POST /api/theses/[id]/archive` (body: `{ archived: boolean }`) - archive/unarchive.
+- `POST /api/theses/[id]/vote` (body: `{ user_id, type }`) - toggle vote.
+
+## Arguments
+- `GET  /api/arguments?thesis_id=X` - list arguments for a thesis.
+- `POST /api/arguments` (body: `{ thesis_id, content, attributes, stance, forked_from_id?, author_id? }`) - create.
+- `GET  /api/arguments/[id]` - single argument.
+- `PUT  /api/arguments/[id]` (body: `{ content?, attributes?, user_id }`) - update (author only).
+- `DELETE /api/arguments/[id]` - hard delete.
+- `POST /api/arguments/[id]/vote` (body: `{ user_id, type }`) - toggle vote.
+
+## Stats
+- `GET /api/stats` - returns `{ heat: {thesisId: ratio}, arguments: {thesisId: count} }`.
+- `GET /api/activity?thesis_id=?` - returns `ActivityDay[]` for last 84 days (platform-wide or per thesis).
+
+
+# Server-side logic still to build
+
+For the upcoming server discussion:
+- Persistent storage layer (currently: in-memory Map, lost on restart).
+- Rate limiting middleware.
+- Anonymous identity + magic-link auth.
+- Author enforcement for edit endpoints (currently: client sends user_id, server trusts it - naive for MVP).
+- Similarity clustering (local LLM + vector search).
+- Event log for changelog / snapshots.
+- Bot protection / abuse detection.
+
+
+# RBAC
+
+## Roles
+- `user`: default. Can create, vote, edit own.
+- `qualified user`: trusted (vouched by others). Vote weight can be higher (future).
+- `moderator`: can archive Theses, mark abusive users.
+- `admin`: can delete users, manage categories, adjust rate limits.
+
+MVP: everyone is admin (no auth).
+
+
+# Login (Phase 2+)
+
+- UUID-based identity (anonymous).
+- Magic link for authentication (no email/password clutter).
+- SSO for enterprise (cert / OIDC / LDAP).
+- Private and school instances: magic link only.
+- MVP: no login. Anonymous UUID stored in browser localStorage.

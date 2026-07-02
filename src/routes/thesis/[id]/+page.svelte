@@ -1,0 +1,778 @@
+<script lang="ts">
+	import type { Argument, ArgumentStance, VoteType, VoteSummary, Category } from '$lib/models/types';
+	import { complexityStore } from '$lib/stores/complexity.svelte';
+	import { budgetStore } from '$lib/stores/budget.svelte';
+	import { categoriesStore } from '$lib/stores/categories.svelte';
+	import { activityStore } from '$lib/stores/activity.svelte';
+	import { getUserId } from '$lib/stores/user';
+	import { abbreviateNumber } from '$lib/utils/format';
+	import ArgumentCard from '$lib/components/ArgumentCard.svelte';
+	import ForkLines from '$lib/components/ForkLines.svelte';
+	import VoteRow from '$lib/components/VoteRow.svelte';
+	import type { ActivityDay } from '$lib/stores/data';
+
+	let { data } = $props();
+
+	// svelte-ignore state_referenced_locally
+	let thesis = $state<any>(data.thesis);
+	// svelte-ignore state_referenced_locally
+	let args = $state<Argument[]>(data.arguments ?? []);
+	// svelte-ignore state_referenced_locally
+	let voteSummary = $state<VoteSummary | null>(data.voteSummary ?? null);
+
+	$effect(() => {
+		thesis = data.thesis;
+		args = data.arguments;
+		voteSummary = data.voteSummary;
+		activityStore.set(
+			data.activity ?? [],
+			data.thesis
+				? `Activity: ${data.thesis.title.slice(0, 30)}${data.thesis.title.length > 30 ? '…' : ''}`
+				: 'Thesis activity'
+		);
+	});
+
+	let isAuthor = $derived.by(() => {
+		if (typeof window === 'undefined' || !thesis) return false;
+		return getUserId() === thesis.meta.author_id;
+	});
+
+	// Fork lookup
+	let argIndex = $derived.by(() => {
+		const map = new Map<string, Argument>();
+		for (const a of args) map.set(a.id, a);
+		return map;
+	});
+
+	function forkSourceContent(arg: Argument): string | undefined {
+		if (!arg.forked_from_id) return undefined;
+		return argIndex.get(arg.forked_from_id)?.content;
+	}
+
+	// Sort helper by weighted support-reject
+	function scoreOf(a: Argument): number {
+		let s = 0;
+		for (const v of a.votes) {
+			const w = v.weight || 1;
+			if (v.type === 'support') s += w;
+			else if (v.type === 'reject') s -= w;
+		}
+		return s;
+	}
+
+	let supportArgs = $derived.by(() => {
+		return args
+			.filter((a) => a.stance === 'support')
+			.sort((a, b) => scoreOf(b) - scoreOf(a))
+			.slice(0, complexityStore.settings.max_arguments);
+	});
+
+	let rejectArgs = $derived.by(() => {
+		return args
+			.filter((a) => a.stance === 'reject')
+			.sort((a, b) => scoreOf(b) - scoreOf(a))
+			.slice(0, complexityStore.settings.max_arguments);
+	});
+
+	let totalSupport = $derived(args.filter((a) => a.stance === 'support').length);
+	let totalReject = $derived(args.filter((a) => a.stance === 'reject').length);
+
+	// --- Thesis voting ---
+	let voting = $state(false);
+	let currentVote = $state<VoteType | null>(null);
+	let currentWeight = $state(1);
+	let hasVotedLocally = $state(false);
+
+	// Fork-line refs
+	let supportColRef = $state<HTMLElement | null>(null);
+	let rejectColRef = $state<HTMLElement | null>(null);
+
+	$effect(() => {
+		if (typeof window === 'undefined' || !thesis || hasVotedLocally) return;
+		const userId = getUserId();
+		const existing = thesis.votes?.find((v: any) => v.user_id === userId);
+		currentVote = existing ? existing.type : null;
+		currentWeight = existing?.weight ?? 1;
+	});
+
+	async function castThesisVote(type: VoteType, weight: number) {
+		if (voting || !thesis) return;
+		voting = true;
+		try {
+			const userId = getUserId();
+			const res = await fetch(`/api/theses/${thesis.id}/vote`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ type, weight, user_id: userId })
+			});
+			if (res.ok) {
+				const responseData = await res.json();
+				voteSummary = responseData.vote_summary;
+				const isRetract = currentVote === type && currentWeight === weight;
+				currentVote = isRetract ? null : type;
+				currentWeight = isRetract ? 1 : weight;
+				hasVotedLocally = true;
+			}
+		} finally {
+			voting = false;
+		}
+	}
+
+	// --- Argument form ---
+	type ArgFormMode = 'new' | 'fork' | 'edit';
+	let showArgForm = $state(false);
+	let argFormMode = $state<ArgFormMode>('new');
+	let argContent = $state('');
+	let argStance = $state<ArgumentStance>('support');
+	let argIsEmotional = $state(false);
+	let argForkedFromId = $state<string | undefined>(undefined);
+	let argEditingId = $state<string | undefined>(undefined);
+	let argSubmitting = $state(false);
+
+	function openNewArg(stance: ArgumentStance) {
+		argFormMode = 'new';
+		argStance = stance;
+		argContent = '';
+		argIsEmotional = false;
+		argForkedFromId = undefined;
+		argEditingId = undefined;
+		showArgForm = true;
+	}
+
+	function openFork(source: Argument) {
+		argFormMode = 'fork';
+		argStance = source.stance;
+		argContent = source.content;
+		argIsEmotional = source.attributes.some((a) => a.evidence_type === 'emotional');
+		argForkedFromId = source.id;
+		argEditingId = undefined;
+		showArgForm = true;
+	}
+
+	function openEdit(target: Argument) {
+		argFormMode = 'edit';
+		argStance = target.stance;
+		argContent = target.content;
+		argIsEmotional = target.attributes.some((a) => a.evidence_type === 'emotional');
+		argForkedFromId = target.forked_from_id;
+		argEditingId = target.id;
+		showArgForm = true;
+	}
+
+	function cancelArgForm() {
+		showArgForm = false;
+		argEditingId = undefined;
+		argForkedFromId = undefined;
+	}
+
+	async function submitArgument() {
+		if (!argContent.trim() || !thesis) return;
+
+		if (argFormMode === 'edit' && argEditingId) {
+			argSubmitting = true;
+			try {
+				const res = await fetch(`/api/arguments/${argEditingId}`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						content: argContent.trim(),
+						is_emotional: argIsEmotional,
+						user_id: getUserId()
+					})
+				});
+				if (res.ok) {
+					const updated: Argument = await res.json();
+					args = args.map((a) => (a.id === updated.id ? updated : a));
+					cancelArgForm();
+				}
+			} finally {
+				argSubmitting = false;
+			}
+			return;
+		}
+
+		const budgetKind = argStance === 'support' ? 'support' : 'reject';
+		if (!budgetStore.canCreate(budgetKind)) return;
+
+		argSubmitting = true;
+		try {
+			const res = await fetch('/api/arguments', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					thesis_id: thesis.id,
+					content: argContent.trim(),
+					stance: argStance,
+					is_emotional: argIsEmotional,
+					forked_from_id: argForkedFromId,
+					author_id: getUserId()
+				})
+			});
+			if (res.ok) {
+				const newArg: Argument = await res.json();
+				budgetStore.spend(budgetKind);
+				args = [...args, newArg];
+				cancelArgForm();
+			}
+		} finally {
+			argSubmitting = false;
+		}
+	}
+
+	// --- Thesis edit ---
+	let editingThesis = $state(false);
+	let editTitle = $state('');
+	let editDescription = $state('');
+	let editCategories = $state<Category[]>([]);
+	let editSubmitting = $state(false);
+
+	function openEditThesis() {
+		if (!thesis) return;
+		editTitle = thesis.title;
+		editDescription = thesis.description;
+		editCategories = [...thesis.categories];
+		editingThesis = true;
+	}
+
+	function toggleEditCategory(cat: Category) {
+		if (editCategories.includes(cat)) editCategories = editCategories.filter((c) => c !== cat);
+		else editCategories = [...editCategories, cat];
+	}
+
+	async function submitEditThesis() {
+		if (!thesis) return;
+		editSubmitting = true;
+		try {
+			const res = await fetch(`/api/theses/${thesis.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					title: editTitle.trim(),
+					description: editDescription.trim(),
+					categories: editCategories,
+					user_id: getUserId()
+				})
+			});
+			if (res.ok) {
+				const updated = await res.json();
+				thesis = { ...thesis, ...updated };
+				editingThesis = false;
+			}
+		} finally {
+			editSubmitting = false;
+		}
+	}
+
+	async function toggleArchive() {
+		if (!thesis) return;
+		const newState = !thesis.archived;
+		if (!confirm(newState ? 'Archive this thesis?' : 'Unarchive this thesis?')) return;
+		const res = await fetch(`/api/theses/${thesis.id}/archive`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ archived: newState })
+		});
+		if (res.ok) {
+			const updated = await res.json();
+			thesis = { ...thesis, ...updated };
+		}
+	}
+</script>
+
+{#if thesis}
+	<article class="thesis-detail" class:archived={thesis.archived}>
+		<header class="thesis-header">
+			<a href="/" class="back-link">← Back</a>
+
+			{#if thesis.archived}
+				<div class="archived-banner">This thesis has been archived.</div>
+			{/if}
+
+			{#if editingThesis}
+				<form class="card edit-form" onsubmit={(e) => { e.preventDefault(); submitEditThesis(); }}>
+					<div class="form-group">
+						<label for="edit-title">Title</label>
+						<input id="edit-title" type="text" bind:value={editTitle} required />
+					</div>
+					<div class="form-group">
+						<label for="edit-desc">Description</label>
+						<textarea id="edit-desc" bind:value={editDescription} required></textarea>
+					</div>
+					<div class="form-group">
+						<label for="edit-categories">Categories</label>
+						<div class="category-grid" id="edit-categories">
+							{#each categoriesStore.list as cat}
+								<button
+									type="button"
+									class="tag category-btn"
+									class:selected={editCategories.includes(cat)}
+									onclick={() => toggleEditCategory(cat)}
+								>{cat}</button>
+							{/each}
+						</div>
+					</div>
+					<div class="form-actions">
+						<button class="btn btn-primary" type="submit" disabled={editSubmitting}>
+							{editSubmitting ? 'Saving...' : 'Save changes'}
+						</button>
+						<button class="btn" type="button" onclick={() => (editingThesis = false)}>Cancel</button>
+					</div>
+				</form>
+			{:else}
+				<h1 class="thesis-title">{thesis.title}</h1>
+				<p class="thesis-description">{thesis.description}</p>
+
+				<div class="thesis-categories">
+					{#each thesis.categories as category}
+						<span class="tag">{category}</span>
+					{/each}
+					<span class="tag lifecycle-tag lifecycle-{thesis.lifecycle?.state ?? 'seedling'}" title="Lifecycle state">
+						{thesis.lifecycle?.state ?? 'seedling'}
+					</span>
+				</div>
+
+				<div class="thesis-admin-row">
+					{#if isAuthor}
+						<button class="btn btn-sm" onclick={openEditThesis}>Edit</button>
+					{/if}
+					<button class="btn btn-sm" onclick={toggleArchive}>
+						{thesis.archived ? 'Unarchive' : 'Archive'}
+					</button>
+				</div>
+			{/if}
+
+			{#if voteSummary}
+				<div class="thesis-vote-panel">
+					<VoteRow
+						summary={voteSummary}
+						currentVote={currentVote}
+						currentWeight={currentWeight}
+						voting={voting}
+						weightBudget={currentVote === 'reject' ? 'reject' : 'support'}
+						oncast={castThesisVote}
+					/>
+					<span class="voter-note">{abbreviateNumber(voteSummary.voters ?? 0)} voter{(voteSummary.voters ?? 0) === 1 ? '' : 's'}</span>
+				</div>
+			{/if}
+		</header>
+
+		<section class="arguments-section">
+			{#if showArgForm}
+				<form class="card argument-form" onsubmit={(e) => { e.preventDefault(); submitArgument(); }}>
+					<h3 class="form-title">
+						{#if argFormMode === 'edit'}Edit argument{:else if argFormMode === 'fork'}Fork &amp; adapt{:else}New argument{/if}
+					</h3>
+
+					{#if argFormMode === 'fork'}
+						<p class="form-hint">You are creating a new argument based on an existing one. Both will exist in parallel.</p>
+					{/if}
+
+					{#if argFormMode !== 'edit'}
+						<div class="stance-toggle">
+							<button
+								type="button"
+								class="btn btn-sm stance-btn"
+								class:stance-support={argStance === 'support'}
+								onclick={() => argFormMode !== 'fork' && (argStance = 'support')}
+								disabled={argFormMode === 'fork'}
+							>Supports thesis</button>
+							<button
+								type="button"
+								class="btn btn-sm stance-btn"
+								class:stance-reject={argStance === 'reject'}
+								onclick={() => argFormMode !== 'fork' && (argStance = 'reject')}
+								disabled={argFormMode === 'fork'}
+							>Rejects thesis</button>
+						</div>
+					{/if}
+
+					<div class="form-group">
+						<label for="arg-content">Your argument <span class="hint-inline">Links are auto-detected. Just paste URLs into your text.</span></label>
+						<textarea id="arg-content" bind:value={argContent} placeholder="State your reasoning. Paste sources as URLs — they will be classified automatically." required></textarea>
+					</div>
+
+					<label class="emotional-check">
+						<input type="checkbox" bind:checked={argIsEmotional} />
+						<span>This is an emotional argument <span class="hint-inline">(Herzensangelegenheit — a heart matter. Overrides evidence detection.)</span></span>
+					</label>
+
+					<div class="form-actions">
+						<button class="btn btn-primary" type="submit" disabled={argSubmitting}>
+							{#if argSubmitting}Submitting...{:else if argFormMode === 'edit'}Save changes{:else if argFormMode === 'fork'}Submit fork{:else}Submit{/if}
+						</button>
+						<button class="btn" type="button" onclick={cancelArgForm}>Cancel</button>
+					</div>
+				</form>
+			{/if}
+
+			<div class="arguments-columns">
+				<div class="arguments-col col-support">
+					<div class="col-header">
+						<h2 class="col-title">
+							<span class="col-marker" aria-hidden="true"></span>
+							Supporting
+							<span class="col-count">({totalSupport})</span>
+						</h2>
+						<button
+							class="btn btn-sm add-arg-btn"
+							onclick={() => openNewArg('support')}
+							disabled={!budgetStore.canCreate('support')}
+							title={!budgetStore.canCreate('support') ? 'Daily budget for support arguments depleted' : ''}
+						>+ argument ({budgetStore.support})</button>
+					</div>
+					<div class="arguments-list" bind:this={supportColRef}>
+						<ForkLines arguments={supportArgs} container={supportColRef} />
+						{#each supportArgs as arg (arg.id)}
+							<ArgumentCard
+								argument={arg}
+								forkedFromContent={forkSourceContent(arg)}
+								onFork={openFork}
+								onEdit={openEdit}
+							/>
+						{/each}
+						{#if supportArgs.length === 0}
+							<p class="col-empty">No supporting arguments yet.</p>
+						{/if}
+					</div>
+				</div>
+
+				<div class="arguments-col col-reject">
+					<div class="col-header">
+						<h2 class="col-title">
+							<span class="col-marker" aria-hidden="true"></span>
+							Rejecting
+							<span class="col-count">({totalReject})</span>
+						</h2>
+						<button
+							class="btn btn-sm add-arg-btn"
+							onclick={() => openNewArg('reject')}
+							disabled={!budgetStore.canCreate('reject')}
+							title={!budgetStore.canCreate('reject') ? 'Daily budget for reject arguments depleted' : ''}
+						>+ argument ({budgetStore.reject})</button>
+					</div>
+					<div class="arguments-list" bind:this={rejectColRef}>
+						<ForkLines arguments={rejectArgs} container={rejectColRef} />
+						{#each rejectArgs as arg (arg.id)}
+							<ArgumentCard
+								argument={arg}
+								forkedFromContent={forkSourceContent(arg)}
+								onFork={openFork}
+								onEdit={openEdit}
+							/>
+						{/each}
+						{#if rejectArgs.length === 0}
+							<p class="col-empty">No rejecting arguments yet.</p>
+						{/if}
+					</div>
+				</div>
+			</div>
+		</section>
+	</article>
+{:else}
+	<div class="not-found">
+		<h1>Thesis not found</h1>
+		<a href="/" class="btn btn-primary">Back to home</a>
+	</div>
+{/if}
+
+<style>
+	.thesis-detail {
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+	}
+
+	.thesis-detail.archived {
+		opacity: 0.7;
+	}
+
+	.archived-banner {
+		padding: 0.5rem 0.75rem;
+		background: #fef3c7;
+		color: #92400e;
+		border-radius: var(--radius-md);
+		font-size: var(--text-sm);
+		font-weight: 500;
+	}
+
+	.back-link {
+		font-size: var(--text-sm);
+		color: var(--color-text-muted);
+	}
+
+	.back-link:hover {
+		color: var(--color-primary);
+	}
+
+	.thesis-header {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.thesis-title {
+		font-size: var(--text-3xl);
+		font-weight: 700;
+		line-height: 1.2;
+	}
+
+	.thesis-description {
+		font-size: var(--text-base);
+		color: var(--color-text-muted);
+		line-height: 1.6;
+	}
+
+	.thesis-categories {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.375rem;
+	}
+
+	.thesis-admin-row {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	.thesis-vote-panel {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 0.75rem 1rem;
+		background: var(--color-bg);
+		border-radius: var(--radius-md);
+		border: 1px solid var(--color-border);
+		flex-wrap: wrap;
+	}
+
+	.voter-note {
+		font-size: var(--text-xs);
+		color: var(--color-text-light);
+		font-family: var(--font-mono);
+	}
+
+	.lifecycle-tag {
+		text-transform: capitalize;
+		background: var(--color-bg);
+		color: var(--color-text-muted);
+		border: 1px solid var(--color-border);
+	}
+	.lifecycle-tag.lifecycle-crystallized {
+		background: #cffafe;
+		color: #164e63;
+		border-color: #67e8f9;
+	}
+	.lifecycle-tag.lifecycle-discussed { background: #dbeafe; color: #1e3a8a; border-color: #93c5fd; }
+	.lifecycle-tag.lifecycle-contested { background: #fef3c7; color: #78350f; border-color: #fbbf24; }
+
+	.arguments-section {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.argument-form,
+	.edit-form {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.form-title {
+		font-size: var(--text-base);
+		font-weight: 600;
+	}
+
+	.form-hint {
+		font-size: var(--text-sm);
+		color: var(--color-text-muted);
+	}
+
+	.hint-inline {
+		font-weight: 400;
+		color: var(--color-text-light);
+		font-size: var(--text-xs);
+		margin-left: 0.5rem;
+	}
+
+	.form-group {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.emotional-check {
+		display: flex;
+		align-items: baseline;
+		gap: 0.5rem;
+		font-size: var(--text-sm);
+		color: var(--color-text);
+		cursor: pointer;
+	}
+
+	.emotional-check input {
+		accent-color: #ec4899;
+	}
+
+	.form-actions {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.stance-toggle {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.stance-btn {
+		flex: 1;
+		justify-content: center;
+		border: 2px solid var(--color-border);
+	}
+
+	.stance-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+	.stance-btn.stance-support {
+		border-color: var(--color-support);
+		background: var(--color-support-bg);
+		color: var(--color-support);
+		font-weight: 600;
+	}
+	.stance-btn.stance-reject {
+		border-color: var(--color-reject);
+		background: var(--color-reject-bg);
+		color: var(--color-reject);
+		font-weight: 600;
+	}
+
+	.category-grid {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.375rem;
+	}
+
+	.category-btn {
+		cursor: pointer;
+		border: 1px solid var(--color-border);
+	}
+
+	.category-btn.selected {
+		background: var(--color-primary);
+		color: white;
+		border-color: var(--color-primary);
+	}
+
+	/* Two-column layout */
+	.arguments-columns {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 1.25rem;
+		align-items: start;
+	}
+
+	@media (max-width: 900px) {
+		.arguments-columns { grid-template-columns: 1fr; }
+	}
+
+	.arguments-col {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		padding: 0.875rem;
+		border-radius: var(--radius-md);
+		border: 1px solid var(--color-border);
+	}
+
+	.col-support {
+		background: linear-gradient(180deg, rgba(134, 239, 172, 0.10) 0%, transparent 40%);
+		border-left: 3px solid var(--color-support);
+	}
+
+	.col-reject {
+		background: linear-gradient(180deg, rgba(252, 165, 165, 0.10) 0%, transparent 40%);
+		border-left: 3px solid var(--color-reject);
+	}
+
+	.col-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		padding-bottom: 0.375rem;
+	}
+
+	.col-title {
+		display: flex;
+		align-items: baseline;
+		gap: 0.375rem;
+		font-size: var(--text-lg);
+		font-weight: 700;
+		margin: 0;
+	}
+
+	.col-support .col-title { color: var(--color-support); }
+	.col-reject .col-title  { color: var(--color-reject); }
+
+	.col-count {
+		font-size: var(--text-sm);
+		font-weight: 500;
+		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+	}
+
+	.col-marker {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		align-self: center;
+	}
+
+	.col-support .col-marker { background: var(--color-support); }
+	.col-reject  .col-marker { background: var(--color-reject); }
+
+	/* Small "add argument" button - deliberately not styled like a bold action.
+	   It's a helper, not the primary action of the column. */
+	.add-arg-btn {
+		font-size: var(--text-xs);
+		font-weight: 500;
+		padding: 0.25rem 0.625rem;
+		background: transparent;
+		border: 1px solid var(--color-border);
+		color: var(--color-text-muted);
+	}
+	.add-arg-btn:hover:not(:disabled) {
+		background: var(--color-surface);
+		color: var(--color-text);
+	}
+
+	.arguments-list {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.arguments-list :global(.argument-card) {
+		position: relative;
+		z-index: 1;
+	}
+
+	.col-empty {
+		font-size: var(--text-sm);
+		color: var(--color-text-light);
+		text-align: center;
+		padding: 1.5rem 1rem;
+		border: 1px dashed var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+	}
+
+	.not-found {
+		text-align: center;
+		padding: 4rem 1rem;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1rem;
+	}
+</style>
