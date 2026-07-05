@@ -116,31 +116,37 @@ export interface CastVoteRequest {
 export interface ComplexitySettings {
 	max_theses: number; // 3 to 62
 	max_arguments: number; // 1 to 7
+	max_related: number; // 3 to 7
 }
 
 export const COMPLEXITY_DEFAULTS: ComplexitySettings = {
 	max_theses: 10,
-	max_arguments: 5
+	max_arguments: 5,
+	max_related: 5
 };
 
 export const COMPLEXITY_MIN: ComplexitySettings = {
 	max_theses: 3,
-	max_arguments: 3
+	max_arguments: 3,
+	max_related: 3
 };
 
 export const COMPLEXITY_MAX: ComplexitySettings = {
 	max_theses: 62,
-	max_arguments: 7
+	max_arguments: 7,
+	max_related: 7
 };
 
 // Absolute floor/ceiling that the admin can NOT go below/above
 // (protects against nonsense configuration)
 export const COMPLEXITY_HARD_MIN: ComplexitySettings = {
 	max_theses: 3,
-	max_arguments: 3
+	max_arguments: 3,
+	max_related: 3
 };
 
 export const COMPLEXITY_HARD_MAX: ComplexitySettings = {
 	max_theses: 200,
-	max_arguments: 20
+	max_arguments: 20,
+	max_related: 20
 };

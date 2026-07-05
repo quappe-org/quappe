@@ -4,7 +4,8 @@
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { categoriesStore } from '$lib/stores/categories.svelte';
 	import { activityStore } from '$lib/stores/activity.svelte';
-	import { getUserId } from '$lib/stores/user';
+	import { getUserId, markVotedArg } from '$lib/stores/user';
+	import { forkFeedStore } from '$lib/stores/fork-feed.svelte';
 	import { abbreviateNumber } from '$lib/utils/format';
 	import ArgumentCard from '$lib/components/ArgumentCard.svelte';
 	import ForkLines from '$lib/components/ForkLines.svelte';
@@ -19,18 +20,29 @@
 	let args = $state<Argument[]>(data.arguments ?? []);
 	// svelte-ignore state_referenced_locally
 	let voteSummary = $state<VoteSummary | null>(data.voteSummary ?? null);
+	// svelte-ignore state_referenced_locally
+	let related = $state(data.related ?? []);
+	// svelte-ignore state_referenced_locally
+	let relatedMode = $state<string | null>(data.relatedMode ?? null);
 
 	$effect(() => {
 		thesis = data.thesis;
 		args = data.arguments;
 		voteSummary = data.voteSummary;
+		related = data.related ?? [];
+		relatedMode = data.relatedMode ?? null;
 		activityStore.set(
 			data.activity ?? [],
 			data.thesis
 				? `Activity: ${data.thesis.title.slice(0, 30)}${data.thesis.title.length > 30 ? '…' : ''}`
 				: 'Thesis activity'
 		);
+		if (data.arguments && data.thesis) {
+			forkFeedStore.update(data.arguments, data.thesis.title);
+		}
 	});
+
+	let visibleRelated = $derived(related.slice(0, complexityStore.settings.max_related));
 
 	let isAuthor = $derived.by(() => {
 		if (typeof window === 'undefined' || !thesis) return false;
@@ -281,15 +293,16 @@
 
 {#if thesis}
 	<article class="thesis-detail" class:archived={thesis.archived}>
-		<header class="thesis-header">
-			<a href="/" class="back-link">← Back</a>
+		<a href="/" class="back-link">← Back</a>
 
-			{#if thesis.archived}
-				<div class="archived-banner">This thesis has been archived.</div>
-			{/if}
+		{#if thesis.archived}
+			<div class="archived-banner">This thesis has been archived.</div>
+		{/if}
 
+		<!-- Thesis tile -->
+		<div class="thesis-tile card">
 			{#if editingThesis}
-				<form class="card edit-form" onsubmit={(e) => { e.preventDefault(); submitEditThesis(); }}>
+				<form class="edit-form" onsubmit={(e) => { e.preventDefault(); submitEditThesis(); }}>
 					<div class="form-group">
 						<label for="edit-title">Title</label>
 						<input id="edit-title" type="text" bind:value={editTitle} required />
@@ -322,7 +335,7 @@
 				<h1 class="thesis-title">{thesis.title}</h1>
 				<p class="thesis-description">{thesis.description}</p>
 
-				<div class="thesis-categories">
+				<div class="thesis-meta-row">
 					{#each thesis.categories as category}
 						<span class="tag">{category}</span>
 					{/each}
@@ -331,30 +344,49 @@
 					</span>
 				</div>
 
-				<div class="thesis-admin-row">
-					{#if isAuthor}
-						<button class="btn btn-sm" onclick={openEditThesis}>Edit</button>
-					{/if}
-					<button class="btn btn-sm" onclick={toggleArchive}>
-						{thesis.archived ? 'Unarchive' : 'Archive'}
-					</button>
-				</div>
-			{/if}
+				{#if voteSummary && voteSummary.total > 0}
+					<div class="thesis-vote-bar-wrap" title="+{voteSummary.support} support · −{voteSummary.reject} reject · ~{voteSummary.neutral} neutral">
+						<div class="thesis-vote-bar">
+							{#if voteSummary.support > 0}
+								<span class="tvb-seg tvb-support" style="flex: {voteSummary.support}"></span>
+							{/if}
+							{#if voteSummary.neutral > 0}
+								<span class="tvb-seg tvb-neutral" style="flex: {voteSummary.neutral}"></span>
+							{/if}
+							{#if voteSummary.reject > 0}
+								<span class="tvb-seg tvb-reject" style="flex: {voteSummary.reject}"></span>
+							{/if}
+						</div>
+						<div class="thesis-vote-nums">
+							<span class="tvn-support">+{voteSummary.support}</span>
+							<span class="tvn-reject">−{voteSummary.reject}</span>
+							<span class="tvn-voters">{abbreviateNumber(voteSummary.voters ?? 0)} voter{(voteSummary.voters ?? 0) === 1 ? '' : 's'}</span>
+						</div>
+					</div>
+				{/if}
 
-			{#if voteSummary}
-				<div class="thesis-vote-panel">
-					<VoteRow
-						summary={voteSummary}
-						currentVote={currentVote}
-						currentWeight={currentWeight}
-						voting={voting}
-						weightBudget={currentVote === 'reject' ? 'reject' : 'support'}
-						oncast={castThesisVote}
-					/>
-					<span class="voter-note">{abbreviateNumber(voteSummary.voters ?? 0)} voter{(voteSummary.voters ?? 0) === 1 ? '' : 's'}</span>
+				<div class="thesis-tile-footer">
+					{#if voteSummary}
+						<VoteRow
+							summary={voteSummary}
+							currentVote={currentVote}
+							currentWeight={currentWeight}
+							voting={voting}
+							weightBudget={currentVote === 'reject' ? 'reject' : 'support'}
+							oncast={castThesisVote}
+						/>
+					{/if}
+					<div class="thesis-admin-row">
+						{#if isAuthor}
+							<button class="btn btn-sm" onclick={openEditThesis}>Edit</button>
+						{/if}
+						<button class="btn btn-sm" onclick={toggleArchive}>
+							{thesis.archived ? 'Unarchive' : 'Archive'}
+						</button>
+					</div>
 				</div>
 			{/if}
-		</header>
+		</div>
 
 		<section class="arguments-section">
 			{#if showArgForm}
@@ -422,9 +454,10 @@
 					</div>
 					<div class="arguments-list" bind:this={supportColRef}>
 						<ForkLines arguments={supportArgs} container={supportColRef} />
-						{#each supportArgs as arg (arg.id)}
+						{#each supportArgs as arg, idx (arg.id)}
 							<ArgumentCard
 								argument={arg}
+								leading={idx === 0}
 								forkedFromContent={forkSourceContent(arg)}
 								onFork={openFork}
 								onEdit={openEdit}
@@ -452,9 +485,10 @@
 					</div>
 					<div class="arguments-list" bind:this={rejectColRef}>
 						<ForkLines arguments={rejectArgs} container={rejectColRef} />
-						{#each rejectArgs as arg (arg.id)}
+						{#each rejectArgs as arg, idx (arg.id)}
 							<ArgumentCard
 								argument={arg}
+								leading={idx === 0}
 								forkedFromContent={forkSourceContent(arg)}
 								onFork={openFork}
 								onEdit={openEdit}
@@ -467,6 +501,31 @@
 				</div>
 			</div>
 		</section>
+
+		{#if visibleRelated.length > 0}
+			<aside class="related-panel">
+				<div class="related-head">
+					<span class="related-title">Verwandte Thesen</span>
+					<span class="related-mode" title={relatedMode === 'semantic' ? 'Ranked by semantic similarity' : 'Ranked by shared categories'}>
+						{relatedMode === 'semantic' ? 'semantisch' : 'thematisch'}
+					</span>
+				</div>
+				<ul class="related-list">
+					{#each visibleRelated as item (item.thesis.id)}
+						<li>
+							<a class="related-link" href="/thesis/{item.thesis.id}">
+								<span class="related-thesis-title">{item.thesis.title}</span>
+								<span class="related-cats">
+									{#each item.thesis.categories.slice(0, 3) as cat}
+										<span class="related-cat">{cat}</span>
+									{/each}
+								</span>
+							</a>
+						</li>
+					{/each}
+				</ul>
+			</aside>
+		{/if}
 	</article>
 {:else}
 	<div class="not-found">
@@ -479,7 +538,7 @@
 	.thesis-detail {
 		display: flex;
 		flex-direction: column;
-		gap: 1.5rem;
+		gap: 1.25rem;
 	}
 
 	.thesis-detail.archived {
@@ -498,57 +557,99 @@
 	.back-link {
 		font-size: var(--text-sm);
 		color: var(--color-text-muted);
+		display: inline-block;
 	}
 
 	.back-link:hover {
 		color: var(--color-primary);
 	}
 
-	.thesis-header {
+	/* Thesis tile */
+	.thesis-tile {
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
+		gap: 0.875rem;
+		background: white;
+		border-radius: var(--radius-lg);
+		padding: 1.5rem;
 	}
 
 	.thesis-title {
 		font-size: var(--text-3xl);
 		font-weight: 700;
 		line-height: 1.2;
+		margin: 0;
 	}
 
 	.thesis-description {
 		font-size: var(--text-base);
 		color: var(--color-text-muted);
 		line-height: 1.6;
+		margin: 0;
 	}
 
-	.thesis-categories {
+	.thesis-meta-row {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.375rem;
+	}
+
+	/* Vote bar */
+	.thesis-vote-bar-wrap {
+		display: flex;
+		align-items: center;
+		gap: 0.625rem;
+	}
+
+	.thesis-vote-bar {
+		flex: 1;
+		display: flex;
+		height: 6px;
+		border-radius: 3px;
+		overflow: hidden;
+		gap: 1px;
+		background: var(--color-bg);
+	}
+
+	.tvb-seg {
+		display: block;
+		height: 100%;
+		min-width: 2px;
+		border-radius: 2px;
+	}
+
+	.tvb-support { background: var(--color-support); }
+	.tvb-neutral  { background: var(--color-neutral); }
+	.tvb-reject   { background: var(--color-reject); }
+
+	.thesis-vote-nums {
+		display: flex;
+		gap: 0.5rem;
+		font-size: var(--text-xs);
+		font-family: var(--font-mono);
+		font-variant-numeric: tabular-nums;
+		align-items: center;
+	}
+
+	.tvn-support { color: var(--color-support); }
+	.tvn-reject  { color: var(--color-reject); }
+	.tvn-voters  { color: var(--color-text-light); margin-left: 0.25rem; }
+
+	/* Footer row: vote buttons + admin actions */
+	.thesis-tile-footer {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding-top: 0.75rem;
+		border-top: 1px solid var(--color-border);
+		flex-wrap: wrap;
 	}
 
 	.thesis-admin-row {
 		display: flex;
 		gap: 0.5rem;
 		flex-wrap: wrap;
-	}
-
-	.thesis-vote-panel {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		padding: 0.75rem 1rem;
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
-		border: 1px solid var(--color-border);
-		flex-wrap: wrap;
-	}
-
-	.voter-note {
-		font-size: var(--text-xs);
-		color: var(--color-text-light);
-		font-family: var(--font-mono);
 	}
 
 	.lifecycle-tag {
@@ -774,5 +875,93 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 1rem;
+	}
+
+	/* Related theses */
+	.related-panel {
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		padding: 0.75rem 1rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.related-head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+
+	.related-title {
+		font-size: var(--text-xs);
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--color-text-muted);
+	}
+
+	.related-mode {
+		font-size: 0.65rem;
+		font-family: var(--font-mono);
+		color: var(--color-text-light);
+		text-transform: lowercase;
+		background: var(--color-bg);
+		border: 1px solid var(--color-border);
+		border-radius: 9999px;
+		padding: 0.1rem 0.5rem;
+	}
+
+	.related-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.related-link {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.4rem 0.5rem;
+		border-radius: var(--radius-sm);
+		text-decoration: none;
+		color: var(--color-text);
+		transition: background var(--transition-fast);
+	}
+
+	.related-link:hover {
+		background: var(--color-bg);
+	}
+
+	.related-thesis-title {
+		font-size: var(--text-sm);
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.related-cats {
+		display: flex;
+		gap: 0.25rem;
+		flex-shrink: 0;
+	}
+
+	.related-cat {
+		font-size: 0.65rem;
+		font-family: var(--font-mono);
+		color: var(--color-text-light);
+		background: var(--color-bg);
+		border: 1px solid var(--color-border);
+		border-radius: 9999px;
+		padding: 0.1rem 0.45rem;
+		text-transform: capitalize;
 	}
 </style>

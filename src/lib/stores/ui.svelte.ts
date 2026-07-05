@@ -1,16 +1,16 @@
 // UI intent signals - one-shot triggers between components
-// Used e.g. to open the "new thesis" form from sidebar
+// Uses a counter so every click triggers the effect, even repeated clicks.
 
-let _openNewThesis = $state(false);
+let _openNewThesisCount = $state(0);
 
 export const uiIntents = {
 	get openNewThesis() {
-		return _openNewThesis;
+		return _openNewThesisCount;
 	},
 	requestNewThesis() {
-		_openNewThesis = true;
+		_openNewThesisCount++;
 	},
 	consumeNewThesis() {
-		_openNewThesis = false;
+		// no-op kept for compatibility — counter approach doesn't need consuming
 	}
 };

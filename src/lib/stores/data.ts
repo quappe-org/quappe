@@ -30,6 +30,40 @@ function findThesis(id: string): { thesis: Thesis; tier: 'hot' | 'warm' | 'cold'
 const args_by_thesis: Map<string, Set<string>> = new Map();
 const arguments_store: Map<string, Argument> = new Map();
 
+// Embedding index: separate maps so Float32Arrays are never accidentally serialized to JSON
+const thesis_embeddings: Map<string, Float32Array> = new Map();
+const argument_embeddings: Map<string, Float32Array> = new Map();
+
+export function hasThesisEmbedding(id: string): boolean {
+	return thesis_embeddings.has(id);
+}
+
+export function setThesisEmbedding(id: string, vec: Float32Array): void {
+	thesis_embeddings.set(id, vec);
+}
+
+export function setArgumentEmbedding(id: string, vec: Float32Array): void {
+	argument_embeddings.set(id, vec);
+}
+
+export function getThesesWithEmbeddings(): { thesis: Thesis; embedding: Float32Array }[] {
+	const result: { thesis: Thesis; embedding: Float32Array }[] = [];
+	for (const [id, embedding] of thesis_embeddings) {
+		const found = findThesis(id);
+		if (found && !found.thesis.archived) result.push({ thesis: found.thesis, embedding });
+	}
+	return result;
+}
+
+export function getArgumentsWithEmbeddings(): { argument: Argument; embedding: Float32Array }[] {
+	const result: { argument: Argument; embedding: Float32Array }[] = [];
+	for (const [id, embedding] of argument_embeddings) {
+		const arg = arguments_store.get(id);
+		if (arg) result.push({ argument: arg, embedding });
+	}
+	return result;
+}
+
 // When true, lifecycle transitions won't log (used during bulk seed)
 let suppressLifecycleLogs = false;
 
@@ -580,6 +614,34 @@ export function getArgumentsForThesis(thesis_id: string): Argument[] {
 
 export function getArgumentById(id: string): Argument | undefined {
 	return arguments_store.get(id);
+}
+
+// ---- User-scoped aggregators (used by report generation) ----
+
+export function getThesesByAuthor(user_id: string): Thesis[] {
+	const out: Thesis[] = [];
+	for (const t of getAllTheses()) {
+		if (t.meta.author_id === user_id) out.push(t);
+	}
+	return out;
+}
+
+export function getArgumentsByAuthor(user_id: string): Argument[] {
+	const out: Argument[] = [];
+	for (const a of arguments_store.values()) {
+		if (a.meta.author_id === user_id) out.push(a);
+	}
+	return out;
+}
+
+/** All theses the user has voted on (any vote type). */
+export function getThesesVotedByUser(user_id: string): { thesis: Thesis; voteType: string }[] {
+	const out: { thesis: Thesis; voteType: string }[] = [];
+	for (const t of getAllTheses()) {
+		const v = t.votes.find((x) => x.user_id === user_id);
+		if (v) out.push({ thesis: t, voteType: v.type });
+	}
+	return out;
 }
 
 export function createArgument(

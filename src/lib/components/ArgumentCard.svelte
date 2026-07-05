@@ -1,12 +1,13 @@
 <script lang="ts">
 	import type { Argument, VoteSummary, VoteType, EvidenceType } from '$lib/models/types';
-	import { getUserId } from '$lib/stores/user';
+	import { getUserId, markVotedArg } from '$lib/stores/user';
 	import { primaryEvidenceType } from '$lib/utils/evidence';
 	import VoteRow from '$lib/components/VoteRow.svelte';
 
-	let { argument, forkedFromContent, onFork, onEdit }: {
+	let { argument, forkedFromContent, leading = false, onFork, onEdit }: {
 		argument: Argument;
 		forkedFromContent?: string;
+		leading?: boolean;
 		onFork?: (arg: Argument) => void;
 		onEdit?: (arg: Argument) => void;
 	} = $props();
@@ -60,7 +61,6 @@
 		}
 		return result;
 	});
-
 	function hostOf(url: string): string {
 		try {
 			return new URL(url).host.replace(/^www\./, '');
@@ -87,6 +87,7 @@
 				currentVote = newVote;
 				currentWeight = newWeight;
 				hasVotedLocally = true;
+				if (newVote) markVotedArg(argument.id);
 				const votes = [
 					...Array(summary.support).fill({ user_id: '', type: 'support', weight: 1, cast_at: '' }),
 					...Array(summary.reject).fill({ user_id: '', type: 'reject', weight: 1, cast_at: '' }),
@@ -104,7 +105,7 @@
 	}
 </script>
 
-<article class="argument-card" data-arg-id={argument.id}>
+<article class="argument-card" class:argument-leading={leading} data-arg-id={argument.id}>
 	{#if forkedFromContent}
 		<div class="fork-note" title={forkedFromContent}>
 			<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -124,7 +125,14 @@
 			<ul class="sources">
 				{#each sourceUrls as s}
 					<li>
-						<a href={s.url} target="_blank" rel="noopener noreferrer" class="source-link evidence-{s.type}">
+						<a
+							href={s.url}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="source-link evidence-{s.type}"
+							title={s.url}
+						>
+							<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
 							{hostOf(s.url)}
 						</a>
 					</li>
@@ -174,6 +182,16 @@
 
 	.argument-card:hover {
 		box-shadow: var(--shadow-sm);
+	}
+
+	.argument-card.argument-leading {
+		padding: calc(var(--space-md) * 1.35);
+		border-width: 1.5px;
+		box-shadow: var(--shadow-sm);
+	}
+
+	.argument-card.argument-leading .argument-content {
+		font-size: calc(var(--text-sm) * 1.08);
 	}
 
 	.fork-note {
@@ -232,6 +250,10 @@
 		margin: 0;
 	}
 
+	.sources li {
+		display: flex;
+	}
+
 	.source-link {
 		display: inline-flex;
 		align-items: center;
@@ -243,10 +265,12 @@
 		background: var(--color-bg);
 		color: var(--color-text-muted);
 		text-decoration: none;
+		transition: border-color var(--transition-fast), color var(--transition-fast);
 	}
 
 	.source-link:hover {
 		border-color: currentColor;
+		color: var(--color-text);
 	}
 
 	.argument-footer {

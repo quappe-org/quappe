@@ -1,5 +1,76 @@
 import type { Handle } from '@sveltejs/kit';
 import { logger } from '$lib/stores/logger';
+import { warmupModel, embed, isModelWarm } from '$lib/server/embeddings';
+import { seedData, getAllTheses, setThesisEmbedding, hasThesisEmbedding } from '$lib/stores/data';
+import { refreshPulseCache } from '$lib/server/pulse';
+import { isLlmAvailable } from '$lib/server/llm';
+
+// Start warming the embedding model in the background at server startup.
+// First requests will still work via lazy load — this just speeds up the first real embed() call.
+warmupModel();
+
+// Once model is warm, embed all seed theses in the background so semantic
+// search actually has candidates to work with. Without this, semantic never
+// activates and users see only fulltext matches on the seed data.
+async function backfillSeedEmbeddings() {
+	// Poll until model is warm (warmupModel is fire-and-forget)
+	while (!isModelWarm()) {
+		await new Promise((r) => setTimeout(r, 200));
+	}
+	seedData();
+	const theses = getAllTheses().filter((t) => !hasThesisEmbedding(t.id));
+	if (theses.length === 0) {
+		logger.info('system', 'All seed theses already embedded, skipping backfill');
+		return;
+	}
+	logger.info('system', `Backfilling embeddings for ${theses.length} seed theses`);
+	let done = 0;
+	for (const t of theses) {
+		try {
+			const vec = await embed(`${t.title} ${t.description}`, 'passage');
+			setThesisEmbedding(t.id, vec);
+			done++;
+			if (done % 25 === 0) {
+				logger.info('system', `Embedded ${done}/${theses.length} theses`);
+			}
+			// Yield to the event loop so we don't starve request handling
+			await new Promise((r) => setImmediate(r));
+		} catch {
+			// swallow — one bad thesis shouldn't kill the batch
+		}
+	}
+	logger.info('system', `Done backfilling embeddings (${done}/${theses.length})`);
+}
+backfillSeedEmbeddings().catch(() => {});
+
+// Community-Puls: refresh on startup (after embeddings are done, so stats are
+// meaningful) and then every 24h. If Ollama is not running, refresh will
+// return an entry with llm.ok=false — that's fine, /pulse will still render.
+async function pulseLoop() {
+	// Wait for the embedding backfill to have made some progress so the report
+	// reflects the seed data. 3s is enough for stats aggregation to be stable.
+	await new Promise((r) => setTimeout(r, 3000));
+	const available = await isLlmAvailable();
+	if (!available) {
+		logger.info('llm', 'Ollama not reachable at startup — /pulse will show fallback until it comes up');
+	}
+	const day = 24 * 60 * 60 * 1000;
+	// Run once immediately
+	while (true) {
+		try {
+			const r = await refreshPulseCache();
+			if (r.llm.ok) {
+				logger.info('llm', 'Pulse cache refreshed', { model: r.llm.model });
+			} else {
+				logger.warn('llm', 'Pulse refresh: LLM unavailable', { error: r.llm.error });
+			}
+		} catch (err) {
+			logger.warn('llm', 'Pulse refresh threw', { error: (err as Error)?.message });
+		}
+		await new Promise((r) => setTimeout(r, day));
+	}
+}
+pulseLoop().catch(() => {});
 
 /**
  * Log every request that hits the server.

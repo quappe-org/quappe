@@ -64,20 +64,13 @@
 </script>
 
 <section class="page">
-	<header class="page-head">
-		<div>
-			<h1 class="page-title">Top Theses</h1>
-			<p class="page-subtitle">The most supported theses of all time.</p>
-		</div>
-	</header>
-
 	<!-- Category drill-down tiles -->
 	<div class="section">
 		<div class="section-head">
-			<h2 class="section-title">Categories</h2>
+			<h2 class="section-title">Filter</h2>
 			{#if selectedFilter}
 				<button class="clear-filter" onclick={() => (selectedFilter = null)}>
-					&times; Clear filter
+					&times; Clear
 				</button>
 			{/if}
 		</div>
@@ -98,7 +91,9 @@
 
 	<div class="section">
 		<div class="section-head">
-			<h2 class="section-title">{selectedFilter ?? 'All time'}</h2>
+			{#if selectedFilter}
+				<span class="section-filter-active">{selectedFilter}</span>
+			{/if}
 			<span class="section-meta">{visibleTheses.length} of {filteredTheses.length}</span>
 		</div>
 
@@ -134,27 +129,6 @@
 		gap: 1.5rem;
 	}
 
-	.page-head {
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-start;
-		gap: 1rem;
-		flex-wrap: wrap;
-	}
-
-	.page-title {
-		font-size: var(--text-2xl);
-		font-weight: 700;
-		color: var(--color-text);
-		margin: 0;
-	}
-
-	.page-subtitle {
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-		margin: 0.125rem 0 0;
-	}
-
 	.section {
 		display: flex;
 		flex-direction: column;
@@ -169,10 +143,18 @@
 	}
 
 	.section-title {
-		font-size: var(--text-lg);
+		font-size: var(--text-sm);
 		font-weight: 600;
-		color: var(--color-text);
+		color: var(--color-text-muted);
 		margin: 0;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+	}
+
+	.section-filter-active {
+		font-size: var(--text-sm);
+		font-weight: 600;
+		color: var(--color-primary);
 		text-transform: capitalize;
 	}
 

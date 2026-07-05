@@ -5,8 +5,12 @@ import {
 	getTrendingTheses,
 	getTopTheses,
 	createThesis,
+	setThesisEmbedding,
 	seedData
 } from '$lib/stores/data';
+import { embed, isModelWarm } from '$lib/server/embeddings';
+import { suggestCategories } from '$lib/server/similarity';
+import { DEFAULT_CATEGORIES } from '$lib/models/types';
 
 export const GET: RequestHandler = async ({ url }) => {
 	seedData();
@@ -43,5 +47,30 @@ export const POST: RequestHandler = async ({ request }) => {
 	const final_author_id = author_id || crypto.randomUUID();
 	const thesis = createThesis(title, description, categories, final_author_id, location);
 
-	return json(thesis, { status: 201 });
+	// Try to compute suggestion within a bounded time budget so the response
+	// stays snappy but users get suggestions on the first thesis they create
+	// (before the model has been "warmed" by any prior request).
+	const text = `${title} ${description}`;
+	let suggested_categories: string[] = [];
+
+	const embedPromise = embed(text, 'passage').then((vec) => {
+		setThesisEmbedding(thesis.id, vec);
+		return vec;
+	});
+	// Suppress unhandled-rejection if we time out
+	embedPromise.catch(() => {});
+
+	const budgetMs = isModelWarm() ? 5000 : 3000;
+	const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), budgetMs));
+
+	try {
+		const vec = await Promise.race([embedPromise, timeout]);
+		if (vec) {
+			suggested_categories = await suggestCategories(vec, DEFAULT_CATEGORIES, 3);
+		}
+	} catch {
+		// embedding failed — continue without suggestion
+	}
+
+	return json({ ...thesis, suggested_categories }, { status: 201 });
 };

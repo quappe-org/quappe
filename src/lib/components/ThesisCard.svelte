@@ -116,6 +116,25 @@
 
 	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 	<div class="thesis-footer" onclick={(e) => e.preventDefault()} onkeydown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}>
+		{#if voteSummary.total > 0}
+			<div class="vote-bar-wrap" title="+{voteSummary.support} support · −{voteSummary.reject} reject · ~{voteSummary.neutral} neutral">
+				<div class="vote-bar">
+					{#if voteSummary.support > 0}
+						<span class="vb-seg vb-seg-support" style="flex: {voteSummary.support}"></span>
+					{/if}
+					{#if voteSummary.neutral > 0}
+						<span class="vb-seg vb-seg-neutral" style="flex: {voteSummary.neutral}"></span>
+					{/if}
+					{#if voteSummary.reject > 0}
+						<span class="vb-seg vb-seg-reject" style="flex: {voteSummary.reject}"></span>
+					{/if}
+				</div>
+				<div class="vote-nums">
+					<span class="vn vn-support">+{voteSummary.support}</span>
+					<span class="vn vn-reject">−{voteSummary.reject}</span>
+				</div>
+			</div>
+		{/if}
 		<VoteRow
 			summary={voteSummary}
 			currentVote={currentVote}
@@ -222,5 +241,46 @@
 		margin-top: 0.25rem;
 		padding-top: 0.75rem;
 		border-top: 1px solid var(--color-border);
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
 	}
+
+	.vote-bar-wrap {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.vote-bar {
+		flex: 1;
+		display: flex;
+		height: 5px;
+		border-radius: 3px;
+		overflow: hidden;
+		gap: 1px;
+		background: var(--color-bg);
+	}
+
+	.vb-seg {
+		display: block;
+		height: 100%;
+		min-width: 2px;
+		border-radius: 2px;
+	}
+
+	.vb-seg-support { background: var(--color-support); }
+	.vb-seg-neutral { background: var(--color-neutral); }
+	.vb-seg-reject  { background: var(--color-reject); }
+
+	.vote-nums {
+		display: flex;
+		gap: 0.375rem;
+		font-size: var(--text-xs);
+		font-family: var(--font-mono);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.vn-support { color: var(--color-support); }
+	.vn-reject  { color: var(--color-reject); }
 </style>

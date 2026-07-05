@@ -25,20 +25,53 @@
 	});
 
 	// Listen for external "new thesis" intent (from sidebar button)
+	let _lastSeenIntent = $state(0);
 	$effect(() => {
-		if (uiIntents.openNewThesis) {
+		const count = uiIntents.openNewThesis;
+		if (count > _lastSeenIntent) {
+			_lastSeenIntent = count;
 			showForm = true;
-			uiIntents.consumeNewThesis();
-			// Scroll to form after render
 			setTimeout(() => {
 				document.querySelector('.create-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 			}, 50);
 		}
 	});
 
+	// ---- Search ----
+	let searchQuery = $state('');
+	let searchResults = $state<Thesis[]>([]);
+	let searchMode = $state<'semantic' | 'fulltext' | 'combined' | 'empty' | null>(null);
+	let searching = $state(false);
+	let searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function onSearchInput() {
+		if (searchTimer) clearTimeout(searchTimer);
+		const q = searchQuery.trim();
+		if (q.length < 2) {
+			searchResults = [];
+			searchMode = null;
+			return;
+		}
+		searchTimer = setTimeout(async () => {
+			searching = true;
+			try {
+				const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+				if (res.ok) {
+					const data = await res.json();
+					searchResults = data.results ?? [];
+					searchMode = data.mode ?? null;
+				}
+			} finally {
+				searching = false;
+			}
+		}, 300);
+	}
+
+	let isSearching = $derived(searchQuery.trim().length >= 2);
+
+	// ---- Filter ----
 	let selectedFilter = $state<Category | null>(null);
 
-	// Count theses per category for drill-down tiles
 	let categoryCounts = $derived.by(() => {
 		const counts = new Map<Category, number>();
 		for (const cat of categoriesStore.list) counts.set(cat, 0);
@@ -51,11 +84,10 @@
 	});
 
 	let categoryTiles = $derived.by(() => {
-		const tiles = categoriesStore.list
+		return categoriesStore.list
 			.map((cat) => ({ name: cat, count: categoryCounts.get(cat) ?? 0 }))
 			.filter((t) => t.count > 0)
 			.sort((a, b) => b.count - a.count);
-		return tiles;
 	});
 
 	let maxCategoryCount = $derived.by(() => {
@@ -84,11 +116,43 @@
 		return allTheses.filter((t) => t.categories.includes(selectedFilter!)).length;
 	});
 
+	// ---- Thesis form ----
 	let showForm = $state(false);
 	let title = $state('');
 	let description = $state('');
 	let selectedCategories = $state<Category[]>([]);
+	let suggestedCategories = $state<Category[]>([]);
+	let suggestedForThesis = $state<{ id: string; currentCategories: Category[] } | null>(null);
 	let submitting = $state(false);
+
+	// Live "already exists?" hint while the user is typing the new thesis
+	let similarExisting = $state<Thesis[]>([]);
+	let similarLoading = $state(false);
+	let similarTimer: ReturnType<typeof setTimeout> | null = null;
+	let similarSeq = 0;
+
+	function onFormTyping() {
+		if (similarTimer) clearTimeout(similarTimer);
+		const combined = `${title.trim()} ${description.trim()}`.trim();
+		if (combined.length < 8) {
+			similarExisting = [];
+			similarLoading = false;
+			return;
+		}
+		similarLoading = true;
+		const mySeq = ++similarSeq;
+		similarTimer = setTimeout(async () => {
+			try {
+				const res = await fetch(`/api/search?q=${encodeURIComponent(combined)}`);
+				if (!res.ok) return;
+				const payload = await res.json();
+				if (mySeq !== similarSeq) return;
+				similarExisting = (payload.results ?? []).slice(0, 5);
+			} finally {
+				if (mySeq === similarSeq) similarLoading = false;
+			}
+		}, 400);
+	}
 
 	function toggleCategory(cat: Category) {
 		if (selectedCategories.includes(cat)) {
@@ -98,8 +162,30 @@
 		}
 	}
 
+	async function applySuggested() {
+		if (!suggestedForThesis) {
+			suggestedCategories = [];
+			return;
+		}
+		const merged = Array.from(new Set([...suggestedForThesis.currentCategories, ...suggestedCategories]));
+		try {
+			const res = await fetch(`/api/theses/${suggestedForThesis.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ categories: merged, user_id: getUserId() })
+			});
+			if (res.ok) {
+				const updated = await res.json();
+				allTheses = allTheses.map((t) => (t.id === updated.id ? updated : t));
+			}
+		} finally {
+			suggestedCategories = [];
+			suggestedForThesis = null;
+		}
+	}
+
 	async function createThesis() {
-		if (!title.trim() || !description.trim() || selectedCategories.length === 0) return;
+		if (!title.trim() || !description.trim()) return;
 		if (!budgetStore.canCreate('thesis')) return;
 		submitting = true;
 		try {
@@ -114,12 +200,49 @@
 				})
 			});
 			if (res.ok) {
-				const newThesis: Thesis = await res.json();
+				const responseData = await res.json();
+				const suggested: Category[] = responseData.suggested_categories ?? [];
+				const currentCats = [...selectedCategories];
+
+				// If the user picked no categories, auto-apply the server's suggestion
+				// before showing the thesis in the list — this is what "just submit" expects.
+				let finalThesis: Thesis = responseData;
+				if (currentCats.length === 0 && suggested.length > 0) {
+					try {
+						const putRes = await fetch(`/api/theses/${responseData.id}`, {
+							method: 'PUT',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ categories: suggested, user_id: getUserId() })
+						});
+						if (putRes.ok) finalThesis = await putRes.json();
+					} catch {
+						// fall through with uncategorized thesis
+					}
+				}
+
 				budgetStore.spend('thesis');
-				allTheses = [newThesis, ...allTheses];
+				allTheses = [finalThesis, ...allTheses];
+
+				// Banner: only show if the suggestion adds something the user did NOT
+				// pick. If we already auto-applied above (empty selection), skip.
+				if (currentCats.length > 0) {
+					const novel = suggested.filter((c) => !currentCats.includes(c));
+					if (novel.length > 0) {
+						suggestedCategories = novel;
+						suggestedForThesis = { id: finalThesis.id, currentCategories: currentCats };
+					} else {
+						suggestedCategories = [];
+						suggestedForThesis = null;
+					}
+				} else {
+					suggestedCategories = [];
+					suggestedForThesis = null;
+				}
+
 				title = '';
 				description = '';
 				selectedCategories = [];
+				similarExisting = [];
 				showForm = false;
 			}
 		} finally {
@@ -129,108 +252,182 @@
 </script>
 
 <section class="page">
-	<header class="page-head">
-		<div>
-			<h1 class="page-title">Trending</h1>
-			<p class="page-subtitle">Explore theses, find common ground, sharpen your reasoning.</p>
-		</div>
-	</header>
-
-	<!-- Category drill-down tiles -->
-	<div class="section">
-		<div class="section-head">
-			<h2 class="section-title">Categories</h2>
-			{#if selectedFilter}
-				<button class="clear-filter" onclick={() => (selectedFilter = null)}>
-					&times; Clear filter
-				</button>
+	<!-- Search -->
+	<div class="search-wrap">
+		<div class="search-box">
+			<svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+			<input
+				type="search"
+				class="search-input"
+				placeholder="Thesen suchen…"
+				bind:value={searchQuery}
+				oninput={onSearchInput}
+			/>
+			{#if searching}
+				<span class="search-spinner" aria-label="Searching"></span>
 			{/if}
 		</div>
-		<div class="category-tiles">
-			{#each categoryTiles as tile}
-				<button
-					class="cat-tile"
-					data-size={tileSize(tile.count)}
-					class:active={selectedFilter === tile.name}
-					onclick={() => (selectedFilter = selectedFilter === tile.name ? null : tile.name)}
-				>
-					<span class="cat-tile-name">{tile.name}</span>
-					<span class="cat-tile-count">{tile.count}</span>
-				</button>
-			{/each}
-		</div>
 	</div>
 
-	{#if showForm}
-		<form class="card create-form" onsubmit={(e) => { e.preventDefault(); createThesis(); }}>
-			<h2 class="form-title">Create a Thesis</h2>
-
-			<div class="form-group">
-				<label for="thesis-title">Title</label>
-				<input id="thesis-title" type="text" bind:value={title} placeholder="State your thesis clearly..." required />
-			</div>
-
-			<div class="form-group">
-				<label for="thesis-desc">Description</label>
-				<textarea id="thesis-desc" bind:value={description} placeholder="Provide context and nuance..." required></textarea>
-			</div>
-
-			<div class="form-group">
-				<label for="thesis-categories">Categories</label>
-				<div class="category-grid" id="thesis-categories">
-					{#each categoriesStore.list as cat}
-						<button
-							type="button"
-							class="tag category-btn"
-							class:selected={selectedCategories.includes(cat)}
-							onclick={() => toggleCategory(cat)}
-						>{cat}</button>
-					{/each}
-				</div>
-			</div>
-
-			<div class="form-actions">
-				<button class="btn btn-primary" type="submit" disabled={submitting}>
-					{submitting ? 'Creating...' : 'Create Thesis'}
-				</button>
-				<button class="btn" type="button" onclick={() => (showForm = false)}>Cancel</button>
-			</div>
-		</form>
+	{#if suggestedCategories.length > 0}
+		<div class="suggestion-banner">
+			<span class="suggestion-label">Vorschlag:</span>
+			{#each suggestedCategories as cat}
+				<span class="suggestion-cat">{cat}</span>
+			{/each}
+			<button class="btn btn-sm suggestion-apply" onclick={applySuggested}>Übernehmen</button>
+			<button class="suggestion-dismiss" onclick={() => { suggestedCategories = []; suggestedForThesis = null; }}>×</button>
+		</div>
 	{/if}
 
-	<!-- Theses list -->
-	<div class="section">
-		<div class="section-head">
-			<h2 class="section-title">
-				{selectedFilter ? selectedFilter : 'All theses'}
-			</h2>
-			<span class="section-meta">
-				{visibleTheses.length} of {filteredTotal}
-			</span>
+	{#if isSearching}
+		<!-- Search results -->
+		<div class="section">
+			<div class="section-head">
+				<span class="section-filter-active">
+					{searchMode === 'semantic' ? 'Semantische Suche' : searchMode === 'fulltext' ? 'Volltextsuche' : 'Suche'}
+				</span>
+				<span class="section-meta">{searchResults.length} Treffer</span>
+			</div>
+			{#if searchResults.length > 0}
+				<div class="grid grid-2">
+					{#each searchResults as thesis (thesis.id)}
+						<ThesisCard {thesis} heatRatio={heat[thesis.id] ?? 0} argumentCount={argumentCounts[thesis.id] ?? 0} />
+					{/each}
+				</div>
+			{:else if !searching}
+				<p class="empty-state">Keine Treffer für „{searchQuery}".</p>
+			{/if}
 		</div>
-
-		<div class="grid grid-2">
-			{#each visibleTheses as thesis (thesis.id)}
-				<ThesisCard {thesis} heatRatio={heat[thesis.id] ?? 0} argumentCount={argumentCounts[thesis.id] ?? 0} />
-			{/each}
-		</div>
-
-		{#if visibleTheses.length === 0}
-			<p class="empty-state">
+	{:else}
+		<!-- Category drill-down tiles -->
+		<div class="section">
+			<div class="section-head">
+				<h2 class="section-title">Filter</h2>
 				{#if selectedFilter}
-					No theses in category "{selectedFilter}".
-				{:else}
-					No theses yet. Be the first to create one!
+					<button class="clear-filter" onclick={() => (selectedFilter = null)}>
+						&times; Clear
+					</button>
 				{/if}
-			</p>
+			</div>
+			<div class="category-tiles">
+				{#each categoryTiles as tile}
+					<button
+						class="cat-tile"
+						data-size={tileSize(tile.count)}
+						class:active={selectedFilter === tile.name}
+						onclick={() => (selectedFilter = selectedFilter === tile.name ? null : tile.name)}
+					>
+						<span class="cat-tile-name">{tile.name}</span>
+						<span class="cat-tile-count">{tile.count}</span>
+					</button>
+				{/each}
+			</div>
+		</div>
+
+		{#if showForm}
+			<form class="card create-form" onsubmit={(e) => { e.preventDefault(); createThesis(); }}>
+				<h2 class="form-title">Create a Thesis</h2>
+
+				<div class="form-group">
+					<label for="thesis-title">Title</label>
+					<input id="thesis-title" type="text" bind:value={title} oninput={onFormTyping} placeholder="State your thesis clearly..." required />
+				</div>
+
+				<div class="form-group">
+					<label for="thesis-desc">Description</label>
+					<textarea id="thesis-desc" bind:value={description} oninput={onFormTyping} placeholder="Provide context and nuance..." required></textarea>
+				</div>
+
+				{#if similarLoading || similarExisting.length > 0}
+					<div class="similar-existing">
+						<div class="similar-head">
+							<span class="similar-label">Gibt es das schon?</span>
+							{#if similarLoading}
+								<span class="search-spinner" aria-label="Suche"></span>
+							{/if}
+						</div>
+						{#if similarExisting.length > 0}
+							<ul class="similar-list">
+								{#each similarExisting as ex (ex.id)}
+									<li>
+										<a class="similar-link" href="/thesis/{ex.id}">
+											<span class="similar-thesis-title">{ex.title}</span>
+											<span class="similar-cats">
+												{#each ex.categories.slice(0, 3) as cat}
+													<span class="similar-cat">{cat}</span>
+												{/each}
+											</span>
+										</a>
+									</li>
+								{/each}
+							</ul>
+						{:else if !similarLoading}
+							<p class="similar-empty">Nichts Vergleichbares gefunden.</p>
+						{/if}
+					</div>
+				{/if}
+
+				<div class="form-group">
+					<label for="thesis-categories">
+						Categories
+						<span class="hint-inline">optional — wir schlagen sonst welche vor</span>
+					</label>
+					<div class="category-grid" id="thesis-categories">
+						{#each categoriesStore.list as cat}
+							<button
+								type="button"
+								class="tag category-btn"
+								class:selected={selectedCategories.includes(cat)}
+								onclick={() => toggleCategory(cat)}
+							>{cat}</button>
+						{/each}
+					</div>
+				</div>
+
+				<div class="form-actions">
+					<button class="btn btn-primary" type="submit" disabled={submitting}>
+						{submitting ? 'Creating...' : 'Create Thesis'}
+					</button>
+					<button class="btn" type="button" onclick={() => { showForm = false; similarExisting = []; }}>Cancel</button>
+				</div>
+			</form>
 		{/if}
 
-		{#if filteredTotal > visibleTheses.length}
-			<p class="limit-note">
-				Adjust the complexity slider to see more theses.
-			</p>
-		{/if}
-	</div>
+		<!-- Theses list -->
+		<div class="section">
+			<div class="section-head">
+				{#if selectedFilter}
+					<span class="section-filter-active">{selectedFilter}</span>
+				{/if}
+				<span class="section-meta">
+					{visibleTheses.length} of {filteredTotal}
+				</span>
+			</div>
+
+			<div class="grid grid-2">
+				{#each visibleTheses as thesis (thesis.id)}
+					<ThesisCard {thesis} heatRatio={heat[thesis.id] ?? 0} argumentCount={argumentCounts[thesis.id] ?? 0} />
+				{/each}
+			</div>
+
+			{#if visibleTheses.length === 0}
+				<p class="empty-state">
+					{#if selectedFilter}
+						No theses in category "{selectedFilter}".
+					{:else}
+						No theses yet. Be the first to create one!
+					{/if}
+				</p>
+			{/if}
+
+			{#if filteredTotal > visibleTheses.length}
+				<p class="limit-note">
+					Adjust the complexity slider to see more theses.
+				</p>
+			{/if}
+		</div>
+	{/if}
 </section>
 
 <style>
@@ -238,27 +435,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.5rem;
-	}
-
-	.page-head {
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-start;
-		gap: 1rem;
-		flex-wrap: wrap;
-	}
-
-	.page-title {
-		font-size: var(--text-2xl);
-		font-weight: 700;
-		color: var(--color-text);
-		margin: 0;
-	}
-
-	.page-subtitle {
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-		margin: 0.125rem 0 0;
 	}
 
 	.section {
@@ -275,10 +451,18 @@
 	}
 
 	.section-title {
-		font-size: var(--text-lg);
+		font-size: var(--text-sm);
 		font-weight: 600;
-		color: var(--color-text);
+		color: var(--color-text-muted);
 		margin: 0;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+	}
+
+	.section-filter-active {
+		font-size: var(--text-sm);
+		font-weight: 600;
+		color: var(--color-primary);
 		text-transform: capitalize;
 	}
 
@@ -347,17 +531,9 @@
 		color: rgba(255, 255, 255, 0.85);
 	}
 
-	/* Size still hints at popularity, but via subtle font/weight - no vertical growth. */
-	.cat-tile[data-size='sm'] {
-		font-size: var(--text-xs);
-	}
-	.cat-tile[data-size='md'] {
-		font-size: var(--text-sm);
-	}
-	.cat-tile[data-size='lg'] {
-		font-size: var(--text-sm);
-		font-weight: 600;
-	}
+	.cat-tile[data-size='sm'] { font-size: var(--text-xs); }
+	.cat-tile[data-size='md'] { font-size: var(--text-sm); }
+	.cat-tile[data-size='lg'] { font-size: var(--text-sm); font-weight: 600; }
 
 	.cat-tile-name {
 		text-transform: capitalize;
@@ -423,6 +599,199 @@
 		font-size: var(--text-xs);
 		color: var(--color-text-light);
 		padding: 0.25rem;
+		margin: 0;
+	}
+
+	/* Search */
+	.search-wrap {
+		position: relative;
+	}
+
+	.search-box {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		padding: 0.5rem 0.75rem;
+		transition: border-color var(--transition-fast);
+	}
+
+	.search-box:focus-within {
+		border-color: var(--color-primary);
+	}
+
+	.search-icon {
+		color: var(--color-text-light);
+		flex-shrink: 0;
+	}
+
+	.search-input {
+		flex: 1;
+		border: none;
+		background: transparent;
+		font-size: var(--text-sm);
+		color: var(--color-text);
+		outline: none;
+		min-width: 0;
+	}
+
+	.search-input::placeholder {
+		color: var(--color-text-light);
+	}
+
+	.search-spinner {
+		width: 14px;
+		height: 14px;
+		border: 2px solid var(--color-border);
+		border-top-color: var(--color-primary);
+		border-radius: 50%;
+		animation: spin 0.6s linear infinite;
+		flex-shrink: 0;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
+	}
+
+	/* Category suggestion banner */
+	.suggestion-banner {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+		background: var(--color-primary-bg, color-mix(in srgb, var(--color-primary) 8%, transparent));
+		border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+		border-radius: var(--radius-md);
+		padding: 0.5rem 0.75rem;
+		font-size: var(--text-sm);
+	}
+
+	.suggestion-label {
+		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.suggestion-cat {
+		background: var(--color-primary);
+		color: white;
+		font-size: var(--text-xs);
+		padding: 0.125rem 0.5rem;
+		border-radius: 9999px;
+		text-transform: capitalize;
+	}
+
+	.suggestion-apply {
+		margin-left: auto;
+	}
+
+	.suggestion-dismiss {
+		background: none;
+		border: none;
+		color: var(--color-text-light);
+		cursor: pointer;
+		font-size: 1rem;
+		line-height: 1;
+		padding: 0.125rem 0.25rem;
+		border-radius: var(--radius-sm);
+	}
+
+	.suggestion-dismiss:hover {
+		color: var(--color-text);
+	}
+
+	.hint-inline {
+		font-weight: 400;
+		font-size: 0.7rem;
+		color: var(--color-text-light);
+		margin-left: 0.4rem;
+		text-transform: none;
+		letter-spacing: 0;
+	}
+
+	/* Similar-existing-thesis hint inside the create form */
+	.similar-existing {
+		background: var(--color-bg);
+		border: 1px dashed var(--color-border);
+		border-radius: var(--radius-md);
+		padding: 0.5rem 0.75rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+	}
+
+	.similar-head {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.similar-label {
+		font-size: var(--text-xs);
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--color-text-muted);
+	}
+
+	.similar-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+	}
+
+	.similar-link {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.35rem 0.4rem;
+		border-radius: var(--radius-sm);
+		text-decoration: none;
+		color: var(--color-text);
+		transition: background var(--transition-fast);
+	}
+
+	.similar-link:hover {
+		background: var(--color-surface);
+	}
+
+	.similar-thesis-title {
+		font-size: var(--text-sm);
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.similar-cats {
+		display: flex;
+		gap: 0.2rem;
+		flex-shrink: 0;
+	}
+
+	.similar-cat {
+		font-size: 0.65rem;
+		font-family: var(--font-mono);
+		color: var(--color-text-light);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: 9999px;
+		padding: 0.05rem 0.4rem;
+		text-transform: capitalize;
+	}
+
+	.similar-empty {
+		font-size: var(--text-xs);
+		color: var(--color-text-light);
 		margin: 0;
 	}
 </style>

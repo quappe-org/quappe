@@ -3,7 +3,7 @@
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-export type LogSource = 'store' | 'api' | 'lifecycle' | 'cache' | 'seed' | 'system';
+export type LogSource = 'store' | 'api' | 'lifecycle' | 'cache' | 'seed' | 'system' | 'llm';
 
 export interface LogEntry {
 	seq: number;

@@ -5,14 +5,19 @@
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { activityStore } from '$lib/stores/activity.svelte';
 	import { uiIntents } from '$lib/stores/ui.svelte';
+	import { forkFeedStore } from '$lib/stores/fork-feed.svelte';
 	import ComplexitySlider from '$lib/components/ComplexitySlider.svelte';
 	import ActivityGraph from '$lib/components/ActivityGraph.svelte';
 	import Logo from '$lib/components/Logo.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import '../app.css';
 
 	let { children }: { children: Snippet } = $props();
+
+	let mounted = $state(false);
+	onMount(() => { mounted = true; });
 
 	function handleComplexityChange(settings: ComplexitySettings) {
 		complexityStore.set(settings);
@@ -27,9 +32,7 @@
 
 	async function newThesis() {
 		uiIntents.requestNewThesis();
-		if (currentPath !== '/') {
-			await goto('/');
-		}
+		if (currentPath !== '/') await goto('/');
 	}
 </script>
 
@@ -66,6 +69,10 @@
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
 					My Theses
 				</a>
+				<a href="/pulse" class="nav-item" class:active={isActive('/pulse')}>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-9 4 18 3-9h4"></path></svg>
+					Community Pulse
+				</a>
 
 				<button
 					class="new-thesis-btn"
@@ -93,9 +100,49 @@
 			{@render children()}
 		</main>
 
-		<!-- RIGHT SIDEBAR: Budget + Activity + Complexity + Settings -->
+		<!-- RIGHT SIDEBAR: Fork Feed + Budget + Activity + Complexity + Settings -->
 		<aside class="sidebar sidebar-right">
 			<div class="brand-spacer" aria-hidden="true"></div>
+
+			{#if mounted && forkFeedStore.pending.length > 0}
+				<div class="panel fork-feed-panel">
+					<h3 class="panel-title">
+						<span class="fork-feed-bell">
+							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+						</span>
+						Fork Updates
+						<span class="fork-feed-badge">{forkFeedStore.pending.length}</span>
+					</h3>
+					<p class="panel-hint">Argumente, auf die du gevoted hast, wurden geforkt.</p>
+					<div class="fork-feed-list">
+						{#each forkFeedStore.pending as item (item.original_id + item.fork_id)}
+							<div class="fork-feed-item">
+								<p class="fork-feed-thesis">{item.thesis_title}</p>
+								<div class="fork-feed-versions">
+									<div class="fork-version fork-version-old">
+										<span class="fork-version-label">Alt</span>
+										<p class="fork-version-text">{item.original_content.slice(0, 80)}{item.original_content.length > 80 ? '…' : ''}</p>
+									</div>
+									<div class="fork-version fork-version-new">
+										<span class="fork-version-label fork-version-label-new">Neu</span>
+										<p class="fork-version-text">{item.fork_content.slice(0, 80)}{item.fork_content.length > 80 ? '…' : ''}</p>
+									</div>
+								</div>
+								<div class="fork-feed-actions">
+									<button
+										class="btn btn-sm fork-action-btn"
+										onclick={() => forkFeedStore.resolve(item.original_id, item.fork_id)}
+									>Behalte Alt</button>
+									<button
+										class="btn btn-sm fork-action-btn fork-action-new"
+										onclick={() => forkFeedStore.resolve(item.original_id, item.fork_id)}
+									>Wechsle zu Neu</button>
+								</div>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
 
 			<div class="panel">
 				<h3 class="panel-title">Daily Budget</h3>
@@ -436,5 +483,131 @@
 			padding: 1rem;
 			z-index: 90;
 		}
+	}
+
+	/* Fork Feed Panel */
+	.fork-feed-panel {
+		border-color: #f97316;
+		background: #fff7ed;
+	}
+
+	.fork-feed-bell {
+		display: inline-flex;
+		align-items: center;
+		color: #ea580c;
+	}
+
+	.fork-feed-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1.25rem;
+		height: 1.25rem;
+		padding: 0 0.3rem;
+		background: #ea580c;
+		color: white;
+		font-size: 0.65rem;
+		font-weight: 700;
+		border-radius: 999px;
+		margin-left: auto;
+	}
+
+	.fork-feed-panel .panel-title {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+	}
+
+	.fork-feed-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.fork-feed-item {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 0.625rem;
+		background: var(--color-bg);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+
+	.fork-feed-thesis {
+		font-size: var(--text-xs);
+		font-weight: 600;
+		color: var(--color-text-muted);
+		margin: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.fork-feed-versions {
+		display: flex;
+		flex-direction: column;
+		gap: 0.375rem;
+	}
+
+	.fork-version {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		padding: 0.375rem 0.5rem;
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--color-border);
+	}
+
+	.fork-version-old {
+		background: var(--color-surface);
+		opacity: 0.75;
+	}
+
+	.fork-version-new {
+		background: #ecfdf5;
+		border-color: #6ee7b7;
+	}
+
+	.fork-version-label {
+		font-size: 0.6rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--color-text-light);
+	}
+
+	.fork-version-label-new {
+		color: #059669;
+	}
+
+	.fork-version-text {
+		font-size: var(--text-xs);
+		color: var(--color-text);
+		margin: 0;
+		line-height: 1.4;
+	}
+
+	.fork-feed-actions {
+		display: flex;
+		gap: 0.375rem;
+	}
+
+	.fork-action-btn {
+		flex: 1;
+		justify-content: center;
+		font-size: var(--text-xs);
+		padding: 0.25rem 0.375rem;
+	}
+
+	.fork-action-new {
+		background: #059669;
+		color: white;
+		border-color: #059669;
+	}
+
+	.fork-action-new:hover:not(:disabled) {
+		background: #047857;
+		border-color: #047857;
 	}
 </style>

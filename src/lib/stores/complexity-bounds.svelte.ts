@@ -21,6 +21,13 @@ function load(): Bounds {
 		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return { min: COMPLEXITY_MIN, max: COMPLEXITY_MAX };
 		const parsed = JSON.parse(raw) as Bounds;
+		// Migration: older stored bounds may not have max_related
+		if (parsed.min && parsed.min.max_related === undefined) {
+			parsed.min.max_related = COMPLEXITY_MIN.max_related;
+		}
+		if (parsed.max && parsed.max.max_related === undefined) {
+			parsed.max.max_related = COMPLEXITY_MAX.max_related;
+		}
 		return parsed;
 	} catch {
 		return { min: COMPLEXITY_MIN, max: COMPLEXITY_MAX };
@@ -62,6 +69,11 @@ export const complexityBoundsStore = {
 				patch.max_arguments ?? _bounds.min.max_arguments,
 				COMPLEXITY_HARD_MIN.max_arguments,
 				_bounds.max.max_arguments
+			),
+			max_related: clamp(
+				patch.max_related ?? _bounds.min.max_related,
+				COMPLEXITY_HARD_MIN.max_related,
+				_bounds.max.max_related
 			)
 		};
 		_bounds = { ..._bounds, min: next };
@@ -78,6 +90,11 @@ export const complexityBoundsStore = {
 				patch.max_arguments ?? _bounds.max.max_arguments,
 				_bounds.min.max_arguments,
 				COMPLEXITY_HARD_MAX.max_arguments
+			),
+			max_related: clamp(
+				patch.max_related ?? _bounds.max.max_related,
+				_bounds.min.max_related,
+				COMPLEXITY_HARD_MAX.max_related
 			)
 		};
 		_bounds = { ..._bounds, max: next };

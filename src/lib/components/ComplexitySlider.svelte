@@ -16,6 +16,11 @@
 			complexityBoundsStore.min.max_arguments +
 				(complexity / 100) *
 					(complexityBoundsStore.max.max_arguments - complexityBoundsStore.min.max_arguments)
+		),
+		max_related: Math.round(
+			complexityBoundsStore.min.max_related +
+				(complexity / 100) *
+					(complexityBoundsStore.max.max_related - complexityBoundsStore.min.max_related)
 		)
 	});
 
@@ -30,30 +35,43 @@
 </script>
 
 <div class="slider-container">
-	<span class="slider-label">Simple</span>
-	<input type="range" min="0" max="100" value={complexity} oninput={handleInput} />
-	<span class="slider-label">Complex</span>
-	<span class="slider-value">{settings.max_theses}T / {settings.max_arguments}A</span>
+	<div class="slider-row">
+		<span class="slider-label">Simple</span>
+		<input type="range" min="0" max="100" value={complexity} oninput={handleInput} />
+		<span class="slider-label">Complex</span>
+	</div>
+	<span class="slider-value">{settings.max_theses} theses · {settings.max_arguments} args · {settings.max_related} related</span>
 </div>
 
 <style>
 	.slider-container {
 		display: flex;
+		flex-direction: column;
+		gap: 0.375rem;
+	}
+
+	.slider-row {
+		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		min-width: 200px;
+		gap: 0.375rem;
+	}
+
+	.slider-row input[type='range'] {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.slider-label {
+		font-size: var(--text-xs);
+		color: var(--color-text-light);
+		white-space: nowrap;
+		flex-shrink: 0;
 	}
 
 	.slider-value {
-		font-size: 0.7rem;
+		font-size: var(--text-xs);
 		color: var(--color-text-muted);
-		white-space: nowrap;
 		font-family: var(--font-mono);
-		min-width: 4.5rem;
-	}
-
-	input[type='range'] {
-		flex: 1;
-		min-width: 80px;
+		text-align: center;
 	}
 </style>
