@@ -20,12 +20,12 @@
 		try {
 			const res = await fetch('/api/reports/pulse?force=true');
 			if (!res.ok) {
-				loadError = `Server antwortete ${res.status}`;
+				loadError = `Server responded ${res.status}`;
 				return;
 			}
 			pulse = await res.json();
 		} catch (err) {
-			loadError = (err as Error)?.message ?? 'Unbekannter Fehler';
+			loadError = (err as Error)?.message ?? 'Unknown error';
 		} finally {
 			refreshing = false;
 		}
@@ -46,7 +46,7 @@
 <section class="pulse-page">
 	<div class="page-head">
 		<h1 class="page-title">Community Pulse</h1>
-		<p class="page-subtitle">Was bewegt die Community — beobachtend, nicht wertend.</p>
+		<p class="page-subtitle">What moves the community — observed, not judged.</p>
 	</div>
 
 	{#if loadError && !pulse}
@@ -57,7 +57,7 @@
 		<article class="pulse-report card">
 			{#if pulse.llm && !pulse.llm.ok}
 				<div class="pulse-llm-error">
-					<p>LLM nicht verfügbar: {pulse.llm.error}</p>
+					<p>LLM unavailable: {pulse.llm.error}</p>
 					{#if pulse.llm.hint}<p class="pulse-hint">{pulse.llm.hint}</p>{/if}
 				</div>
 			{:else if paragraphs.length > 0}
@@ -67,14 +67,14 @@
 					{/each}
 				</div>
 			{:else}
-				<p class="pulse-status">Kein Text erhalten.</p>
+				<p class="pulse-status">No text returned.</p>
 			{/if}
 
 			<div class="pulse-meta">
-				{pulse.cached ? 'Aus Cache' : 'Frisch erstellt'}{#if pulse.llm?.model} · {pulse.llm.model}{/if} ·
-				<time datetime={pulse.generated_at}>{new Date(pulse.generated_at).toLocaleString('de-DE')}</time>
+				{pulse.cached ? 'From cache' : 'Freshly generated'}{#if pulse.llm?.model} · {pulse.llm.model}{/if} ·
+				<time datetime={pulse.generated_at}>{new Date(pulse.generated_at).toLocaleString()}</time>
 				<button class="btn btn-sm pulse-refresh" onclick={refresh} disabled={refreshing}>
-					{refreshing ? 'Wird erneuert …' : 'Neu erstellen'}
+					{refreshing ? 'Refreshing …' : 'Regenerate'}
 				</button>
 			</div>
 		</article>
@@ -82,15 +82,15 @@
 		<div class="pulse-summary">
 			<div class="pulse-summary-item">
 				<span class="pulse-summary-num">{pulse.stats.total_theses}</span>
-				<span class="pulse-summary-label">Thesen</span>
+				<span class="pulse-summary-label">Theses</span>
 			</div>
 			<div class="pulse-summary-item">
 				<span class="pulse-summary-num">{pulse.stats.total_arguments}</span>
-				<span class="pulse-summary-label">Argumente</span>
+				<span class="pulse-summary-label">Arguments</span>
 			</div>
 			<div class="pulse-summary-item">
 				<span class="pulse-summary-num">{pulse.stats.recent_week.new_theses}</span>
-				<span class="pulse-summary-label">Neu · 7 Tage</span>
+				<span class="pulse-summary-label">New · 7 days</span>
 			</div>
 		</div>
 
@@ -98,10 +98,10 @@
 			<section class="pulse-col card pulse-col-hot">
 				<header class="pulse-col-head">
 					<span class="pulse-col-dot pulse-dot-hot" aria-hidden="true"></span>
-					<h2 class="pulse-col-title">Heiß diskutiert</h2>
+					<h2 class="pulse-col-title">Hotly discussed</h2>
 				</header>
 				{#if hotDisplay.length === 0}
-					<p class="pulse-col-empty">Noch nichts.</p>
+					<p class="pulse-col-empty">Nothing yet.</p>
 				{:else}
 					<ol class="pulse-col-list">
 						{#each hotDisplay as t, i}
@@ -109,7 +109,7 @@
 								<span class="pulse-col-rank">{i + 1}</span>
 								<div class="pulse-col-body">
 									<a href="/thesis/{t.id}" class="pulse-col-link">{t.title}</a>
-									<span class="pulse-col-metric">heat {t.heat.toFixed(2)} · {t.arguments} Args</span>
+									<span class="pulse-col-metric">heat {t.heat.toFixed(2)} · {t.arguments} args</span>
 								</div>
 							</li>
 						{/each}
@@ -120,10 +120,10 @@
 			<section class="pulse-col card pulse-col-complex">
 				<header class="pulse-col-head">
 					<span class="pulse-col-dot pulse-dot-complex" aria-hidden="true"></span>
-					<h2 class="pulse-col-title">Komplex</h2>
+					<h2 class="pulse-col-title">Complex</h2>
 				</header>
 				{#if complexDisplay.length === 0}
-					<p class="pulse-col-empty">Noch nichts.</p>
+					<p class="pulse-col-empty">Nothing yet.</p>
 				{:else}
 					<ol class="pulse-col-list">
 						{#each complexDisplay as t, i}
@@ -131,7 +131,7 @@
 								<span class="pulse-col-rank">{i + 1}</span>
 								<div class="pulse-col-body">
 									<a href="/thesis/{t.id}" class="pulse-col-link">{t.title}</a>
-									<span class="pulse-col-metric">{t.arguments} Args</span>
+									<span class="pulse-col-metric">{t.arguments} args</span>
 								</div>
 							</li>
 						{/each}
@@ -142,10 +142,10 @@
 			<section class="pulse-col card pulse-col-cat">
 				<header class="pulse-col-head">
 					<span class="pulse-col-dot pulse-dot-cat" aria-hidden="true"></span>
-					<h2 class="pulse-col-title">Kategorien</h2>
+					<h2 class="pulse-col-title">Categories</h2>
 				</header>
 				{#if catDisplay.length === 0}
-					<p class="pulse-col-empty">Noch nichts.</p>
+					<p class="pulse-col-empty">Nothing yet.</p>
 				{:else}
 					<ol class="pulse-col-list">
 						{#each catDisplay as c, i}
@@ -153,7 +153,7 @@
 								<span class="pulse-col-rank">{i + 1}</span>
 								<div class="pulse-col-body">
 									<span class="pulse-col-link pulse-col-link-plain">{c.name}</span>
-									<span class="pulse-col-metric">{c.thesis_count} Thesen · {c.argument_count} Args · {Math.round(c.avg_support_ratio * 100)}% pro</span>
+									<span class="pulse-col-metric">{c.thesis_count} theses · {c.argument_count} args · {Math.round(c.avg_support_ratio * 100)}% pro</span>
 								</div>
 							</li>
 						{/each}
@@ -163,7 +163,7 @@
 		</div>
 
 		{#if allEmpty}
-			<p class="pulse-empty-all">Noch nichts.</p>
+			<p class="pulse-empty-all">Nothing yet.</p>
 		{/if}
 	{/if}
 </section>

@@ -36,8 +36,8 @@
 				d.getMonth() === today.getMonth() &&
 				d.getDate() === today.getDate();
 			return sameDay
-				? d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
-				: d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+				? d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+				: d.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' });
 		} catch {
 			return iso;
 		}
@@ -53,26 +53,26 @@
 <section class="updates-page">
 	<div class="page-head">
 		<h1 class="page-title">Updates</h1>
-		<p class="page-subtitle">Was andere auf deine Inhalte reagieren — Basis, um deine Argumente nachzujustieren.</p>
+		<p class="page-subtitle">How others react to your content — the basis for refining your arguments.</p>
 	</div>
 
 	{#if updatesStore.loading && updatesStore.events.length === 0}
-		<p class="updates-status">Wird geladen …</p>
+		<p class="updates-status">Loading …</p>
 	{:else if mounted && updatesStore.events.length === 0}
 		<div class="updates-empty card">
-			<p><strong>Noch keine Updates.</strong></p>
-			<p>Wenn andere auf deine Thesen oder Argumente reagieren, siehst du das hier.</p>
+			<p><strong>No updates yet.</strong></p>
+			<p>When others react to your theses or arguments, you'll see it here.</p>
 		</div>
 	{:else if mounted}
 		<div class="updates-grid">
 			<section class="updates-col card">
 				<header class="updates-col-head">
 					<span class="updates-col-dot updates-dot-fork" aria-hidden="true"></span>
-					<h2 class="updates-col-title">Forks deiner Argumente</h2>
+					<h2 class="updates-col-title">Forks of your arguments</h2>
 					<span class="updates-col-count">{forks.length}</span>
 				</header>
 				{#if forks.length === 0}
-					<p class="updates-col-empty">Nichts.</p>
+					<p class="updates-col-empty">Nothing.</p>
 				{:else}
 					<ul class="updates-list">
 						{#each forks as e (e.fork_argument_id)}
@@ -81,7 +81,7 @@
 									<time class="updates-time">{fmtTime(e.at)}</time>
 									<a class="updates-thesis" href="/thesis/{e.thesis_id}">{e.thesis_title}</a>
 								</div>
-								<p class="updates-content-old">Alt: {e.original_content}</p>
+								<p class="updates-content-old">Original: {e.original_content}</p>
 								<p class="updates-content-new">Fork: {e.fork_content}</p>
 							</li>
 						{/each}
@@ -92,11 +92,11 @@
 			<section class="updates-col card">
 				<header class="updates-col-head">
 					<span class="updates-col-dot updates-dot-newarg" aria-hidden="true"></span>
-					<h2 class="updates-col-title">Neue Argumente auf deinen Thesen</h2>
+					<h2 class="updates-col-title">New arguments on your theses</h2>
 					<span class="updates-col-count">{newArgs.length}</span>
 				</header>
 				{#if newArgs.length === 0}
-					<p class="updates-col-empty">Nichts.</p>
+					<p class="updates-col-empty">Nothing.</p>
 				{:else}
 					<ul class="updates-list">
 						{#each newArgs as e (e.argument_id)}
@@ -104,7 +104,7 @@
 								<div class="updates-item-row">
 									<time class="updates-time">{fmtTime(e.at)}</time>
 									<span class="updates-stance updates-stance-{e.argument_stance}">
-										{e.argument_stance === 'support' ? 'pro' : 'contra'}
+										{e.argument_stance === 'support' ? 'pro' : 'con'}
 									</span>
 									<a class="updates-thesis" href="/thesis/{e.thesis_id}">{e.thesis_title}</a>
 								</div>
@@ -118,11 +118,11 @@
 			<section class="updates-col card">
 				<header class="updates-col-head">
 					<span class="updates-col-dot updates-dot-argvote" aria-hidden="true"></span>
-					<h2 class="updates-col-title">Votes auf deine Argumente</h2>
+					<h2 class="updates-col-title">Votes on your arguments</h2>
 					<span class="updates-col-count">{votesOnArgs.length}</span>
 				</header>
 				{#if votesOnArgs.length === 0}
-					<p class="updates-col-empty">Nichts.</p>
+					<p class="updates-col-empty">Nothing.</p>
 				{:else}
 					<ul class="updates-list">
 						{#each votesOnArgs as e, i (e.target_argument_id + '_' + e.at + '_' + i)}
@@ -144,11 +144,11 @@
 			<section class="updates-col card">
 				<header class="updates-col-head">
 					<span class="updates-col-dot updates-dot-thvote" aria-hidden="true"></span>
-					<h2 class="updates-col-title">Votes auf deine Thesen</h2>
+					<h2 class="updates-col-title">Votes on your theses</h2>
 					<span class="updates-col-count">{votesOnTh.length}</span>
 				</header>
 				{#if votesOnTh.length === 0}
-					<p class="updates-col-empty">Nichts.</p>
+					<p class="updates-col-empty">Nothing.</p>
 				{:else}
 					<ul class="updates-list">
 						{#each votesOnTh as e, i (e.thesis_id + '_' + e.at + '_' + i)}
