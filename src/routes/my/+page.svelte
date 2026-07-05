@@ -57,12 +57,12 @@
 			const suffix = qs.toString() ? `?${qs.toString()}` : '';
 			const res = await fetch(`/api/reports/me${suffix}`);
 			if (!res.ok) {
-				reportError = `Server antwortete ${res.status}`;
+				reportError = `Server responded ${res.status}`;
 				return;
 			}
 			report = await res.json();
 		} catch (err) {
-			reportError = (err as Error)?.message ?? 'Unbekannter Fehler';
+			reportError = (err as Error)?.message ?? 'Unknown error';
 		} finally {
 			reportLoading = false;
 		}
@@ -120,7 +120,7 @@
 
 	function fmtTime(iso: string): string {
 		try {
-			return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+			return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 		} catch {
 			return iso;
 		}
@@ -135,22 +135,22 @@
 
 	<aside class="standpoint-panel card">
 		<div class="standpoint-head">
-			<h2 class="standpoint-title">Mein Standpunkt</h2>
-			<p class="standpoint-sub">Reflexions-Report über deine bisherige Arbeit — no blaming, nur Referenz.</p>
+			<h2 class="standpoint-title">Where I stand</h2>
+			<p class="standpoint-sub">Reflection report on your work so far — no blaming, just a reference.</p>
 		</div>
 
 		{#if !report && !reportLoading}
-			<button class="btn btn-primary" onclick={() => loadReport(false)}>Report generieren</button>
+			<button class="btn btn-primary" onclick={() => loadReport(false)}>Generate report</button>
 		{/if}
 
 		{#if reportLoading}
-			<p class="standpoint-status">Wird erstellt … (kann bei erstem Aufruf 5–20s dauern)</p>
+			<p class="standpoint-status">Generating … (may take 5–20s on first call)</p>
 		{/if}
 
 		{#if report}
 			{#if report.llm && !report.llm.ok}
 				<div class="standpoint-error">
-					<p>LLM nicht verfügbar: {report.llm.error}</p>
+					<p>LLM unavailable: {report.llm.error}</p>
 					{#if report.llm.hint}<p class="standpoint-hint">{report.llm.hint}</p>{/if}
 				</div>
 			{:else if report.text}
@@ -161,18 +161,18 @@
 				</div>
 				{#if report.references && report.references.length > 0}
 					<div class="standpoint-refs">
-						<span class="refs-label">Bezug auf:</span>
+						<span class="refs-label">Refers to:</span>
 						{#each report.references as ref}
 							<a class="ref-link" href="/thesis/{ref.thesis_id}">{ref.snippet}</a>
 						{/each}
 					</div>
 				{/if}
 				<div class="standpoint-meta">
-					{report.cached ? 'Aus Cache' : 'Frisch erstellt'}{#if report.llm?.model} · {report.llm.model}{/if}
-					<button class="btn btn-sm standpoint-refresh" onclick={() => loadReport(true)}>Neu erstellen</button>
+					{report.cached ? 'From cache' : 'Freshly generated'}{#if report.llm?.model} · {report.llm.model}{/if}
+					<button class="btn btn-sm standpoint-refresh" onclick={() => loadReport(true)}>Regenerate</button>
 				</div>
 			{:else}
-				<p class="standpoint-status">{reportError ?? 'Kein Text erhalten.'}</p>
+				<p class="standpoint-status">{reportError ?? 'No text returned.'}</p>
 			{/if}
 		{/if}
 
@@ -183,39 +183,39 @@
 
 	<aside id="budget" class="budget-panel card">
 		<div class="budget-head">
-			<h2 class="budget-title">Dein Tag</h2>
-			<p class="budget-sub">Was du heute vom Tagesbudget verbraucht hast (Limit: {budget?.limit ?? 7} pro Bucket).</p>
+			<h2 class="budget-title">Your day</h2>
+			<p class="budget-sub">What you've spent from today's budget (limit: {budget?.limit ?? 7} per bucket).</p>
 		</div>
 
 		{#if budgetLoading && !budget}
-			<p class="budget-status">Wird geladen …</p>
+			<p class="budget-status">Loading …</p>
 		{:else if budget}
 			<div class="budget-summary">
 				<div class="budget-summary-item">
 					<span class="budget-summary-num">{budget.spent.thesis}</span>
-					<span class="budget-summary-label">Thesen</span>
+					<span class="budget-summary-label">Theses</span>
 				</div>
 				<div class="budget-summary-item">
 					<span class="budget-summary-num budget-support">{budget.spent.support}</span>
-					<span class="budget-summary-label">Support-Args</span>
+					<span class="budget-summary-label">Support args</span>
 				</div>
 				<div class="budget-summary-item">
 					<span class="budget-summary-num budget-reject">{budget.spent.reject}</span>
-					<span class="budget-summary-label">Reject-Args</span>
+					<span class="budget-summary-label">Reject args</span>
 				</div>
 				<div class="budget-summary-item">
 					<span class="budget-summary-num">{byKind.weight.reduce((s, e) => s + (e.extra_weight ?? 0), 0)}</span>
-					<span class="budget-summary-label">Extra-Weight</span>
+					<span class="budget-summary-label">Extra weight</span>
 				</div>
 			</div>
 
 			{#if budget.events.length === 0}
-				<p class="budget-empty">Heute noch keine Ausgaben.</p>
+				<p class="budget-empty">Nothing spent today yet.</p>
 			{:else}
 				<div class="budget-groups">
 					{#if byKind.thesis.length > 0}
 						<section class="budget-group">
-							<h3 class="budget-group-title">Thesen ({byKind.thesis.length})</h3>
+							<h3 class="budget-group-title">Theses ({byKind.thesis.length})</h3>
 							<ul class="budget-list">
 								{#each byKind.thesis as e}
 									<li class="budget-item">
@@ -228,7 +228,7 @@
 					{/if}
 					{#if byKind.support.length > 0}
 						<section class="budget-group">
-							<h3 class="budget-group-title budget-support">Support-Argumente ({byKind.support.length})</h3>
+							<h3 class="budget-group-title budget-support">Support arguments ({byKind.support.length})</h3>
 							<ul class="budget-list">
 								{#each byKind.support as e}
 									<li class="budget-item">
@@ -244,7 +244,7 @@
 					{/if}
 					{#if byKind.reject.length > 0}
 						<section class="budget-group">
-							<h3 class="budget-group-title budget-reject">Reject-Argumente ({byKind.reject.length})</h3>
+							<h3 class="budget-group-title budget-reject">Reject arguments ({byKind.reject.length})</h3>
 							<ul class="budget-list">
 								{#each byKind.reject as e}
 									<li class="budget-item">
@@ -260,14 +260,14 @@
 					{/if}
 					{#if byKind.weight.length > 0}
 						<section class="budget-group">
-							<h3 class="budget-group-title">Weight-Votes ({byKind.weight.length})</h3>
+							<h3 class="budget-group-title">Weight votes ({byKind.weight.length})</h3>
 							<ul class="budget-list">
 								{#each byKind.weight as e}
 									<li class="budget-item">
 										<time class="budget-time">{fmtTime(e.at)}</time>
 										<div class="budget-item-body">
 											<a class="budget-link" href="/thesis/{e.thesis_id}">{e.thesis_title}</a>
-											<p class="budget-content">+{e.extra_weight} {e.vote_type} ({e.target === 'argument' ? 'auf Argument' : 'auf These'})</p>
+											<p class="budget-content">+{e.extra_weight} {e.vote_type} ({e.target === 'argument' ? 'on argument' : 'on thesis'})</p>
 										</div>
 									</li>
 								{/each}
