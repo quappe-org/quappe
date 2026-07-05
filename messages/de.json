@@ -131,5 +131,39 @@
 	"related_mode_thematic_title": "TODO_TRANSLATE:Ranked by shared categories",
 
 	"not_found_thesis_title": "TODO_TRANSLATE:Thesis not found",
-	"not_found_back_home": "TODO_TRANSLATE:Back to home"
+	"not_found_back_home": "TODO_TRANSLATE:Back to home",
+
+	"my_page_title": "TODO_TRANSLATE:My Theses",
+	"my_page_subtitle": "TODO_TRANSLATE:Theses you created or voted on.",
+	"my_platform_activity": "TODO_TRANSLATE:Platform activity",
+	"my_empty_state": "TODO_TRANSLATE:You haven't participated yet. Go vote or create a thesis!",
+
+	"my_standpoint_title": "TODO_TRANSLATE:Where I stand",
+	"my_standpoint_sub": "TODO_TRANSLATE:Reflection report on your work so far — no blaming, just a reference.",
+	"my_standpoint_generate": "TODO_TRANSLATE:Generate report",
+	"my_standpoint_generating": "TODO_TRANSLATE:Generating … (may take 5–20s on first call)",
+	"my_standpoint_llm_unavailable": "TODO_TRANSLATE:LLM unavailable: {error}",
+	"my_standpoint_no_text": "TODO_TRANSLATE:No text returned.",
+	"my_standpoint_refs_label": "TODO_TRANSLATE:Refers to:",
+	"my_standpoint_cached": "TODO_TRANSLATE:From cache",
+	"my_standpoint_fresh": "TODO_TRANSLATE:Freshly generated",
+	"my_standpoint_regenerate": "TODO_TRANSLATE:Regenerate",
+	"my_standpoint_server_error": "TODO_TRANSLATE:Server responded {status}",
+	"my_standpoint_unknown_error": "TODO_TRANSLATE:Unknown error",
+
+	"my_budget_title": "TODO_TRANSLATE:Your day",
+	"my_budget_sub": "TODO_TRANSLATE:What you've spent from today's budget (limit: {limit} per bucket).",
+	"my_budget_loading": "TODO_TRANSLATE:Loading …",
+	"my_budget_empty": "TODO_TRANSLATE:Nothing spent today yet.",
+	"my_budget_summary_theses": "TODO_TRANSLATE:Theses",
+	"my_budget_summary_support": "TODO_TRANSLATE:Support args",
+	"my_budget_summary_reject": "TODO_TRANSLATE:Reject args",
+	"my_budget_summary_extra": "TODO_TRANSLATE:Extra weight",
+	"my_budget_group_theses": "TODO_TRANSLATE:Theses ({count})",
+	"my_budget_group_support": "TODO_TRANSLATE:Support arguments ({count})",
+	"my_budget_group_reject": "TODO_TRANSLATE:Reject arguments ({count})",
+	"my_budget_group_weight": "TODO_TRANSLATE:Weight votes ({count})",
+	"my_budget_weight_on_argument": "TODO_TRANSLATE:on argument",
+	"my_budget_weight_on_thesis": "TODO_TRANSLATE:on thesis",
+	"my_budget_weight_detail": "TODO_TRANSLATE:+{extra} {vote_type} ({target})"
 }

@@ -131,5 +131,39 @@
 	"related_mode_thematic_title": "Ranked by shared categories",
 
 	"not_found_thesis_title": "Thesis not found",
-	"not_found_back_home": "Back to home"
+	"not_found_back_home": "Back to home",
+
+	"my_page_title": "My Theses",
+	"my_page_subtitle": "Theses you created or voted on.",
+	"my_platform_activity": "Platform activity",
+	"my_empty_state": "You haven't participated yet. Go vote or create a thesis!",
+
+	"my_standpoint_title": "Where I stand",
+	"my_standpoint_sub": "Reflection report on your work so far — no blaming, just a reference.",
+	"my_standpoint_generate": "Generate report",
+	"my_standpoint_generating": "Generating … (may take 5–20s on first call)",
+	"my_standpoint_llm_unavailable": "LLM unavailable: {error}",
+	"my_standpoint_no_text": "No text returned.",
+	"my_standpoint_refs_label": "Refers to:",
+	"my_standpoint_cached": "From cache",
+	"my_standpoint_fresh": "Freshly generated",
+	"my_standpoint_regenerate": "Regenerate",
+	"my_standpoint_server_error": "Server responded {status}",
+	"my_standpoint_unknown_error": "Unknown error",
+
+	"my_budget_title": "Your day",
+	"my_budget_sub": "What you've spent from today's budget (limit: {limit} per bucket).",
+	"my_budget_loading": "Loading …",
+	"my_budget_empty": "Nothing spent today yet.",
+	"my_budget_summary_theses": "Theses",
+	"my_budget_summary_support": "Support args",
+	"my_budget_summary_reject": "Reject args",
+	"my_budget_summary_extra": "Extra weight",
+	"my_budget_group_theses": "Theses ({count})",
+	"my_budget_group_support": "Support arguments ({count})",
+	"my_budget_group_reject": "Reject arguments ({count})",
+	"my_budget_group_weight": "Weight votes ({count})",
+	"my_budget_weight_on_argument": "on argument",
+	"my_budget_weight_on_thesis": "on thesis",
+	"my_budget_weight_detail": "+{extra} {vote_type} ({target})"
 }

@@ -4,6 +4,7 @@
 	import { activityStore } from '$lib/stores/activity.svelte';
 	import ThesisCard from '$lib/components/ThesisCard.svelte';
 	import { onMount } from 'svelte';
+	import { m } from '$lib/paraglide/messages';
 
 	let { data } = $props();
 
@@ -17,7 +18,7 @@
 		allTheses = data.theses;
 		heat = data.heat ?? {};
 		argumentCounts = data.argumentCounts ?? {};
-		activityStore.set(data.activity ?? [], 'Platform activity');
+		activityStore.set(data.activity ?? [], m.my_platform_activity());
 	});
 
 	let myTheses = $derived.by(() => {
@@ -57,12 +58,12 @@
 			const suffix = qs.toString() ? `?${qs.toString()}` : '';
 			const res = await fetch(`/api/reports/me${suffix}`);
 			if (!res.ok) {
-				reportError = `Server responded ${res.status}`;
+				reportError = m.my_standpoint_server_error({ status: res.status });
 				return;
 			}
 			report = await res.json();
 		} catch (err) {
-			reportError = (err as Error)?.message ?? 'Unknown error';
+			reportError = (err as Error)?.message ?? m.my_standpoint_unknown_error();
 		} finally {
 			reportLoading = false;
 		}
@@ -129,28 +130,28 @@
 
 <section class="my-page">
 	<div class="page-head">
-		<h1 class="page-title">My Theses</h1>
-		<p class="page-subtitle">Theses you created or voted on.</p>
+		<h1 class="page-title">{m.my_page_title()}</h1>
+		<p class="page-subtitle">{m.my_page_subtitle()}</p>
 	</div>
 
 	<aside class="standpoint-panel card">
 		<div class="standpoint-head">
-			<h2 class="standpoint-title">Where I stand</h2>
-			<p class="standpoint-sub">Reflection report on your work so far — no blaming, just a reference.</p>
+			<h2 class="standpoint-title">{m.my_standpoint_title()}</h2>
+			<p class="standpoint-sub">{m.my_standpoint_sub()}</p>
 		</div>
 
 		{#if !report && !reportLoading}
-			<button class="btn btn-primary" onclick={() => loadReport(false)}>Generate report</button>
+			<button class="btn btn-primary" onclick={() => loadReport(false)}>{m.my_standpoint_generate()}</button>
 		{/if}
 
 		{#if reportLoading}
-			<p class="standpoint-status">Generating … (may take 5–20s on first call)</p>
+			<p class="standpoint-status">{m.my_standpoint_generating()}</p>
 		{/if}
 
 		{#if report}
 			{#if report.llm && !report.llm.ok}
 				<div class="standpoint-error">
-					<p>LLM unavailable: {report.llm.error}</p>
+					<p>{m.my_standpoint_llm_unavailable({ error: report.llm.error ?? '' })}</p>
 					{#if report.llm.hint}<p class="standpoint-hint">{report.llm.hint}</p>{/if}
 				</div>
 			{:else if report.text}
@@ -161,18 +162,18 @@
 				</div>
 				{#if report.references && report.references.length > 0}
 					<div class="standpoint-refs">
-						<span class="refs-label">Refers to:</span>
+						<span class="refs-label">{m.my_standpoint_refs_label()}</span>
 						{#each report.references as ref}
 							<a class="ref-link" href="/thesis/{ref.thesis_id}">{ref.snippet}</a>
 						{/each}
 					</div>
 				{/if}
 				<div class="standpoint-meta">
-					{report.cached ? 'From cache' : 'Freshly generated'}{#if report.llm?.model} · {report.llm.model}{/if}
-					<button class="btn btn-sm standpoint-refresh" onclick={() => loadReport(true)}>Regenerate</button>
+					{report.cached ? m.my_standpoint_cached() : m.my_standpoint_fresh()}{#if report.llm?.model} · {report.llm.model}{/if}
+					<button class="btn btn-sm standpoint-refresh" onclick={() => loadReport(true)}>{m.my_standpoint_regenerate()}</button>
 				</div>
 			{:else}
-				<p class="standpoint-status">{reportError ?? 'No text returned.'}</p>
+				<p class="standpoint-status">{reportError ?? m.my_standpoint_no_text()}</p>
 			{/if}
 		{/if}
 
@@ -183,39 +184,39 @@
 
 	<aside id="budget" class="budget-panel card">
 		<div class="budget-head">
-			<h2 class="budget-title">Your day</h2>
-			<p class="budget-sub">What you've spent from today's budget (limit: {budget?.limit ?? 7} per bucket).</p>
+			<h2 class="budget-title">{m.my_budget_title()}</h2>
+			<p class="budget-sub">{m.my_budget_sub({ limit: budget?.limit ?? 7 })}</p>
 		</div>
 
 		{#if budgetLoading && !budget}
-			<p class="budget-status">Loading …</p>
+			<p class="budget-status">{m.my_budget_loading()}</p>
 		{:else if budget}
 			<div class="budget-summary">
 				<div class="budget-summary-item">
 					<span class="budget-summary-num">{budget.spent.thesis}</span>
-					<span class="budget-summary-label">Theses</span>
+					<span class="budget-summary-label">{m.my_budget_summary_theses()}</span>
 				</div>
 				<div class="budget-summary-item">
 					<span class="budget-summary-num budget-support">{budget.spent.support}</span>
-					<span class="budget-summary-label">Support args</span>
+					<span class="budget-summary-label">{m.my_budget_summary_support()}</span>
 				</div>
 				<div class="budget-summary-item">
 					<span class="budget-summary-num budget-reject">{budget.spent.reject}</span>
-					<span class="budget-summary-label">Reject args</span>
+					<span class="budget-summary-label">{m.my_budget_summary_reject()}</span>
 				</div>
 				<div class="budget-summary-item">
 					<span class="budget-summary-num">{byKind.weight.reduce((s, e) => s + (e.extra_weight ?? 0), 0)}</span>
-					<span class="budget-summary-label">Extra weight</span>
+					<span class="budget-summary-label">{m.my_budget_summary_extra()}</span>
 				</div>
 			</div>
 
 			{#if budget.events.length === 0}
-				<p class="budget-empty">Nothing spent today yet.</p>
+				<p class="budget-empty">{m.my_budget_empty()}</p>
 			{:else}
 				<div class="budget-groups">
 					{#if byKind.thesis.length > 0}
 						<section class="budget-group">
-							<h3 class="budget-group-title">Theses ({byKind.thesis.length})</h3>
+							<h3 class="budget-group-title">{m.my_budget_group_theses({ count: byKind.thesis.length })}</h3>
 							<ul class="budget-list">
 								{#each byKind.thesis as e}
 									<li class="budget-item">
@@ -228,7 +229,7 @@
 					{/if}
 					{#if byKind.support.length > 0}
 						<section class="budget-group">
-							<h3 class="budget-group-title budget-support">Support arguments ({byKind.support.length})</h3>
+							<h3 class="budget-group-title budget-support">{m.my_budget_group_support({ count: byKind.support.length })}</h3>
 							<ul class="budget-list">
 								{#each byKind.support as e}
 									<li class="budget-item">
@@ -244,7 +245,7 @@
 					{/if}
 					{#if byKind.reject.length > 0}
 						<section class="budget-group">
-							<h3 class="budget-group-title budget-reject">Reject arguments ({byKind.reject.length})</h3>
+							<h3 class="budget-group-title budget-reject">{m.my_budget_group_reject({ count: byKind.reject.length })}</h3>
 							<ul class="budget-list">
 								{#each byKind.reject as e}
 									<li class="budget-item">
@@ -260,14 +261,14 @@
 					{/if}
 					{#if byKind.weight.length > 0}
 						<section class="budget-group">
-							<h3 class="budget-group-title">Weight votes ({byKind.weight.length})</h3>
+							<h3 class="budget-group-title">{m.my_budget_group_weight({ count: byKind.weight.length })}</h3>
 							<ul class="budget-list">
 								{#each byKind.weight as e}
 									<li class="budget-item">
 										<time class="budget-time">{fmtTime(e.at)}</time>
 										<div class="budget-item-body">
 											<a class="budget-link" href="/thesis/{e.thesis_id}">{e.thesis_title}</a>
-											<p class="budget-content">+{e.extra_weight} {e.vote_type} ({e.target === 'argument' ? 'on argument' : 'on thesis'})</p>
+											<p class="budget-content">{m.my_budget_weight_detail({ extra: e.extra_weight ?? 0, vote_type: e.vote_type ?? '', target: e.target === 'argument' ? m.my_budget_weight_on_argument() : m.my_budget_weight_on_thesis() })}</p>
 										</div>
 									</li>
 								{/each}
@@ -286,7 +287,7 @@
 	</div>
 
 	{#if myTheses.length === 0}
-		<p class="empty-state">You haven't participated yet. Go vote or create a thesis!</p>
+		<p class="empty-state">{m.my_empty_state()}</p>
 	{/if}
 </section>
 
