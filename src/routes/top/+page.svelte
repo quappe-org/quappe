@@ -4,6 +4,7 @@
 	import { categoriesStore } from '$lib/stores/categories.svelte';
 	import { activityStore } from '$lib/stores/activity.svelte';
 	import ThesisCard from '$lib/components/ThesisCard.svelte';
+	import { m } from '$lib/paraglide/messages';
 
 	let { data } = $props();
 
@@ -17,7 +18,7 @@
 		allTheses = data.theses;
 		heat = data.heat ?? {};
 		argumentCounts = data.argumentCounts ?? {};
-		activityStore.set(data.activity ?? [], 'Platform activity');
+		activityStore.set(data.activity ?? [], m.my_platform_activity());
 	});
 
 	let selectedFilter = $state<Category | null>(null);
@@ -67,10 +68,10 @@
 	<!-- Category drill-down tiles -->
 	<div class="section">
 		<div class="section-head">
-			<h2 class="section-title">Filter</h2>
+			<h2 class="section-title">{m.top_filter_title()}</h2>
 			{#if selectedFilter}
 				<button class="clear-filter" onclick={() => (selectedFilter = null)}>
-					&times; Clear
+					{m.top_filter_clear()}
 				</button>
 			{/if}
 		</div>
@@ -94,7 +95,7 @@
 			{#if selectedFilter}
 				<span class="section-filter-active">{selectedFilter}</span>
 			{/if}
-			<span class="section-meta">{visibleTheses.length} of {filteredTheses.length}</span>
+			<span class="section-meta">{m.top_list_count({ visible: visibleTheses.length, total: filteredTheses.length })}</span>
 		</div>
 
 		<div class="grid grid-2">
@@ -109,15 +110,15 @@
 		{#if visibleTheses.length === 0}
 			<p class="empty-state">
 				{#if selectedFilter}
-					No theses in category "{selectedFilter}".
+					{m.top_empty_filtered({ category: selectedFilter })}
 				{:else}
-					No theses yet.
+					{m.top_empty()}
 				{/if}
 			</p>
 		{/if}
 
 		{#if filteredTheses.length > visibleTheses.length}
-			<p class="limit-note">Adjust the complexity slider to see more theses.</p>
+			<p class="limit-note">{m.top_limit_note()}</p>
 		{/if}
 	</div>
 </section>

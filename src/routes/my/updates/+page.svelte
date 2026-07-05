@@ -3,6 +3,7 @@
 	import { updatesSeen } from '$lib/stores/updates-seen.svelte';
 	import { complexityStore } from '$lib/stores/complexity.svelte';
 	import { onMount } from 'svelte';
+	import { m } from '$lib/paraglide/messages';
 
 	let mounted = $state(false);
 
@@ -52,27 +53,27 @@
 
 <section class="updates-page">
 	<div class="page-head">
-		<h1 class="page-title">Updates</h1>
-		<p class="page-subtitle">How others react to your content — the basis for refining your arguments.</p>
+		<h1 class="page-title">{m.updates_page_title()}</h1>
+		<p class="page-subtitle">{m.updates_page_subtitle()}</p>
 	</div>
 
 	{#if updatesStore.loading && updatesStore.events.length === 0}
-		<p class="updates-status">Loading …</p>
+		<p class="updates-status">{m.updates_loading()}</p>
 	{:else if mounted && updatesStore.events.length === 0}
 		<div class="updates-empty card">
-			<p><strong>No updates yet.</strong></p>
-			<p>When others react to your theses or arguments, you'll see it here.</p>
+			<p><strong>{m.updates_empty_head()}</strong></p>
+			<p>{m.updates_empty_body()}</p>
 		</div>
 	{:else if mounted}
 		<div class="updates-grid">
 			<section class="updates-col card">
 				<header class="updates-col-head">
 					<span class="updates-col-dot updates-dot-fork" aria-hidden="true"></span>
-					<h2 class="updates-col-title">Forks of your arguments</h2>
+					<h2 class="updates-col-title">{m.updates_col_forks_title()}</h2>
 					<span class="updates-col-count">{forks.length}</span>
 				</header>
 				{#if forks.length === 0}
-					<p class="updates-col-empty">Nothing.</p>
+					<p class="updates-col-empty">{m.updates_col_empty()}</p>
 				{:else}
 					<ul class="updates-list">
 						{#each forks as e (e.fork_argument_id)}
@@ -81,8 +82,8 @@
 									<time class="updates-time">{fmtTime(e.at)}</time>
 									<a class="updates-thesis" href="/thesis/{e.thesis_id}">{e.thesis_title}</a>
 								</div>
-								<p class="updates-content-old">Original: {e.original_content}</p>
-								<p class="updates-content-new">Fork: {e.fork_content}</p>
+								<p class="updates-content-old">{m.updates_fork_original_label({ content: e.original_content ?? '' })}</p>
+								<p class="updates-content-new">{m.updates_fork_new_label({ content: e.fork_content ?? '' })}</p>
 							</li>
 						{/each}
 					</ul>
@@ -92,11 +93,11 @@
 			<section class="updates-col card">
 				<header class="updates-col-head">
 					<span class="updates-col-dot updates-dot-newarg" aria-hidden="true"></span>
-					<h2 class="updates-col-title">New arguments on your theses</h2>
+					<h2 class="updates-col-title">{m.updates_col_newargs_title()}</h2>
 					<span class="updates-col-count">{newArgs.length}</span>
 				</header>
 				{#if newArgs.length === 0}
-					<p class="updates-col-empty">Nothing.</p>
+					<p class="updates-col-empty">{m.updates_col_empty()}</p>
 				{:else}
 					<ul class="updates-list">
 						{#each newArgs as e (e.argument_id)}
@@ -104,7 +105,7 @@
 								<div class="updates-item-row">
 									<time class="updates-time">{fmtTime(e.at)}</time>
 									<span class="updates-stance updates-stance-{e.argument_stance}">
-										{e.argument_stance === 'support' ? 'pro' : 'con'}
+										{e.argument_stance === 'support' ? m.updates_stance_pro() : m.updates_stance_con()}
 									</span>
 									<a class="updates-thesis" href="/thesis/{e.thesis_id}">{e.thesis_title}</a>
 								</div>
@@ -118,11 +119,11 @@
 			<section class="updates-col card">
 				<header class="updates-col-head">
 					<span class="updates-col-dot updates-dot-argvote" aria-hidden="true"></span>
-					<h2 class="updates-col-title">Votes on your arguments</h2>
+					<h2 class="updates-col-title">{m.updates_col_argvotes_title()}</h2>
 					<span class="updates-col-count">{votesOnArgs.length}</span>
 				</header>
 				{#if votesOnArgs.length === 0}
-					<p class="updates-col-empty">Nothing.</p>
+					<p class="updates-col-empty">{m.updates_col_empty()}</p>
 				{:else}
 					<ul class="updates-list">
 						{#each votesOnArgs as e, i (e.target_argument_id + '_' + e.at + '_' + i)}
@@ -144,11 +145,11 @@
 			<section class="updates-col card">
 				<header class="updates-col-head">
 					<span class="updates-col-dot updates-dot-thvote" aria-hidden="true"></span>
-					<h2 class="updates-col-title">Votes on your theses</h2>
+					<h2 class="updates-col-title">{m.updates_col_thvotes_title()}</h2>
 					<span class="updates-col-count">{votesOnTh.length}</span>
 				</header>
 				{#if votesOnTh.length === 0}
-					<p class="updates-col-empty">Nothing.</p>
+					<p class="updates-col-empty">{m.updates_col_empty()}</p>
 				{:else}
 					<ul class="updates-list">
 						{#each votesOnTh as e, i (e.thesis_id + '_' + e.at + '_' + i)}

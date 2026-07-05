@@ -2,6 +2,7 @@
 	import { getUserId } from '$lib/stores/user';
 	import { categoriesStore } from '$lib/stores/categories.svelte';
 	import { complexityBoundsStore } from '$lib/stores/complexity-bounds.svelte';
+	import { m } from '$lib/paraglide/messages';
 
 	let userId = $state('');
 	$effect(() => {
@@ -49,38 +50,35 @@
 <section class="stack-lg">
 	<div class="card stack">
 		<div class="setting-group">
-			<h3 class="setting-label">Your Anonymous ID</h3>
+			<h3 class="setting-label">{m.settings_id_title()}</h3>
 			<p class="setting-value mono">{userId}</p>
-			<p class="setting-hint">This is your unique identity. It's stored locally and never shared visibly.</p>
+			<p class="setting-hint">{m.settings_id_hint()}</p>
 		</div>
 
 		<hr class="divider" />
 
 		<div class="setting-group">
-			<h3 class="setting-label">Role</h3>
-			<span class="role-badge">Admin</span>
-			<p class="setting-hint">In MVP mode, all users are admins.</p>
+			<h3 class="setting-label">{m.settings_role_title()}</h3>
+			<span class="role-badge">{m.settings_role_badge_admin()}</span>
+			<p class="setting-hint">{m.settings_role_hint()}</p>
 		</div>
 	</div>
 
 	<div class="card stack">
 		<div class="setting-group">
 			<div class="setting-header">
-				<h3 class="setting-label">Complexity slider bounds</h3>
-				<button class="btn btn-sm" onclick={() => complexityBoundsStore.reset()}>Reset to defaults</button>
+				<h3 class="setting-label">{m.settings_bounds_title()}</h3>
+				<button class="btn btn-sm" onclick={() => complexityBoundsStore.reset()}>{m.settings_bounds_reset()}</button>
 			</div>
-			<p class="setting-hint">
-				Adjust the min and max limits of the slider. The slider itself stays 0-100 but is
-				mapped to the range you configure here.
-			</p>
+			<p class="setting-hint">{m.settings_bounds_hint()}</p>
 		</div>
 
 		<div class="bounds-grid">
 			<div class="bound-row">
-				<span class="bound-label">Theses visible</span>
+				<span class="bound-label">{m.settings_bounds_theses_label()}</span>
 				<div class="bound-controls">
 					<label>
-						<span class="tiny">min</span>
+						<span class="tiny">{m.settings_bounds_min()}</span>
 						<input
 							type="number"
 							min={complexityBoundsStore.hardMin.max_theses}
@@ -91,7 +89,7 @@
 					</label>
 					<span class="range-sep">…</span>
 					<label>
-						<span class="tiny">max</span>
+						<span class="tiny">{m.settings_bounds_max()}</span>
 						<input
 							type="number"
 							min={complexityBoundsStore.min.max_theses}
@@ -100,15 +98,15 @@
 							oninput={updateMaxTheses}
 						/>
 					</label>
-					<span class="hard-limits mono">hard limit: {complexityBoundsStore.hardMin.max_theses} – {complexityBoundsStore.hardMax.max_theses}</span>
+					<span class="hard-limits mono">{m.settings_bounds_hard_limit({ min: complexityBoundsStore.hardMin.max_theses, max: complexityBoundsStore.hardMax.max_theses })}</span>
 				</div>
 			</div>
 
 			<div class="bound-row">
-				<span class="bound-label">Arguments per stance</span>
+				<span class="bound-label">{m.settings_bounds_args_label()}</span>
 				<div class="bound-controls">
 					<label>
-						<span class="tiny">min</span>
+						<span class="tiny">{m.settings_bounds_min()}</span>
 						<input
 							type="number"
 							min={complexityBoundsStore.hardMin.max_arguments}
@@ -119,7 +117,7 @@
 					</label>
 					<span class="range-sep">…</span>
 					<label>
-						<span class="tiny">max</span>
+						<span class="tiny">{m.settings_bounds_max()}</span>
 						<input
 							type="number"
 							min={complexityBoundsStore.min.max_arguments}
@@ -128,7 +126,7 @@
 							oninput={updateMaxArgs}
 						/>
 					</label>
-					<span class="hard-limits mono">hard limit: {complexityBoundsStore.hardMin.max_arguments} – {complexityBoundsStore.hardMax.max_arguments}</span>
+					<span class="hard-limits mono">{m.settings_bounds_hard_limit({ min: complexityBoundsStore.hardMin.max_arguments, max: complexityBoundsStore.hardMax.max_arguments })}</span>
 				</div>
 			</div>
 		</div>
@@ -137,42 +135,39 @@
 	<div class="card stack">
 		<div class="setting-group">
 			<div class="setting-header">
-				<h3 class="setting-label">Categories</h3>
-				<button class="btn btn-sm" onclick={resetCategories}>Reset to defaults</button>
+				<h3 class="setting-label">{m.settings_categories_title()}</h3>
+				<button class="btn btn-sm" onclick={resetCategories}>{m.settings_bounds_reset()}</button>
 			</div>
-			<p class="setting-hint">Manage the available categories for theses. Add or remove as needed.</p>
+			<p class="setting-hint">{m.settings_categories_hint()}</p>
 		</div>
 
 		<div class="categories-list">
 			{#each categoriesStore.list as cat}
 				<div class="category-item">
 					<span class="tag">{cat}</span>
-					<button class="remove-btn" onclick={() => removeCategory(cat)} title="Remove category">&times;</button>
+					<button class="remove-btn" onclick={() => removeCategory(cat)} title={m.settings_categories_remove_title()}>&times;</button>
 				</div>
 			{/each}
 		</div>
 
 		<form class="add-category-form" onsubmit={(e) => { e.preventDefault(); addCategory(); }}>
-			<input type="text" bind:value={newCategory} placeholder="New category name..." class="category-input" />
-			<button class="btn btn-primary btn-sm" type="submit" disabled={!newCategory.trim()}>Add</button>
+			<input type="text" bind:value={newCategory} placeholder={m.settings_categories_new_placeholder()} class="category-input" />
+			<button class="btn btn-primary btn-sm" type="submit" disabled={!newCategory.trim()}>{m.settings_categories_add()}</button>
 		</form>
 	</div>
 
 	<div class="card stack">
 		<div class="setting-group">
-			<h3 class="setting-label">Admin tools</h3>
-			<p class="setting-hint">Available in MVP for everyone. Will be role-gated later.</p>
+			<h3 class="setting-label">{m.settings_admin_title()}</h3>
+			<p class="setting-hint">{m.settings_admin_hint()}</p>
 		</div>
-		<a href="/admin" class="admin-link">Server logs console →</a>
+		<a href="/admin" class="admin-link">{m.settings_admin_link()}</a>
 	</div>
 
 	<div class="card stack">
 		<div class="setting-group">
-			<h3 class="setting-label">About Quappe</h3>
-			<p class="setting-hint">
-				Quappe is an argumentation platform. State theses, provide arguments, and find
-				commonality through structured discourse. No usernames. No comment wars. Just arguments.
-			</p>
+			<h3 class="setting-label">{m.settings_about_title()}</h3>
+			<p class="setting-hint">{m.settings_about_hint()}</p>
 		</div>
 	</div>
 </section>
