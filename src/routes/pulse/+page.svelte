@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PulseBody } from '$lib/server/pulse';
 	import { complexityStore } from '$lib/stores/complexity.svelte';
+	import { m } from '$lib/paraglide/messages';
 
 	let { data } = $props();
 
@@ -20,12 +21,12 @@
 		try {
 			const res = await fetch('/api/reports/pulse?force=true');
 			if (!res.ok) {
-				loadError = `Server responded ${res.status}`;
+				loadError = m.pulse_server_error({ status: res.status });
 				return;
 			}
 			pulse = await res.json();
 		} catch (err) {
-			loadError = (err as Error)?.message ?? 'Unknown error';
+			loadError = (err as Error)?.message ?? m.pulse_unknown_error();
 		} finally {
 			refreshing = false;
 		}
@@ -45,8 +46,8 @@
 
 <section class="pulse-page">
 	<div class="page-head">
-		<h1 class="page-title">Community Pulse</h1>
-		<p class="page-subtitle">What moves the community — observed, not judged.</p>
+		<h1 class="page-title">{m.pulse_page_title()}</h1>
+		<p class="page-subtitle">{m.pulse_page_subtitle()}</p>
 	</div>
 
 	{#if loadError && !pulse}
@@ -57,7 +58,7 @@
 		<article class="pulse-report card">
 			{#if pulse.llm && !pulse.llm.ok}
 				<div class="pulse-llm-error">
-					<p>LLM unavailable: {pulse.llm.error}</p>
+					<p>{m.pulse_llm_unavailable({ error: pulse.llm.error ?? '' })}</p>
 					{#if pulse.llm.hint}<p class="pulse-hint">{pulse.llm.hint}</p>{/if}
 				</div>
 			{:else if paragraphs.length > 0}
@@ -67,14 +68,14 @@
 					{/each}
 				</div>
 			{:else}
-				<p class="pulse-status">No text returned.</p>
+				<p class="pulse-status">{m.pulse_no_text()}</p>
 			{/if}
 
 			<div class="pulse-meta">
-				{pulse.cached ? 'From cache' : 'Freshly generated'}{#if pulse.llm?.model} · {pulse.llm.model}{/if} ·
+				{pulse.cached ? m.pulse_cached() : m.pulse_fresh()}{#if pulse.llm?.model} · {pulse.llm.model}{/if} ·
 				<time datetime={pulse.generated_at}>{new Date(pulse.generated_at).toLocaleString()}</time>
 				<button class="btn btn-sm pulse-refresh" onclick={refresh} disabled={refreshing}>
-					{refreshing ? 'Refreshing …' : 'Regenerate'}
+					{refreshing ? m.pulse_refreshing() : m.pulse_regenerate()}
 				</button>
 			</div>
 		</article>
@@ -82,15 +83,15 @@
 		<div class="pulse-summary">
 			<div class="pulse-summary-item">
 				<span class="pulse-summary-num">{pulse.stats.total_theses}</span>
-				<span class="pulse-summary-label">Theses</span>
+				<span class="pulse-summary-label">{m.pulse_summary_theses()}</span>
 			</div>
 			<div class="pulse-summary-item">
 				<span class="pulse-summary-num">{pulse.stats.total_arguments}</span>
-				<span class="pulse-summary-label">Arguments</span>
+				<span class="pulse-summary-label">{m.pulse_summary_arguments()}</span>
 			</div>
 			<div class="pulse-summary-item">
 				<span class="pulse-summary-num">{pulse.stats.recent_week.new_theses}</span>
-				<span class="pulse-summary-label">New · 7 days</span>
+				<span class="pulse-summary-label">{m.pulse_summary_new_week()}</span>
 			</div>
 		</div>
 
@@ -98,10 +99,10 @@
 			<section class="pulse-col card pulse-col-hot">
 				<header class="pulse-col-head">
 					<span class="pulse-col-dot pulse-dot-hot" aria-hidden="true"></span>
-					<h2 class="pulse-col-title">Hotly discussed</h2>
+					<h2 class="pulse-col-title">{m.pulse_col_hot_title()}</h2>
 				</header>
 				{#if hotDisplay.length === 0}
-					<p class="pulse-col-empty">Nothing yet.</p>
+					<p class="pulse-col-empty">{m.pulse_col_empty()}</p>
 				{:else}
 					<ol class="pulse-col-list">
 						{#each hotDisplay as t, i}
@@ -109,7 +110,7 @@
 								<span class="pulse-col-rank">{i + 1}</span>
 								<div class="pulse-col-body">
 									<a href="/thesis/{t.id}" class="pulse-col-link">{t.title}</a>
-									<span class="pulse-col-metric">heat {t.heat.toFixed(2)} · {t.arguments} args</span>
+									<span class="pulse-col-metric">{m.pulse_hot_metric({ heat: t.heat.toFixed(2), args: t.arguments })}</span>
 								</div>
 							</li>
 						{/each}
@@ -120,10 +121,10 @@
 			<section class="pulse-col card pulse-col-complex">
 				<header class="pulse-col-head">
 					<span class="pulse-col-dot pulse-dot-complex" aria-hidden="true"></span>
-					<h2 class="pulse-col-title">Complex</h2>
+					<h2 class="pulse-col-title">{m.pulse_col_complex_title()}</h2>
 				</header>
 				{#if complexDisplay.length === 0}
-					<p class="pulse-col-empty">Nothing yet.</p>
+					<p class="pulse-col-empty">{m.pulse_col_empty()}</p>
 				{:else}
 					<ol class="pulse-col-list">
 						{#each complexDisplay as t, i}
@@ -131,7 +132,7 @@
 								<span class="pulse-col-rank">{i + 1}</span>
 								<div class="pulse-col-body">
 									<a href="/thesis/{t.id}" class="pulse-col-link">{t.title}</a>
-									<span class="pulse-col-metric">{t.arguments} args</span>
+									<span class="pulse-col-metric">{m.pulse_complex_metric({ args: t.arguments })}</span>
 								</div>
 							</li>
 						{/each}
@@ -142,10 +143,10 @@
 			<section class="pulse-col card pulse-col-cat">
 				<header class="pulse-col-head">
 					<span class="pulse-col-dot pulse-dot-cat" aria-hidden="true"></span>
-					<h2 class="pulse-col-title">Categories</h2>
+					<h2 class="pulse-col-title">{m.pulse_col_categories_title()}</h2>
 				</header>
 				{#if catDisplay.length === 0}
-					<p class="pulse-col-empty">Nothing yet.</p>
+					<p class="pulse-col-empty">{m.pulse_col_empty()}</p>
 				{:else}
 					<ol class="pulse-col-list">
 						{#each catDisplay as c, i}
@@ -153,7 +154,7 @@
 								<span class="pulse-col-rank">{i + 1}</span>
 								<div class="pulse-col-body">
 									<span class="pulse-col-link pulse-col-link-plain">{c.name}</span>
-									<span class="pulse-col-metric">{c.thesis_count} theses · {c.argument_count} args · {Math.round(c.avg_support_ratio * 100)}% pro</span>
+									<span class="pulse-col-metric">{m.pulse_cat_metric({ theses: c.thesis_count, args: c.argument_count, pct: Math.round(c.avg_support_ratio * 100) })}</span>
 								</div>
 							</li>
 						{/each}
@@ -163,7 +164,7 @@
 		</div>
 
 		{#if allEmpty}
-			<p class="pulse-empty-all">Nothing yet.</p>
+			<p class="pulse-empty-all">{m.pulse_empty_all()}</p>
 		{/if}
 	{/if}
 </section>

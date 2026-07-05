@@ -165,5 +165,27 @@
 	"my_budget_group_weight": "TODO_TRANSLATE:Weight votes ({count})",
 	"my_budget_weight_on_argument": "TODO_TRANSLATE:on argument",
 	"my_budget_weight_on_thesis": "TODO_TRANSLATE:on thesis",
-	"my_budget_weight_detail": "TODO_TRANSLATE:+{extra} {vote_type} ({target})"
+	"my_budget_weight_detail": "TODO_TRANSLATE:+{extra} {vote_type} ({target})",
+
+	"pulse_page_title": "TODO_TRANSLATE:Community Pulse",
+	"pulse_page_subtitle": "TODO_TRANSLATE:What moves the community — observed, not judged.",
+	"pulse_server_error": "TODO_TRANSLATE:Server responded {status}",
+	"pulse_unknown_error": "TODO_TRANSLATE:Unknown error",
+	"pulse_llm_unavailable": "TODO_TRANSLATE:LLM unavailable: {error}",
+	"pulse_no_text": "TODO_TRANSLATE:No text returned.",
+	"pulse_cached": "TODO_TRANSLATE:From cache",
+	"pulse_fresh": "TODO_TRANSLATE:Freshly generated",
+	"pulse_refreshing": "TODO_TRANSLATE:Refreshing …",
+	"pulse_regenerate": "TODO_TRANSLATE:Regenerate",
+	"pulse_summary_theses": "TODO_TRANSLATE:Theses",
+	"pulse_summary_arguments": "TODO_TRANSLATE:Arguments",
+	"pulse_summary_new_week": "TODO_TRANSLATE:New · 7 days",
+	"pulse_col_hot_title": "TODO_TRANSLATE:Hotly discussed",
+	"pulse_col_complex_title": "TODO_TRANSLATE:Complex",
+	"pulse_col_categories_title": "TODO_TRANSLATE:Categories",
+	"pulse_col_empty": "TODO_TRANSLATE:Nothing yet.",
+	"pulse_hot_metric": "TODO_TRANSLATE:heat {heat} · {args} args",
+	"pulse_complex_metric": "TODO_TRANSLATE:{args} args",
+	"pulse_cat_metric": "TODO_TRANSLATE:{theses} theses · {args} args · {pct}% pro",
+	"pulse_empty_all": "TODO_TRANSLATE:Nothing yet."
 }
