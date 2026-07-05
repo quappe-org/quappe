@@ -9,8 +9,8 @@
 		"ollama": "ollama serve",
 		"build": "vite build",
 		"preview": "vite preview",
-		"prepare": "svelte-kit sync && paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide || echo ''",
-		"paraglide:compile": "paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide",
+		"prepare": "svelte-kit sync && paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide --strategy url cookie preferredLanguage baseLocale || echo ''",
+		"paraglide:compile": "paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide --strategy url cookie preferredLanguage baseLocale",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},

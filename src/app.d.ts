@@ -5,6 +5,7 @@ declare global {
 		// interface Error {}
 		interface Locals {
 			user_id: string;
+			locale: import('$lib/paraglide/runtime').Locale;
 		}
 		// interface PageData {}
 		// interface PageState {}

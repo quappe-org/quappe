@@ -6,6 +6,7 @@ import { seedData, getAllTheses, setThesisEmbedding, hasThesisEmbedding } from '
 import { refreshPulseCache } from '$lib/server/pulse';
 import { isLlmAvailable } from '$lib/server/llm';
 import { ensureUserId } from '$lib/server/identity';
+import { paraglideMiddleware } from '$lib/paraglide/server';
 
 // Start warming the embedding model in the background at server startup.
 // First requests will still work via lazy load — this just speeds up the first real embed() call.
@@ -82,62 +83,77 @@ pulseLoop().catch(() => {});
 const MAX_BODY_BYTES = 32 * 1024; // 32 KB - well above our largest field cap
 
 export const handle: Handle = async ({ event, resolve }) => {
-	const path = event.url.pathname;
-	const isApi = path.startsWith('/api/');
-	const isAsset = /\.(css|js|png|jpg|jpeg|svg|ico|webp|woff2?)$/i.test(path);
+	// Paraglide middleware determines the locale from the URL (or falls back to
+	// cookie / Accept-Language / baseLocale) and stashes it in AsyncLocalStorage
+	// so `getLocale()` and `m.*()` message calls resolve correctly during SSR.
+	// SvelteKit's `reroute` hook (src/hooks.ts) handles URL delocalization for
+	// us — we don't touch `event.request` here, we just let paraglide set up
+	// the locale context around `resolve(event)`.
+	//
+	// Redirects (URL/cookie/preferredLanguage disagreement) short-circuit and
+	// return a 307 without invoking the inner callback.
+	return paraglideMiddleware(event.request, async ({ locale }) => {
+		event.locals.locale = locale;
 
-	// Establish (or verify) the signed-cookie identity. Every request lands
-	// here with a valid `locals.user_id` — handlers never need to trust
-	// user_id/author_id fields from the request body.
-	if (!isAsset) {
-		event.locals.user_id = ensureUserId(event.cookies);
-	}
+		const path = event.url.pathname;
+		const isApi = path.startsWith('/api/');
+		const isAsset = /\.(css|js|png|jpg|jpeg|svg|ico|webp|woff2?)$/i.test(path);
 
-	// Hard body-size cap for API writes — first line of defence against
-	// multi-MB payload floods before any handler parses JSON.
-	if (isApi && event.request.method !== 'GET' && event.request.method !== 'HEAD') {
-		const cl = event.request.headers.get('content-length');
-		if (cl && Number(cl) > MAX_BODY_BYTES) {
-			logger.warn('api', `${event.request.method} ${path} rejected: body too large`, {
-				content_length: Number(cl)
-			});
-			return json(
-				{ error: `Request body exceeds ${MAX_BODY_BYTES} bytes` },
-				{ status: 413 }
-			);
+		// Establish (or verify) the signed-cookie identity. Every request lands
+		// here with a valid `locals.user_id` — handlers never need to trust
+		// user_id/author_id fields from the request body.
+		if (!isAsset) {
+			event.locals.user_id = ensureUserId(event.cookies);
 		}
-	}
 
-	const start = performance.now();
-	let response: Response;
-	try {
-		response = await resolve(event);
-	} catch (err) {
+		// Hard body-size cap for API writes — first line of defence against
+		// multi-MB payload floods before any handler parses JSON.
+		if (isApi && event.request.method !== 'GET' && event.request.method !== 'HEAD') {
+			const cl = event.request.headers.get('content-length');
+			if (cl && Number(cl) > MAX_BODY_BYTES) {
+				logger.warn('api', `${event.request.method} ${path} rejected: body too large`, {
+					content_length: Number(cl)
+				});
+				return json(
+					{ error: `Request body exceeds ${MAX_BODY_BYTES} bytes` },
+					{ status: 413 }
+				);
+			}
+		}
+
+		const start = performance.now();
+		let response: Response;
+		try {
+			response = await resolve(event, {
+				transformPageChunk: ({ html }) => html.replace('%paraglide.lang%', locale)
+			});
+		} catch (err) {
+			const duration = performance.now() - start;
+			logger.error('api', `${event.request.method} ${path} threw`, {
+				duration_ms: Math.round(duration),
+				error: (err as Error)?.message ?? String(err)
+			});
+			throw err;
+		}
 		const duration = performance.now() - start;
-		logger.error('api', `${event.request.method} ${path} threw`, {
-			duration_ms: Math.round(duration),
-			error: (err as Error)?.message ?? String(err)
-		});
-		throw err;
-	}
-	const duration = performance.now() - start;
 
-	// Skip asset chatter
-	if (isAsset) return response;
+		// Skip asset chatter
+		if (isAsset) return response;
 
-	const level = response.status >= 500 ? 'error' : response.status >= 400 ? 'warn' : 'info';
-	const meta: Record<string, unknown> = {
-		method: event.request.method,
-		status: response.status,
-		duration_ms: Math.round(duration * 10) / 10
-	};
+		const level = response.status >= 500 ? 'error' : response.status >= 400 ? 'warn' : 'info';
+		const meta: Record<string, unknown> = {
+			method: event.request.method,
+			status: response.status,
+			duration_ms: Math.round(duration * 10) / 10
+		};
 
-	// Add query string for API GETs (helps understanding trending/top/limit)
-	if (isApi && event.url.search) {
-		meta.query = event.url.search;
-	}
+		// Add query string for API GETs (helps understanding trending/top/limit)
+		if (isApi && event.url.search) {
+			meta.query = event.url.search;
+		}
 
-	logger[level](isApi ? 'api' : 'system', `${event.request.method} ${path}`, meta);
+		logger[level](isApi ? 'api' : 'system', `${event.request.method} ${path}`, meta);
 
-	return response;
+		return response;
+	});
 };
