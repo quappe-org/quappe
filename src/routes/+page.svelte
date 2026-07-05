@@ -124,6 +124,7 @@
 	let suggestedCategories = $state<Category[]>([]);
 	let suggestedForThesis = $state<{ id: string; currentCategories: Category[] } | null>(null);
 	let submitting = $state(false);
+	let createError = $state<string | null>(null);
 
 	// Live "already exists?" hint while the user is typing the new thesis
 	let similarExisting = $state<Thesis[]>([]);
@@ -188,6 +189,7 @@
 		if (!title.trim() || !description.trim()) return;
 		if (!budgetStore.canCreate('thesis')) return;
 		submitting = true;
+		createError = null;
 		try {
 			const res = await fetch('/api/theses', {
 				method: 'POST',
@@ -199,52 +201,63 @@
 					author_id: getUserId()
 				})
 			});
-			if (res.ok) {
-				const responseData = await res.json();
-				const suggested: Category[] = responseData.suggested_categories ?? [];
-				const currentCats = [...selectedCategories];
-
-				// If the user picked no categories, auto-apply the server's suggestion
-				// before showing the thesis in the list — this is what "just submit" expects.
-				let finalThesis: Thesis = responseData;
-				if (currentCats.length === 0 && suggested.length > 0) {
-					try {
-						const putRes = await fetch(`/api/theses/${responseData.id}`, {
-							method: 'PUT',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ categories: suggested, user_id: getUserId() })
-						});
-						if (putRes.ok) finalThesis = await putRes.json();
-					} catch {
-						// fall through with uncategorized thesis
-					}
+			if (!res.ok) {
+				if (res.status === 429) {
+					createError = 'Zu viele Anfragen — warte einen Moment und versuch es nochmal.';
+				} else if (res.status === 413) {
+					createError = 'Text zu lang — bitte kürzen.';
+				} else if (res.status === 400) {
+					const body = await res.json().catch(() => ({}));
+					createError = body?.error ?? 'Ungültige Eingabe.';
+				} else {
+					createError = `Server antwortete ${res.status}. Bitte nochmal versuchen.`;
 				}
+				return;
+			}
+			const responseData = await res.json();
+			const suggested: Category[] = responseData.suggested_categories ?? [];
+			const currentCats = [...selectedCategories];
 
-				budgetStore.spend('thesis');
-				allTheses = [finalThesis, ...allTheses];
+			// If the user picked no categories, auto-apply the server's suggestion
+			// before showing the thesis in the list — this is what "just submit" expects.
+			let finalThesis: Thesis = responseData;
+			if (currentCats.length === 0 && suggested.length > 0) {
+				try {
+					const putRes = await fetch(`/api/theses/${responseData.id}`, {
+						method: 'PUT',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ categories: suggested, user_id: getUserId() })
+					});
+					if (putRes.ok) finalThesis = await putRes.json();
+				} catch {
+					// fall through with uncategorized thesis
+				}
+			}
 
-				// Banner: only show if the suggestion adds something the user did NOT
-				// pick. If we already auto-applied above (empty selection), skip.
-				if (currentCats.length > 0) {
-					const novel = suggested.filter((c) => !currentCats.includes(c));
-					if (novel.length > 0) {
-						suggestedCategories = novel;
-						suggestedForThesis = { id: finalThesis.id, currentCategories: currentCats };
-					} else {
-						suggestedCategories = [];
-						suggestedForThesis = null;
-					}
+			budgetStore.spend('thesis');
+			allTheses = [finalThesis, ...allTheses];
+
+			// Banner: only show if the suggestion adds something the user did NOT
+			// pick. If we already auto-applied above (empty selection), skip.
+			if (currentCats.length > 0) {
+				const novel = suggested.filter((c) => !currentCats.includes(c));
+				if (novel.length > 0) {
+					suggestedCategories = novel;
+					suggestedForThesis = { id: finalThesis.id, currentCategories: currentCats };
 				} else {
 					suggestedCategories = [];
 					suggestedForThesis = null;
 				}
-
-				title = '';
-				description = '';
-				selectedCategories = [];
-				similarExisting = [];
-				showForm = false;
+			} else {
+				suggestedCategories = [];
+				suggestedForThesis = null;
 			}
+
+			title = '';
+			description = '';
+			selectedCategories = [];
+			similarExisting = [];
+			showForm = false;
 		} finally {
 			submitting = false;
 		}
@@ -390,8 +403,12 @@
 					<button class="btn btn-primary" type="submit" disabled={submitting}>
 						{submitting ? 'Creating...' : 'Create Thesis'}
 					</button>
-					<button class="btn" type="button" onclick={() => { showForm = false; similarExisting = []; }}>Cancel</button>
+					<button class="btn" type="button" onclick={() => { showForm = false; similarExisting = []; createError = null; }}>Cancel</button>
 				</div>
+
+				{#if createError}
+					<p class="create-error" role="alert">{createError}</p>
+				{/if}
 			</form>
 		{/if}
 
@@ -556,6 +573,16 @@
 	.form-actions {
 		display: flex;
 		gap: 0.5rem;
+	}
+
+	.create-error {
+		margin: 0;
+		padding: 0.5rem 0.75rem;
+		background: var(--color-reject-bg);
+		border: 1px solid var(--color-reject);
+		border-radius: var(--radius-md);
+		color: var(--color-reject);
+		font-size: var(--text-sm);
 	}
 
 	.form-title {

@@ -140,6 +140,7 @@
 	let argForkedFromId = $state<string | undefined>(undefined);
 	let argEditingId = $state<string | undefined>(undefined);
 	let argSubmitting = $state(false);
+	let argError = $state<string | null>(null);
 
 	function openNewArg(stance: ArgumentStance) {
 		argFormMode = 'new';
@@ -148,6 +149,7 @@
 		argIsEmotional = false;
 		argForkedFromId = undefined;
 		argEditingId = undefined;
+		argError = null;
 		showArgForm = true;
 	}
 
@@ -175,10 +177,26 @@
 		showArgForm = false;
 		argEditingId = undefined;
 		argForkedFromId = undefined;
+		argError = null;
+	}
+
+	async function extractError(res: Response): Promise<string> {
+		if (res.status === 429) return 'Zu viele Anfragen — warte einen Moment und versuch es nochmal.';
+		if (res.status === 413) return 'Text zu lang — bitte kürzen.';
+		if (res.status === 403) {
+			const body = await res.json().catch(() => ({}));
+			return body?.error ?? 'Nicht erlaubt.';
+		}
+		if (res.status === 400) {
+			const body = await res.json().catch(() => ({}));
+			return body?.error ?? 'Ungültige Eingabe.';
+		}
+		return `Server antwortete ${res.status}. Bitte nochmal versuchen.`;
 	}
 
 	async function submitArgument() {
 		if (!argContent.trim() || !thesis) return;
+		argError = null;
 
 		if (argFormMode === 'edit' && argEditingId) {
 			argSubmitting = true;
@@ -192,11 +210,13 @@
 						user_id: getUserId()
 					})
 				});
-				if (res.ok) {
-					const updated: Argument = await res.json();
-					args = args.map((a) => (a.id === updated.id ? updated : a));
-					cancelArgForm();
+				if (!res.ok) {
+					argError = await extractError(res);
+					return;
 				}
+				const updated: Argument = await res.json();
+				args = args.map((a) => (a.id === updated.id ? updated : a));
+				cancelArgForm();
 			} finally {
 				argSubmitting = false;
 			}
@@ -220,12 +240,14 @@
 					author_id: getUserId()
 				})
 			});
-			if (res.ok) {
-				const newArg: Argument = await res.json();
-				budgetStore.spend(budgetKind);
-				args = [...args, newArg];
-				cancelArgForm();
+			if (!res.ok) {
+				argError = await extractError(res);
+				return;
 			}
+			const newArg: Argument = await res.json();
+			budgetStore.spend(budgetKind);
+			args = [...args, newArg];
+			cancelArgForm();
 		} finally {
 			argSubmitting = false;
 		}
@@ -433,6 +455,10 @@
 						</button>
 						<button class="btn" type="button" onclick={cancelArgForm}>Cancel</button>
 					</div>
+
+					{#if argError}
+						<p class="arg-error" role="alert">{argError}</p>
+					{/if}
 				</form>
 			{/if}
 
@@ -717,6 +743,16 @@
 	.form-actions {
 		display: flex;
 		gap: 0.5rem;
+	}
+
+	.arg-error {
+		margin: 0;
+		padding: 0.5rem 0.75rem;
+		background: var(--color-reject-bg);
+		border: 1px solid var(--color-reject);
+		border-radius: var(--radius-md);
+		color: var(--color-reject);
+		font-size: var(--text-sm);
 	}
 
 	.stance-toggle {
