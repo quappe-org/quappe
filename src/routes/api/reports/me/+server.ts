@@ -96,6 +96,9 @@ function aggregate(user_id: string): UserStats {
 }
 
 function buildPrompt(stats: UserStats): string {
+	// TODO(i18n): prompt and system prompt are hardcoded German. Will be
+	// selected per user's UI locale once Paraglide is wired up. Also switch
+	// the empty-state text (line ~157) to the user's locale.
 	const cats = stats.dominant_categories.map((c) => `${c.name} (${c.count})`).join(', ') || '—';
 
 	// User content is wrapped in explicit delimiters. The system prompt tells

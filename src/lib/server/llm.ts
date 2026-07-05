@@ -111,7 +111,7 @@ export async function generate(
 			ok: false,
 			error: isAbort ? `LLM timed out after ${timeoutMs}ms` : msg,
 			hint: msg.includes('ECONNREFUSED')
-				? `Ollama läuft nicht auf ${url}. Starte "ollama serve" und "ollama pull ${model}".`
+				? `Ollama is not running at ${url}. Start "ollama serve" and "ollama pull ${model}".`
 				: undefined
 		};
 	} finally {

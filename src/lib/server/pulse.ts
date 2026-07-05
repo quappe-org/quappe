@@ -119,6 +119,9 @@ function buildPrompt(stats: PulseStats): string {
 	const complexList = stats.complex_theses.map((t, i) => `${i + 1}. "${t.title}"`).join('\n') || '—';
 	const catList = stats.driving_categories.map((c) => c.name).join(', ') || '—';
 
+	// TODO(i18n): prompt is hardcoded German. Will be selected per user's UI
+	// locale once Paraglide is wired up. Keep DE for now — the seeded content
+	// is DE and the LLM currently outputs the same language.
 	return `Fasse einen deutschsprachigen "Community-Puls" für eine Debatten-Plattform. Kurze, knackige Sätze. Beobachtend, nicht wertend.
 
 Heiß diskutiert:
