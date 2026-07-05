@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getArgumentById, updateArgument, deleteArgument } from '$lib/stores/data';
 import { deriveArgumentAttributes } from '$lib/utils/evidence';
+import { checkLength } from '$lib/server/limits';
 
 export const GET: RequestHandler = async ({ params }) => {
 	const arg = getArgumentById(params.id);
@@ -16,6 +17,8 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	// If content is updated we re-derive attributes from it.
 	let attributes = undefined;
 	if (typeof content === 'string') {
+		const err = checkLength('argument_content', content);
+		if (err) return err;
 		attributes = deriveArgumentAttributes(content, Boolean(is_emotional)).attributes;
 	}
 

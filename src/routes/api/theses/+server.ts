@@ -11,6 +11,7 @@ import {
 import { embed, isModelWarm } from '$lib/server/embeddings';
 import { suggestCategories } from '$lib/server/similarity';
 import { DEFAULT_CATEGORIES } from '$lib/models/types';
+import { checkLength, checkCategories, checkRate, getClientIp } from '$lib/server/limits';
 
 export const GET: RequestHandler = async ({ url }) => {
 	seedData();
@@ -36,13 +37,24 @@ export const GET: RequestHandler = async ({ url }) => {
 	return json(theses);
 };
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	const body = await request.json();
 	const { title, description, categories, location, author_id } = body;
+
+	const ip = getClientIp(request, getClientAddress());
+	const rate = checkRate(ip, typeof author_id === 'string' ? author_id : null, 'write_heavy');
+	if (rate) return rate;
 
 	if (!title || !description || !categories) {
 		return json({ error: 'Missing required fields: title, description, categories' }, { status: 400 });
 	}
+
+	const titleErr = checkLength('thesis_title', title);
+	if (titleErr) return titleErr;
+	const descErr = checkLength('thesis_description', description);
+	if (descErr) return descErr;
+	const catErr = checkCategories(categories);
+	if (catErr) return catErr;
 
 	const final_author_id = author_id || crypto.randomUUID();
 	const thesis = createThesis(title, description, categories, final_author_id, location);

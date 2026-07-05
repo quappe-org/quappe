@@ -305,11 +305,11 @@
 				<form class="edit-form" onsubmit={(e) => { e.preventDefault(); submitEditThesis(); }}>
 					<div class="form-group">
 						<label for="edit-title">Title</label>
-						<input id="edit-title" type="text" bind:value={editTitle} required />
+						<input id="edit-title" type="text" bind:value={editTitle} maxlength="200" required />
 					</div>
 					<div class="form-group">
 						<label for="edit-desc">Description</label>
-						<textarea id="edit-desc" bind:value={editDescription} required></textarea>
+						<textarea id="edit-desc" bind:value={editDescription} maxlength="2000" required></textarea>
 					</div>
 					<div class="form-group">
 						<label for="edit-categories">Categories</label>
@@ -419,7 +419,7 @@
 
 					<div class="form-group">
 						<label for="arg-content">Your argument <span class="hint-inline">Links are auto-detected. Just paste URLs into your text.</span></label>
-						<textarea id="arg-content" bind:value={argContent} placeholder="State your reasoning. Paste sources as URLs — they will be classified automatically." required></textarea>
+						<textarea id="arg-content" bind:value={argContent} placeholder="State your reasoning. Paste sources as URLs — they will be classified automatically." maxlength="800" required></textarea>
 					</div>
 
 					<label class="emotional-check">

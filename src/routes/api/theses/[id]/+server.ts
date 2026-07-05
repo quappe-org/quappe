@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getThesisById, updateThesis, deleteThesis, computeVoteSummary } from '$lib/stores/data';
+import { checkLength, checkCategories } from '$lib/server/limits';
 
 export const GET: RequestHandler = async ({ params }) => {
 	const thesis = getThesisById(params.id);
@@ -17,6 +18,19 @@ export const GET: RequestHandler = async ({ params }) => {
 export const PUT: RequestHandler = async ({ params, request }) => {
 	const body = await request.json();
 	const { title, description, categories, user_id } = body;
+
+	if (title !== undefined) {
+		const err = checkLength('thesis_title', title);
+		if (err) return err;
+	}
+	if (description !== undefined) {
+		const err = checkLength('thesis_description', description);
+		if (err) return err;
+	}
+	if (categories !== undefined) {
+		const err = checkCategories(categories);
+		if (err) return err;
+	}
 
 	const result = updateThesis(params.id, { title, description, categories }, user_id);
 

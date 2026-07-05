@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getArgumentsForThesis, createArgument, setArgumentEmbedding } from '$lib/stores/data';
 import { deriveArgumentAttributes } from '$lib/utils/evidence';
 import { embed } from '$lib/server/embeddings';
+import { checkLength, checkRate, getClientIp } from '$lib/server/limits';
 
 export const GET: RequestHandler = async ({ url }) => {
 	const thesis_id = url.searchParams.get('thesis_id');
@@ -15,7 +16,7 @@ export const GET: RequestHandler = async ({ url }) => {
 	return json(args);
 };
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	const body = await request.json();
 	const {
 		thesis_id,
@@ -33,9 +34,16 @@ export const POST: RequestHandler = async ({ request }) => {
 		is_emotional?: boolean;
 	} = body;
 
+	const ip = getClientIp(request, getClientAddress());
+	const rate = checkRate(ip, typeof author_id === 'string' ? author_id : null, 'write_heavy');
+	if (rate) return rate;
+
 	if (!thesis_id || !content) {
 		return json({ error: 'Missing required fields: thesis_id, content' }, { status: 400 });
 	}
+
+	const contentErr = checkLength('argument_content', content);
+	if (contentErr) return contentErr;
 
 	if (!stance || !['support', 'reject'].includes(stance)) {
 		return json({ error: 'Missing or invalid stance. Must be "support" or "reject".' }, { status: 400 });

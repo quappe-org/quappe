@@ -3,14 +3,21 @@ import type { RequestHandler } from './$types';
 import { getThesesWithEmbeddings, getAllTheses, seedData } from '$lib/stores/data';
 import { embed } from '$lib/server/embeddings';
 import { findSimilarTheses, fulltextSearchTheses } from '$lib/server/similarity';
+import { LIMITS, checkRate, getClientIp } from '$lib/server/limits';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, request, getClientAddress }) => {
 	seedData();
 
-	const q = url.searchParams.get('q')?.trim() ?? '';
-	if (q.length < 2) {
+	const ip = getClientIp(request, getClientAddress());
+	const rate = checkRate(ip, null, 'read');
+	if (rate) return rate;
+
+	const raw = url.searchParams.get('q')?.trim() ?? '';
+	if (raw.length < 2) {
 		return json({ results: [], mode: 'empty' });
 	}
+	// Cap query length before it hits the embedding model.
+	const q = raw.length > LIMITS.search_query ? raw.slice(0, LIMITS.search_query) : raw;
 
 	const candidates = getThesesWithEmbeddings();
 

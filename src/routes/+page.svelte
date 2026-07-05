@@ -262,6 +262,7 @@
 				placeholder="Thesen suchen…"
 				bind:value={searchQuery}
 				oninput={onSearchInput}
+				maxlength="200"
 			/>
 			{#if searching}
 				<span class="search-spinner" aria-label="Searching"></span>
@@ -331,12 +332,12 @@
 
 				<div class="form-group">
 					<label for="thesis-title">Title</label>
-					<input id="thesis-title" type="text" bind:value={title} oninput={onFormTyping} placeholder="State your thesis clearly..." required />
+					<input id="thesis-title" type="text" bind:value={title} oninput={onFormTyping} placeholder="State your thesis clearly..." maxlength="200" required />
 				</div>
 
 				<div class="form-group">
 					<label for="thesis-desc">Description</label>
-					<textarea id="thesis-desc" bind:value={description} oninput={onFormTyping} placeholder="Provide context and nuance..." required></textarea>
+					<textarea id="thesis-desc" bind:value={description} oninput={onFormTyping} placeholder="Provide context and nuance..." maxlength="2000" required></textarea>
 				</div>
 
 				{#if similarLoading || similarExisting.length > 0}

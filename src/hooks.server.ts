@@ -1,4 +1,5 @@
 import type { Handle } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import { logger } from '$lib/stores/logger';
 import { warmupModel, embed, isModelWarm } from '$lib/server/embeddings';
 import { seedData, getAllTheses, setThesisEmbedding, hasThesisEmbedding } from '$lib/stores/data';
@@ -77,10 +78,27 @@ pulseLoop().catch(() => {});
  * We only log API routes and page loads to keep the noise low - static assets
  * are handled by Vite and don't need logs.
  */
+const MAX_BODY_BYTES = 32 * 1024; // 32 KB - well above our largest field cap
+
 export const handle: Handle = async ({ event, resolve }) => {
 	const path = event.url.pathname;
 	const isApi = path.startsWith('/api/');
 	const isAsset = /\.(css|js|png|jpg|jpeg|svg|ico|webp|woff2?)$/i.test(path);
+
+	// Hard body-size cap for API writes — first line of defence against
+	// multi-MB payload floods before any handler parses JSON.
+	if (isApi && event.request.method !== 'GET' && event.request.method !== 'HEAD') {
+		const cl = event.request.headers.get('content-length');
+		if (cl && Number(cl) > MAX_BODY_BYTES) {
+			logger.warn('api', `${event.request.method} ${path} rejected: body too large`, {
+				content_length: Number(cl)
+			});
+			return json(
+				{ error: `Request body exceeds ${MAX_BODY_BYTES} bytes` },
+				{ status: 413 }
+			);
+		}
+	}
 
 	const start = performance.now();
 	let response: Response;
