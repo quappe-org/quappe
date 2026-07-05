@@ -152,8 +152,6 @@ function aggregate(user_id: string): UpdatesBody {
 	};
 }
 
-export const GET: RequestHandler = async ({ url }) => {
-	const user_id = url.searchParams.get('user_id');
-	if (!user_id) return json({ error: 'user_id required' }, { status: 400 });
-	return json(aggregate(user_id));
+export const GET: RequestHandler = async ({ locals }) => {
+	return json(aggregate(locals.user_id));
 };

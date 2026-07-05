@@ -10,9 +10,9 @@ export const GET: RequestHandler = async ({ params }) => {
 	return json(arg);
 };
 
-export const PUT: RequestHandler = async ({ params, request }) => {
+export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	const body = await request.json();
-	const { content, is_emotional, user_id } = body;
+	const { content, is_emotional } = body;
 
 	// If content is updated we re-derive attributes from it.
 	let attributes = undefined;
@@ -22,14 +22,19 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		attributes = deriveArgumentAttributes(content, Boolean(is_emotional)).attributes;
 	}
 
-	const result = updateArgument(params.id, { content, attributes }, user_id);
+	const result = updateArgument(params.id, { content, attributes }, locals.user_id);
 	if ('error' in result) {
 		return json({ error: result.error }, { status: 403 });
 	}
 	return json(result);
 };
 
-export const DELETE: RequestHandler = async ({ params }) => {
+export const DELETE: RequestHandler = async ({ params, locals }) => {
+	const existing = getArgumentById(params.id);
+	if (!existing) return json({ error: 'Argument not found' }, { status: 404 });
+	if (existing.meta.author_id !== locals.user_id) {
+		return json({ error: 'Only the author can delete this argument' }, { status: 403 });
+	}
 	const ok = deleteArgument(params.id);
 	if (!ok) return json({ error: 'Argument not found' }, { status: 404 });
 	return json({ ok: true });

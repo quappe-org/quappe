@@ -115,8 +115,6 @@ function aggregateToday(user_id: string): BudgetToday {
 	};
 }
 
-export const GET: RequestHandler = async ({ url }) => {
-	const user_id = url.searchParams.get('user_id');
-	if (!user_id) return json({ error: 'user_id required' }, { status: 400 });
-	return json(aggregateToday(user_id));
+export const GET: RequestHandler = async ({ locals }) => {
+	return json(aggregateToday(locals.user_id));
 };

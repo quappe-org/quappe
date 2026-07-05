@@ -8,7 +8,7 @@
 	import { forkFeedStore } from '$lib/stores/fork-feed.svelte';
 	import { updatesStore } from '$lib/stores/updates.svelte';
 	import { updatesSeen } from '$lib/stores/updates-seen.svelte';
-	import { getUserId } from '$lib/stores/user';
+	import { bootstrapUserId } from '$lib/stores/user';
 	import ComplexitySlider from '$lib/components/ComplexitySlider.svelte';
 	import ActivityGraph from '$lib/components/ActivityGraph.svelte';
 	import Logo from '$lib/components/Logo.svelte';
@@ -65,8 +65,7 @@
 		if (typeof window === 'undefined') return;
 		if (budgetData && Date.now() - budgetFetchedAt < BUDGET_TTL_MS) return;
 		try {
-			const uid = getUserId();
-			const res = await fetch(`/api/budget/today?user_id=${encodeURIComponent(uid)}`);
+			const res = await fetch('/api/budget/today');
 			if (res.ok) {
 				budgetData = await res.json();
 				budgetFetchedAt = Date.now();
@@ -79,8 +78,12 @@
 
 	onMount(() => {
 		mounted = true;
-		ensureBudgetLoaded();
-		updatesStore.refresh();
+		// Sync client-side cache with server-set signed cookie BEFORE anything
+		// else touches user_id. Then load budget + updates.
+		bootstrapUserId().then(() => {
+			ensureBudgetLoaded();
+			updatesStore.refresh();
+		});
 		const pollId = setInterval(() => updatesStore.refresh(), 60_000);
 		return () => clearInterval(pollId);
 	});

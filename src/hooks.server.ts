@@ -5,6 +5,7 @@ import { warmupModel, embed, isModelWarm } from '$lib/server/embeddings';
 import { seedData, getAllTheses, setThesisEmbedding, hasThesisEmbedding } from '$lib/stores/data';
 import { refreshPulseCache } from '$lib/server/pulse';
 import { isLlmAvailable } from '$lib/server/llm';
+import { ensureUserId } from '$lib/server/identity';
 
 // Start warming the embedding model in the background at server startup.
 // First requests will still work via lazy load — this just speeds up the first real embed() call.
@@ -84,6 +85,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const path = event.url.pathname;
 	const isApi = path.startsWith('/api/');
 	const isAsset = /\.(css|js|png|jpg|jpeg|svg|ico|webp|woff2?)$/i.test(path);
+
+	// Establish (or verify) the signed-cookie identity. Every request lands
+	// here with a valid `locals.user_id` — handlers never need to trust
+	// user_id/author_id fields from the request body.
+	if (!isAsset) {
+		event.locals.user_id = ensureUserId(event.cookies);
+	}
 
 	// Hard body-size cap for API writes — first line of defence against
 	// multi-MB payload floods before any handler parses JSON.

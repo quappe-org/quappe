@@ -15,9 +15,9 @@ export const GET: RequestHandler = async ({ params }) => {
 	return json({ ...thesis, vote_summary: voteSummary });
 };
 
-export const PUT: RequestHandler = async ({ params, request }) => {
+export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	const body = await request.json();
-	const { title, description, categories, user_id } = body;
+	const { title, description, categories } = body;
 
 	if (title !== undefined) {
 		const err = checkLength('thesis_title', title);
@@ -32,7 +32,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		if (err) return err;
 	}
 
-	const result = updateThesis(params.id, { title, description, categories }, user_id);
+	const result = updateThesis(params.id, { title, description, categories }, locals.user_id);
 
 	if ('error' in result) {
 		return json({ error: result.error }, { status: 403 });
@@ -41,12 +41,14 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	return json(result);
 };
 
-export const DELETE: RequestHandler = async ({ params }) => {
-	const deleted = deleteThesis(params.id);
-
-	if (!deleted) {
-		return json({ error: 'Thesis not found' }, { status: 404 });
+export const DELETE: RequestHandler = async ({ params, locals }) => {
+	const existing = getThesisById(params.id);
+	if (!existing) return json({ error: 'Thesis not found' }, { status: 404 });
+	if (existing.meta.author_id !== locals.user_id) {
+		return json({ error: 'Only the author can delete this thesis' }, { status: 403 });
 	}
 
+	const deleted = deleteThesis(params.id);
+	if (!deleted) return json({ error: 'Thesis not found' }, { status: 404 });
 	return json({ success: true }, { status: 200 });
 };

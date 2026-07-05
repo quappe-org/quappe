@@ -52,10 +52,10 @@
 		reportLoading = true;
 		reportError = null;
 		try {
-			const uid = getUserId();
-			const qs = new URLSearchParams({ user_id: uid });
+			const qs = new URLSearchParams();
 			if (force) qs.set('force', 'true');
-			const res = await fetch(`/api/reports/me?${qs.toString()}`);
+			const suffix = qs.toString() ? `?${qs.toString()}` : '';
+			const res = await fetch(`/api/reports/me${suffix}`);
 			if (!res.ok) {
 				reportError = `Server antwortete ${res.status}`;
 				return;
@@ -95,8 +95,7 @@
 		if (typeof window === 'undefined') return;
 		budgetLoading = true;
 		try {
-			const uid = getUserId();
-			const res = await fetch(`/api/budget/today?user_id=${encodeURIComponent(uid)}`);
+			const res = await fetch('/api/budget/today');
 			if (res.ok) budget = await res.json();
 		} finally {
 			budgetLoading = false;

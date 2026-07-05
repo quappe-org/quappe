@@ -1,8 +1,7 @@
 // Session-scoped store for /my/updates events.
-// Fetched from /api/reports/updates. No localStorage — refreshed on demand
-// and via a 60s poll started from the root layout.
-
-import { getUserId } from './user';
+// Fetched from /api/reports/updates. Identity comes from the server's signed
+// cookie — no user_id in the URL. Refreshed on demand and via a 60s poll
+// started from the root layout.
 
 export type UpdateKind = 'fork' | 'new_argument' | 'vote_on_argument' | 'vote_on_thesis';
 
@@ -47,8 +46,7 @@ class UpdatesStore {
 		if (this.loading) return;
 		this.loading = true;
 		try {
-			const uid = getUserId();
-			const res = await fetch(`/api/reports/updates?user_id=${encodeURIComponent(uid)}`);
+			const res = await fetch('/api/reports/updates');
 			if (!res.ok) return;
 			const body = (await res.json()) as UpdatesResponse;
 			this.events = body.events;

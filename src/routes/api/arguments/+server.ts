@@ -16,26 +16,24 @@ export const GET: RequestHandler = async ({ url }) => {
 	return json(args);
 };
 
-export const POST: RequestHandler = async ({ request, getClientAddress }) => {
+export const POST: RequestHandler = async ({ request, getClientAddress, locals }) => {
 	const body = await request.json();
 	const {
 		thesis_id,
 		content,
 		stance,
 		forked_from_id,
-		author_id,
 		is_emotional
 	}: {
 		thesis_id: string;
 		content: string;
 		stance: 'support' | 'reject';
 		forked_from_id?: string;
-		author_id?: string;
 		is_emotional?: boolean;
 	} = body;
 
 	const ip = getClientIp(request, getClientAddress());
-	const rate = checkRate(ip, typeof author_id === 'string' ? author_id : null, 'write_heavy');
+	const rate = checkRate(ip, locals.user_id, 'write_heavy');
 	if (rate) return rate;
 
 	if (!thesis_id || !content) {
@@ -50,8 +48,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	}
 
 	const { attributes } = deriveArgumentAttributes(content, Boolean(is_emotional));
-	const final_author_id = author_id || crypto.randomUUID();
-	const result = createArgument(thesis_id, content, attributes, final_author_id, stance, forked_from_id);
+	const result = createArgument(thesis_id, content, attributes, locals.user_id, stance, forked_from_id);
 
 	if ('error' in result) {
 		return json({ error: result.error }, { status: 400 });

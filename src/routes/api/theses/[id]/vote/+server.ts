@@ -3,13 +3,13 @@ import type { RequestHandler } from './$types';
 import { voteOnThesis, computeVoteSummary } from '$lib/stores/data';
 import { checkRate, getClientIp } from '$lib/server/limits';
 
-export const POST: RequestHandler = async ({ params, request, getClientAddress }) => {
+export const POST: RequestHandler = async ({ params, request, getClientAddress, locals }) => {
 	const body = await request.json();
 	const { type, weight } = body;
-	const user_id = body.user_id || crypto.randomUUID();
+	const user_id = locals.user_id;
 
 	const ip = getClientIp(request, getClientAddress());
-	const rate = checkRate(ip, typeof body.user_id === 'string' ? body.user_id : null, 'write_light');
+	const rate = checkRate(ip, user_id, 'write_light');
 	if (rate) return rate;
 
 	if (!type || !['support', 'reject', 'neutral'].includes(type)) {
