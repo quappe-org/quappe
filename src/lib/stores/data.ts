@@ -644,6 +644,66 @@ export function getThesesVotedByUser(user_id: string): { thesis: Thesis; voteTyp
 	return out;
 }
 
+/**
+ * All votes (thesis + argument) cast by user with cast_at >= sinceIso.
+ * Used for budget/activity reconstruction — includes weight so callers can
+ * separate free votes (weight=1) from weighted votes (weight>1).
+ */
+export function getVotesByUserSince(
+	user_id: string,
+	sinceIso: string
+): {
+	target: 'thesis' | 'argument';
+	target_id: string;
+	thesis_id: string;
+	thesis_title: string;
+	vote_type: string;
+	weight: number;
+	cast_at: string;
+}[] {
+	const out: {
+		target: 'thesis' | 'argument';
+		target_id: string;
+		thesis_id: string;
+		thesis_title: string;
+		vote_type: string;
+		weight: number;
+		cast_at: string;
+	}[] = [];
+	for (const t of getAllTheses()) {
+		for (const v of t.votes) {
+			if (v.user_id === user_id && v.cast_at >= sinceIso) {
+				out.push({
+					target: 'thesis',
+					target_id: t.id,
+					thesis_id: t.id,
+					thesis_title: t.title,
+					vote_type: v.type,
+					weight: v.weight,
+					cast_at: v.cast_at
+				});
+			}
+		}
+	}
+	for (const a of arguments_store.values()) {
+		for (const v of a.votes) {
+			if (v.user_id === user_id && v.cast_at >= sinceIso) {
+				const parent = theses.get(a.thesis_id);
+				out.push({
+					target: 'argument',
+					target_id: a.id,
+					thesis_id: a.thesis_id,
+					thesis_title: parent?.title ?? '(unknown thesis)',
+					vote_type: v.type,
+					weight: v.weight,
+					cast_at: v.cast_at
+				});
+			}
+		}
+	}
+	return out;
+}
+
 export function createArgument(
 	thesis_id: string,
 	content: string,

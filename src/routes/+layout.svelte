@@ -6,6 +6,7 @@
 	import { activityStore } from '$lib/stores/activity.svelte';
 	import { uiIntents } from '$lib/stores/ui.svelte';
 	import { forkFeedStore } from '$lib/stores/fork-feed.svelte';
+	import { getUserId } from '$lib/stores/user';
 	import ComplexitySlider from '$lib/components/ComplexitySlider.svelte';
 	import ActivityGraph from '$lib/components/ActivityGraph.svelte';
 	import Logo from '$lib/components/Logo.svelte';
@@ -33,6 +34,61 @@
 	async function newThesis() {
 		uiIntents.requestNewThesis();
 		if (currentPath !== '/') await goto('/');
+	}
+
+	// ---- Budget expand ----
+	interface BudgetEventLite {
+		kind: 'thesis' | 'argument' | 'weight_vote';
+		at: string;
+		thesis_id: string;
+		thesis_title: string;
+		stance?: 'support' | 'reject';
+		title?: string;
+		vote_type?: string;
+		extra_weight?: number;
+	}
+	interface BudgetLite {
+		date: string;
+		events: BudgetEventLite[];
+	}
+	let budgetExpanded = $state(false);
+	let budgetData = $state<BudgetLite | null>(null);
+	let budgetFetchedAt = 0;
+	const BUDGET_TTL_MS = 60_000;
+
+	async function ensureBudgetLoaded() {
+		if (typeof window === 'undefined') return;
+		if (budgetData && Date.now() - budgetFetchedAt < BUDGET_TTL_MS) return;
+		try {
+			const uid = getUserId();
+			const res = await fetch(`/api/budget/today?user_id=${encodeURIComponent(uid)}`);
+			if (res.ok) {
+				budgetData = await res.json();
+				budgetFetchedAt = Date.now();
+			}
+		} catch {
+			// silent — the /my page has full details anyway
+		}
+	}
+
+	function toggleBudget() {
+		budgetExpanded = !budgetExpanded;
+		if (budgetExpanded) ensureBudgetLoaded();
+	}
+
+	function fmtTime(iso: string): string {
+		try {
+			return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+		} catch {
+			return iso;
+		}
+	}
+
+	function eventLabel(e: BudgetEventLite): string {
+		if (e.kind === 'thesis') return `These: ${e.title ?? e.thesis_title}`;
+		if (e.kind === 'argument') return `${e.stance === 'support' ? '+' : '−'} ${e.thesis_title}`;
+		if (e.kind === 'weight_vote') return `×${(e.extra_weight ?? 0) + 1} ${e.vote_type} · ${e.thesis_title}`;
+		return '';
 	}
 </script>
 
@@ -144,8 +200,11 @@
 				</div>
 			{/if}
 
-			<div class="panel">
-				<h3 class="panel-title">Daily Budget</h3>
+			<div class="panel budget-panel">
+				<button class="budget-header" onclick={toggleBudget} aria-expanded={budgetExpanded}>
+					<h3 class="panel-title">Daily Budget</h3>
+					<svg class="budget-chevron" class:budget-chevron-open={budgetExpanded} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+				</button>
 				<p class="panel-hint">Creating costs budget. Resets daily.</p>
 				<div class="budget-list">
 					<div class="budget-row">
@@ -170,6 +229,29 @@
 						<span class="budget-count" class:low={budgetStore.reject === 0}>{budgetStore.reject}/{budgetStore.limit}</span>
 					</div>
 				</div>
+
+				{#if budgetExpanded}
+					<div class="budget-expand">
+						{#if !budgetData}
+							<p class="budget-empty">Lade Details …</p>
+						{:else if budgetData.events.length === 0}
+							<p class="budget-empty">Heute noch keine Ausgaben.</p>
+						{:else}
+							<ul class="budget-events">
+								{#each budgetData.events.slice(0, 5) as ev}
+									<li class="budget-event">
+										<time class="budget-event-time">{fmtTime(ev.at)}</time>
+										<a class="budget-event-label" href="/thesis/{ev.thesis_id}">{eventLabel(ev)}</a>
+									</li>
+								{/each}
+								{#if budgetData.events.length > 5}
+									<li class="budget-event budget-more">… und {budgetData.events.length - 5} weitere</li>
+								{/if}
+							</ul>
+						{/if}
+						<a href="/my#budget" class="budget-details-link">Details ansehen →</a>
+					</div>
+				{/if}
 			</div>
 
 			{#if activityStore.data.length > 0}
@@ -609,5 +691,98 @@
 	.fork-action-new:hover:not(:disabled) {
 		background: #047857;
 		border-color: #047857;
+	}
+
+	/* Budget expand */
+	.budget-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		background: none;
+		border: none;
+		padding: 0;
+		margin: 0;
+		cursor: pointer;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+	}
+
+	.budget-header:hover .panel-title {
+		color: var(--color-primary);
+	}
+
+	.budget-chevron {
+		color: var(--color-text-muted);
+		transition: transform var(--transition-fast);
+	}
+
+	.budget-chevron-open {
+		transform: rotate(180deg);
+	}
+
+	.budget-expand {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding-top: 0.5rem;
+		border-top: 1px dashed var(--color-border);
+	}
+
+	.budget-empty {
+		font-size: var(--text-xs);
+		color: var(--color-text-muted);
+		margin: 0;
+	}
+
+	.budget-events {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+	}
+
+	.budget-event {
+		display: grid;
+		grid-template-columns: 2.5rem 1fr;
+		gap: 0.4rem;
+		align-items: baseline;
+		font-size: var(--text-xs);
+	}
+
+	.budget-event-time {
+		font-family: var(--font-mono);
+		color: var(--color-text-light);
+	}
+
+	.budget-event-label {
+		color: var(--color-text);
+		text-decoration: none;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.budget-event-label:hover {
+		color: var(--color-primary);
+	}
+
+	.budget-more {
+		color: var(--color-text-light);
+		font-style: italic;
+	}
+
+	.budget-details-link {
+		font-size: var(--text-xs);
+		color: var(--color-primary);
+		text-decoration: none;
+		align-self: flex-end;
+	}
+
+	.budget-details-link:hover {
+		text-decoration: underline;
 	}
 </style>

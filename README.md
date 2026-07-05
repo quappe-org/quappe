@@ -82,28 +82,42 @@ On first request the store seeds ~200 example theses.
 
 ### Optional: local LLM (Ollama)
 
-The reflection reports on `/my` and `/pulse` use a local Ollama server.
-Without it, the pages still render — they just show the raw stats plus a
-"LLM nicht verfügbar" note.
+The reflection reports on `/my` (Mein Standpunkt) and `/pulse` (Community
+Puls) use a local [Ollama](https://ollama.com) server. Without it, both
+pages still render — you just see the raw stats plus a "LLM nicht
+verfügbar" note where the generated prose would go. Nothing else in Quappe
+depends on the LLM.
 
-1. Install [Ollama](https://ollama.com) (`brew install ollama` on macOS).
-2. Pull the default model: `ollama pull llama3.1:8b`.
-3. Start Ollama and Quappe together:
+**Install Ollama:**
 
-   ```sh
-   npm run dev:all
-   ```
+- macOS: `brew install ollama` (or download from ollama.com)
+- Linux: `curl -fsSL https://ollama.com/install.sh | sh`
+- Windows: installer from [ollama.com/download](https://ollama.com/download)
 
-   This runs `ollama serve` and `vite dev` in one terminal via
-   `concurrently`. Ctrl+C stops both.
+**Pull the default model** (~4.7 GB, one-time):
 
-   Prefer separate terminals? Run `ollama serve` in one and `npm run dev`
-   in the other.
+```sh
+ollama pull llama3.1:8b
+```
 
-Override defaults via env:
+**Start Ollama and Quappe together:**
+
+```sh
+npm run dev:all
+```
+
+This runs `ollama serve` and `vite dev` in one terminal via
+`concurrently`. Ctrl+C stops both. Prefer separate terminals? Run
+`ollama serve` in one and `npm run dev` in the other.
+
+**Verify Ollama is up:** `curl http://127.0.0.1:11434/api/version` should
+return a JSON version string. If not, `/my` and `/pulse` will show
+"Ollama läuft nicht auf …" as their hint.
+
+**Env overrides:**
 
 - `OLLAMA_URL` — default `http://127.0.0.1:11434`
-- `OLLAMA_MODEL` — default `llama3.1:8b`
+- `OLLAMA_MODEL` — default `llama3.1:8b` (any Ollama-pulled model works)
 - `OLLAMA_TIMEOUT` — default `60000` (ms)
 
 ### Stress test
