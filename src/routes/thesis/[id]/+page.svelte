@@ -181,17 +181,17 @@
 	}
 
 	async function extractError(res: Response): Promise<string> {
-		if (res.status === 429) return 'Zu viele Anfragen — warte einen Moment und versuch es nochmal.';
-		if (res.status === 413) return 'Text zu lang — bitte kürzen.';
+		if (res.status === 429) return 'Too many requests — wait a moment and try again.';
+		if (res.status === 413) return 'Text too long — please shorten it.';
 		if (res.status === 403) {
 			const body = await res.json().catch(() => ({}));
-			return body?.error ?? 'Nicht erlaubt.';
+			return body?.error ?? 'Not allowed.';
 		}
 		if (res.status === 400) {
 			const body = await res.json().catch(() => ({}));
-			return body?.error ?? 'Ungültige Eingabe.';
+			return body?.error ?? 'Invalid input.';
 		}
-		return `Server antwortete ${res.status}. Bitte nochmal versuchen.`;
+		return `Server responded ${res.status}. Please try again.`;
 	}
 
 	async function submitArgument() {

@@ -203,14 +203,14 @@
 			});
 			if (!res.ok) {
 				if (res.status === 429) {
-					createError = 'Zu viele Anfragen — warte einen Moment und versuch es nochmal.';
+					createError = 'Too many requests — wait a moment and try again.';
 				} else if (res.status === 413) {
-					createError = 'Text zu lang — bitte kürzen.';
+					createError = 'Text too long — please shorten it.';
 				} else if (res.status === 400) {
 					const body = await res.json().catch(() => ({}));
-					createError = body?.error ?? 'Ungültige Eingabe.';
+					createError = body?.error ?? 'Invalid input.';
 				} else {
-					createError = `Server antwortete ${res.status}. Bitte nochmal versuchen.`;
+					createError = `Server responded ${res.status}. Please try again.`;
 				}
 				return;
 			}
@@ -272,7 +272,7 @@
 			<input
 				type="search"
 				class="search-input"
-				placeholder="Thesen suchen…"
+				placeholder="Search theses…"
 				bind:value={searchQuery}
 				oninput={onSearchInput}
 				maxlength="200"
@@ -285,11 +285,11 @@
 
 	{#if suggestedCategories.length > 0}
 		<div class="suggestion-banner">
-			<span class="suggestion-label">Vorschlag:</span>
+			<span class="suggestion-label">Suggested:</span>
 			{#each suggestedCategories as cat}
 				<span class="suggestion-cat">{cat}</span>
 			{/each}
-			<button class="btn btn-sm suggestion-apply" onclick={applySuggested}>Übernehmen</button>
+			<button class="btn btn-sm suggestion-apply" onclick={applySuggested}>Apply</button>
 			<button class="suggestion-dismiss" onclick={() => { suggestedCategories = []; suggestedForThesis = null; }}>×</button>
 		</div>
 	{/if}
@@ -299,7 +299,7 @@
 		<div class="section">
 			<div class="section-head">
 				<span class="section-filter-active">
-					{searchMode === 'semantic' ? 'Semantische Suche' : searchMode === 'fulltext' ? 'Volltextsuche' : 'Suche'}
+					{searchMode === 'semantic' ? 'Semantic search' : searchMode === 'fulltext' ? 'Full-text search' : 'Search'}
 				</span>
 				<span class="section-meta">{searchResults.length} Treffer</span>
 			</div>
@@ -310,7 +310,7 @@
 					{/each}
 				</div>
 			{:else if !searching}
-				<p class="empty-state">Keine Treffer für „{searchQuery}".</p>
+				<p class="empty-state">No matches for "{searchQuery}".</p>
 			{/if}
 		</div>
 	{:else}
@@ -367,9 +367,9 @@
 				{#if similarLoading || similarExisting.length > 0}
 					<div class="similar-existing">
 						<div class="similar-head">
-							<span class="similar-label">Gibt es das schon?</span>
+							<span class="similar-label">Already exists?</span>
 							{#if similarLoading}
-								<span class="search-spinner" aria-label="Suche"></span>
+								<span class="search-spinner" aria-label="Searching"></span>
 							{/if}
 						</div>
 						{#if similarExisting.length > 0}
