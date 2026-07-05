@@ -1,4 +1,41 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"paraglide_smoke_test": "Quappe speaks English."
+	"paraglide_smoke_test": "Quappe speaks English.",
+
+	"nav_trending": "Trending",
+	"nav_top": "Top",
+	"nav_my_theses": "My Theses",
+	"nav_updates": "Updates",
+	"nav_community_pulse": "Community Pulse",
+	"nav_about": "About",
+	"nav_settings": "Settings",
+	"nav_new_thesis": "New Thesis",
+	"nav_new_thesis_disabled_hint": "Daily budget for theses depleted",
+	"nav_new_thesis_hint": "Create a new thesis",
+
+	"panel_fork_updates_title": "Fork Updates",
+	"panel_fork_updates_hint": "Arguments you voted on have been forked.",
+	"panel_fork_updates_old_label": "Old",
+	"panel_fork_updates_new_label": "New",
+	"panel_fork_updates_keep_old": "Keep old",
+	"panel_fork_updates_switch_new": "Switch to new",
+
+	"panel_budget_title": "Daily Budget",
+	"panel_budget_hint": "Creating costs budget. Resets daily.",
+	"panel_budget_theses": "Theses",
+	"panel_budget_support_args": "Support args",
+	"panel_budget_reject_args": "Reject args",
+	"panel_budget_loading": "Loading details …",
+	"panel_budget_empty": "No spending today.",
+	"panel_budget_more_events": "… and {count} more",
+	"panel_budget_details_link": "View details →",
+	"panel_budget_event_thesis": "Thesis: {title}",
+
+	"panel_complexity_title": "Complexity",
+	"panel_language_title": "Language",
+
+	"lang_en": "English",
+	"lang_de": "Deutsch",
+	"lang_fr": "Français",
+	"lang_es": "Español"
 }

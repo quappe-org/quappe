@@ -1,4 +1,41 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"paraglide_smoke_test": "Quappe habla español."
+	"paraglide_smoke_test": "Quappe habla español.",
+
+	"nav_trending": "TODO_TRANSLATE:Trending",
+	"nav_top": "TODO_TRANSLATE:Top",
+	"nav_my_theses": "TODO_TRANSLATE:My Theses",
+	"nav_updates": "TODO_TRANSLATE:Updates",
+	"nav_community_pulse": "TODO_TRANSLATE:Community Pulse",
+	"nav_about": "TODO_TRANSLATE:About",
+	"nav_settings": "TODO_TRANSLATE:Settings",
+	"nav_new_thesis": "TODO_TRANSLATE:New Thesis",
+	"nav_new_thesis_disabled_hint": "TODO_TRANSLATE:Daily budget for theses depleted",
+	"nav_new_thesis_hint": "TODO_TRANSLATE:Create a new thesis",
+
+	"panel_fork_updates_title": "TODO_TRANSLATE:Fork Updates",
+	"panel_fork_updates_hint": "TODO_TRANSLATE:Arguments you voted on have been forked.",
+	"panel_fork_updates_old_label": "TODO_TRANSLATE:Old",
+	"panel_fork_updates_new_label": "TODO_TRANSLATE:New",
+	"panel_fork_updates_keep_old": "TODO_TRANSLATE:Keep old",
+	"panel_fork_updates_switch_new": "TODO_TRANSLATE:Switch to new",
+
+	"panel_budget_title": "TODO_TRANSLATE:Daily Budget",
+	"panel_budget_hint": "TODO_TRANSLATE:Creating costs budget. Resets daily.",
+	"panel_budget_theses": "TODO_TRANSLATE:Theses",
+	"panel_budget_support_args": "TODO_TRANSLATE:Support args",
+	"panel_budget_reject_args": "TODO_TRANSLATE:Reject args",
+	"panel_budget_loading": "TODO_TRANSLATE:Loading details …",
+	"panel_budget_empty": "TODO_TRANSLATE:No spending today.",
+	"panel_budget_more_events": "TODO_TRANSLATE:… and {count} more",
+	"panel_budget_details_link": "TODO_TRANSLATE:View details →",
+	"panel_budget_event_thesis": "TODO_TRANSLATE:Thesis: {title}",
+
+	"panel_complexity_title": "TODO_TRANSLATE:Complexity",
+	"panel_language_title": "TODO_TRANSLATE:Language",
+
+	"lang_en": "English",
+	"lang_de": "Deutsch",
+	"lang_fr": "Français",
+	"lang_es": "Español"
 }
