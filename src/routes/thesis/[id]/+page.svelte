@@ -11,6 +11,7 @@
 	import ForkLines from '$lib/components/ForkLines.svelte';
 	import VoteRow from '$lib/components/VoteRow.svelte';
 	import type { ActivityDay } from '$lib/stores/data';
+	import { m } from '$lib/paraglide/messages';
 
 	let { data } = $props();
 
@@ -34,8 +35,8 @@
 		activityStore.set(
 			data.activity ?? [],
 			data.thesis
-				? `Activity: ${data.thesis.title.slice(0, 30)}${data.thesis.title.length > 30 ? '…' : ''}`
-				: 'Thesis activity'
+				? m.thesis_activity_title({ title: `${data.thesis.title.slice(0, 30)}${data.thesis.title.length > 30 ? '…' : ''}` })
+				: m.thesis_activity_fallback()
 		);
 		if (data.arguments && data.thesis) {
 			forkFeedStore.update(data.arguments, data.thesis.title);
@@ -181,17 +182,17 @@
 	}
 
 	async function extractError(res: Response): Promise<string> {
-		if (res.status === 429) return 'Too many requests — wait a moment and try again.';
-		if (res.status === 413) return 'Text too long — please shorten it.';
+		if (res.status === 429) return m.error_too_many_requests();
+		if (res.status === 413) return m.error_text_too_long();
 		if (res.status === 403) {
 			const body = await res.json().catch(() => ({}));
-			return body?.error ?? 'Not allowed.';
+			return body?.error ?? m.error_not_allowed();
 		}
 		if (res.status === 400) {
 			const body = await res.json().catch(() => ({}));
-			return body?.error ?? 'Invalid input.';
+			return body?.error ?? m.error_invalid_input();
 		}
-		return `Server responded ${res.status}. Please try again.`;
+		return m.error_server_generic({ status: res.status });
 	}
 
 	async function submitArgument() {
@@ -300,7 +301,7 @@
 	async function toggleArchive() {
 		if (!thesis) return;
 		const newState = !thesis.archived;
-		if (!confirm(newState ? 'Archive this thesis?' : 'Unarchive this thesis?')) return;
+		if (!confirm(newState ? m.thesis_admin_confirm_archive() : m.thesis_admin_confirm_unarchive())) return;
 		const res = await fetch(`/api/theses/${thesis.id}/archive`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -315,10 +316,10 @@
 
 {#if thesis}
 	<article class="thesis-detail" class:archived={thesis.archived}>
-		<a href="/" class="back-link">← Back</a>
+		<a href="/" class="back-link">{m.thesis_back()}</a>
 
 		{#if thesis.archived}
-			<div class="archived-banner">This thesis has been archived.</div>
+			<div class="archived-banner">{m.thesis_archived_banner()}</div>
 		{/if}
 
 		<!-- Thesis tile -->
@@ -326,15 +327,15 @@
 			{#if editingThesis}
 				<form class="edit-form" onsubmit={(e) => { e.preventDefault(); submitEditThesis(); }}>
 					<div class="form-group">
-						<label for="edit-title">Title</label>
+						<label for="edit-title">{m.thesis_edit_title_label()}</label>
 						<input id="edit-title" type="text" bind:value={editTitle} maxlength="200" required />
 					</div>
 					<div class="form-group">
-						<label for="edit-desc">Description</label>
+						<label for="edit-desc">{m.thesis_edit_desc_label()}</label>
 						<textarea id="edit-desc" bind:value={editDescription} maxlength="2000" required></textarea>
 					</div>
 					<div class="form-group">
-						<label for="edit-categories">Categories</label>
+						<label for="edit-categories">{m.thesis_edit_categories_label()}</label>
 						<div class="category-grid" id="edit-categories">
 							{#each categoriesStore.list as cat}
 								<button
@@ -348,9 +349,9 @@
 					</div>
 					<div class="form-actions">
 						<button class="btn btn-primary" type="submit" disabled={editSubmitting}>
-							{editSubmitting ? 'Saving...' : 'Save changes'}
+							{editSubmitting ? m.thesis_edit_saving() : m.thesis_edit_save()}
 						</button>
-						<button class="btn" type="button" onclick={() => (editingThesis = false)}>Cancel</button>
+						<button class="btn" type="button" onclick={() => (editingThesis = false)}>{m.thesis_edit_cancel()}</button>
 					</div>
 				</form>
 			{:else}
@@ -361,13 +362,13 @@
 					{#each thesis.categories as category}
 						<span class="tag">{category}</span>
 					{/each}
-					<span class="tag lifecycle-tag lifecycle-{thesis.lifecycle?.state ?? 'seedling'}" title="Lifecycle state">
+					<span class="tag lifecycle-tag lifecycle-{thesis.lifecycle?.state ?? 'seedling'}" title={m.thesis_lifecycle_title()}>
 						{thesis.lifecycle?.state ?? 'seedling'}
 					</span>
 				</div>
 
 				{#if voteSummary && voteSummary.total > 0}
-					<div class="thesis-vote-bar-wrap" title="+{voteSummary.support} support · −{voteSummary.reject} reject · ~{voteSummary.neutral} neutral">
+					<div class="thesis-vote-bar-wrap" title={m.thesis_vote_summary_title({ support: voteSummary.support, reject: voteSummary.reject, neutral: voteSummary.neutral })}>
 						<div class="thesis-vote-bar">
 							{#if voteSummary.support > 0}
 								<span class="tvb-seg tvb-support" style="flex: {voteSummary.support}"></span>
@@ -382,7 +383,7 @@
 						<div class="thesis-vote-nums">
 							<span class="tvn-support">+{voteSummary.support}</span>
 							<span class="tvn-reject">−{voteSummary.reject}</span>
-							<span class="tvn-voters">{abbreviateNumber(voteSummary.voters ?? 0)} voter{(voteSummary.voters ?? 0) === 1 ? '' : 's'}</span>
+							<span class="tvn-voters">{(voteSummary.voters ?? 0) === 1 ? m.thesis_vote_voters_one({ count: abbreviateNumber(voteSummary.voters ?? 0) }) : m.thesis_vote_voters_other({ count: abbreviateNumber(voteSummary.voters ?? 0) })}</span>
 						</div>
 					</div>
 				{/if}
@@ -399,10 +400,10 @@
 					{/if}
 					<div class="thesis-admin-row">
 						{#if isAuthor}
-							<button class="btn btn-sm" onclick={openEditThesis}>Edit</button>
+							<button class="btn btn-sm" onclick={openEditThesis}>{m.thesis_admin_edit()}</button>
 						{/if}
 						<button class="btn btn-sm" onclick={toggleArchive}>
-							{thesis.archived ? 'Unarchive' : 'Archive'}
+							{thesis.archived ? m.thesis_admin_unarchive() : m.thesis_admin_archive()}
 						</button>
 					</div>
 				</div>
@@ -413,11 +414,11 @@
 			{#if showArgForm}
 				<form class="card argument-form" onsubmit={(e) => { e.preventDefault(); submitArgument(); }}>
 					<h3 class="form-title">
-						{#if argFormMode === 'edit'}Edit argument{:else if argFormMode === 'fork'}Fork &amp; adapt{:else}New argument{/if}
+						{#if argFormMode === 'edit'}{m.argform_title_edit()}{:else if argFormMode === 'fork'}{m.argform_title_fork()}{:else}{m.argform_title_new()}{/if}
 					</h3>
 
 					{#if argFormMode === 'fork'}
-						<p class="form-hint">You are creating a new argument based on an existing one. Both will exist in parallel.</p>
+						<p class="form-hint">{m.argform_fork_hint()}</p>
 					{/if}
 
 					{#if argFormMode !== 'edit'}
@@ -428,32 +429,32 @@
 								class:stance-support={argStance === 'support'}
 								onclick={() => argFormMode !== 'fork' && (argStance = 'support')}
 								disabled={argFormMode === 'fork'}
-							>Supports thesis</button>
+							>{m.argform_stance_support()}</button>
 							<button
 								type="button"
 								class="btn btn-sm stance-btn"
 								class:stance-reject={argStance === 'reject'}
 								onclick={() => argFormMode !== 'fork' && (argStance = 'reject')}
 								disabled={argFormMode === 'fork'}
-							>Rejects thesis</button>
+							>{m.argform_stance_reject()}</button>
 						</div>
 					{/if}
 
 					<div class="form-group">
-						<label for="arg-content">Your argument <span class="hint-inline">Links are auto-detected. Just paste URLs into your text.</span></label>
-						<textarea id="arg-content" bind:value={argContent} placeholder="State your reasoning. Paste sources as URLs — they will be classified automatically." maxlength="800" required></textarea>
+						<label for="arg-content">{m.argform_content_label()} <span class="hint-inline">{m.argform_content_hint()}</span></label>
+						<textarea id="arg-content" bind:value={argContent} placeholder={m.argform_content_placeholder()} maxlength="800" required></textarea>
 					</div>
 
 					<label class="emotional-check">
 						<input type="checkbox" bind:checked={argIsEmotional} />
-						<span>This is an emotional argument <span class="hint-inline">(Herzensangelegenheit — a heart matter. Overrides evidence detection.)</span></span>
+						<span>{m.argform_emotional_label()} <span class="hint-inline">{m.argform_emotional_hint()}</span></span>
 					</label>
 
 					<div class="form-actions">
 						<button class="btn btn-primary" type="submit" disabled={argSubmitting}>
-							{#if argSubmitting}Submitting...{:else if argFormMode === 'edit'}Save changes{:else if argFormMode === 'fork'}Submit fork{:else}Submit{/if}
+							{#if argSubmitting}{m.argform_submitting()}{:else if argFormMode === 'edit'}{m.argform_submit_edit()}{:else if argFormMode === 'fork'}{m.argform_submit_fork()}{:else}{m.argform_submit_new()}{/if}
 						</button>
-						<button class="btn" type="button" onclick={cancelArgForm}>Cancel</button>
+						<button class="btn" type="button" onclick={cancelArgForm}>{m.argform_cancel()}</button>
 					</div>
 
 					{#if argError}
@@ -467,15 +468,15 @@
 					<div class="col-header">
 						<h2 class="col-title">
 							<span class="col-marker" aria-hidden="true"></span>
-							Supporting
+							{m.argcol_supporting()}
 							<span class="col-count">({totalSupport})</span>
 						</h2>
 						<button
 							class="btn btn-sm add-arg-btn"
 							onclick={() => openNewArg('support')}
 							disabled={!budgetStore.canCreate('support')}
-							title={!budgetStore.canCreate('support') ? 'Daily budget for support arguments depleted' : ''}
-						>+ argument ({budgetStore.support})</button>
+							title={!budgetStore.canCreate('support') ? m.argcol_add_disabled_support() : ''}
+						>{m.argcol_add_arg({ remaining: budgetStore.support })}</button>
 					</div>
 					<div class="arguments-list" bind:this={supportColRef}>
 						<ForkLines arguments={supportArgs} container={supportColRef} />
@@ -489,7 +490,7 @@
 							/>
 						{/each}
 						{#if supportArgs.length === 0}
-							<p class="col-empty">No supporting arguments yet.</p>
+							<p class="col-empty">{m.argcol_empty_support()}</p>
 						{/if}
 					</div>
 				</div>
@@ -498,15 +499,15 @@
 					<div class="col-header">
 						<h2 class="col-title">
 							<span class="col-marker" aria-hidden="true"></span>
-							Rejecting
+							{m.argcol_rejecting()}
 							<span class="col-count">({totalReject})</span>
 						</h2>
 						<button
 							class="btn btn-sm add-arg-btn"
 							onclick={() => openNewArg('reject')}
 							disabled={!budgetStore.canCreate('reject')}
-							title={!budgetStore.canCreate('reject') ? 'Daily budget for reject arguments depleted' : ''}
-						>+ argument ({budgetStore.reject})</button>
+							title={!budgetStore.canCreate('reject') ? m.argcol_add_disabled_reject() : ''}
+						>{m.argcol_add_arg({ remaining: budgetStore.reject })}</button>
 					</div>
 					<div class="arguments-list" bind:this={rejectColRef}>
 						<ForkLines arguments={rejectArgs} container={rejectColRef} />
@@ -520,7 +521,7 @@
 							/>
 						{/each}
 						{#if rejectArgs.length === 0}
-							<p class="col-empty">No rejecting arguments yet.</p>
+							<p class="col-empty">{m.argcol_empty_reject()}</p>
 						{/if}
 					</div>
 				</div>
@@ -530,9 +531,9 @@
 		{#if visibleRelated.length > 0}
 			<aside class="related-panel">
 				<div class="related-head">
-					<span class="related-title">Verwandte Thesen</span>
-					<span class="related-mode" title={relatedMode === 'semantic' ? 'Ranked by semantic similarity' : 'Ranked by shared categories'}>
-						{relatedMode === 'semantic' ? 'semantisch' : 'thematisch'}
+					<span class="related-title">{m.related_title()}</span>
+					<span class="related-mode" title={relatedMode === 'semantic' ? m.related_mode_semantic_title() : m.related_mode_thematic_title()}>
+						{relatedMode === 'semantic' ? m.related_mode_semantic() : m.related_mode_thematic()}
 					</span>
 				</div>
 				<ul class="related-list">
@@ -554,8 +555,8 @@
 	</article>
 {:else}
 	<div class="not-found">
-		<h1>Thesis not found</h1>
-		<a href="/" class="btn btn-primary">Back to home</a>
+		<h1>{m.not_found_thesis_title()}</h1>
+		<a href="/" class="btn btn-primary">{m.not_found_back_home()}</a>
 	</div>
 {/if}
 
