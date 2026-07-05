@@ -341,7 +341,18 @@
 
 		{#if showForm}
 			<form class="card create-form" onsubmit={(e) => { e.preventDefault(); createThesis(); }}>
-				<h2 class="form-title">Create a Thesis</h2>
+				<div class="form-header">
+					<h2 class="form-title">Create a Thesis</h2>
+					<button
+						type="button"
+						class="form-close"
+						aria-label="Close"
+						title="Close"
+						onclick={() => { showForm = false; similarExisting = []; createError = null; }}
+					>
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+					</button>
+				</div>
 
 				<div class="form-group">
 					<label for="thesis-title">Title</label>
@@ -585,10 +596,37 @@
 		font-size: var(--text-sm);
 	}
 
+	.form-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+
 	.form-title {
 		font-size: var(--text-lg);
 		font-weight: 600;
 		margin: 0;
+	}
+
+	.form-close {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		height: 2rem;
+		padding: 0;
+		border: 1px solid transparent;
+		background: transparent;
+		color: var(--color-text-muted);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
+
+	.form-close:hover {
+		background: var(--color-reject-bg);
+		border-color: var(--color-reject);
+		color: var(--color-reject);
 	}
 
 	.form-group {
