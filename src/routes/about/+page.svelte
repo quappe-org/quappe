@@ -34,6 +34,7 @@
 				<li><strong>Fork instead of reply.</strong> Disagree with an argument? Copy it, adapt it, and let the crowd vote.</li>
 				<li><strong>Votes</strong> are free. Creating costs a small daily budget — to encourage thoughtfulness.</li>
 				<li><strong>Complexity slider</strong> controls how much you see at once.</li>
+				<li><strong>Updates feed (<a href="/my/updates">/my/updates</a>)</strong> — see who forks your arguments, who reacts to your theses. Adjust your position when it matters.</li>
 			</ul>
 		</section>
 
@@ -142,6 +143,12 @@
 					theses, arguments and votes are sent only to <code>http://127.0.0.1:11434</code>
 					on your own machine. If Ollama is not running, the pages fall back to raw
 					stats — no third-party LLM is ever contacted.
+				</li>
+				<li>
+					<strong>Updates feed.</strong> <a href="/my/updates">/my/updates</a> aggregates
+					reactions to your content (forks, new arguments, votes) from the server-side
+					data. The "last seen" timestamp lives in <code>localStorage</code>; the badge
+					counts anything newer than that.
 				</li>
 				<li>
 					<strong>Daily budget.</strong> Enforced client-side, stored in

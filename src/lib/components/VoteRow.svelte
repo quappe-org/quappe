@@ -9,8 +9,6 @@
 		currentWeight: number; // how heavy did I vote already
 		voting?: boolean;
 		compact?: boolean;
-		/** Which budget bucket to charge for extra weight when voting on this entity. */
-		weightBudget: BudgetKind;
 		oncast: (type: VoteType, weight: number) => void;
 	}
 
@@ -20,9 +18,16 @@
 		currentWeight,
 		voting = false,
 		compact = false,
-		weightBudget,
 		oncast
 	}: Props = $props();
+
+	// Which budget bucket pays for extra weight on a vote of the given type.
+	// Neutral votes never cost budget — they represent "no position".
+	function bucketFor(type: VoteType): BudgetKind | null {
+		if (type === 'support') return 'support';
+		if (type === 'reject') return 'reject';
+		return null;
+	}
 
 	function handle(type: VoteType, e: MouseEvent) {
 		e.preventDefault();
@@ -40,15 +45,16 @@
 			if (targetWeight === currentWeight) targetWeight = 1;
 		}
 
-		// Extra weight (>1) needs budget. First vote is free.
-		if (targetWeight > 1) {
+		// Extra weight (>1) needs budget. First vote is free. Neutral never costs.
+		const bucket = bucketFor(type);
+		if (targetWeight > 1 && bucket) {
 			const extraNeeded = targetWeight - 1 - Math.max(0, currentWeight - 1);
-			if (extraNeeded > 0 && !budgetStore.canAfford(weightBudget, extraNeeded)) {
+			if (extraNeeded > 0 && !budgetStore.canAfford(bucket, extraNeeded)) {
 				// Not enough budget: bail. Toast would be nicer, we go silent for now.
 				return;
 			}
 			// Actually deduct the delta.
-			for (let i = 0; i < extraNeeded; i++) budgetStore.spend(weightBudget);
+			for (let i = 0; i < extraNeeded; i++) budgetStore.spend(bucket);
 		}
 
 		oncast(type, targetWeight);

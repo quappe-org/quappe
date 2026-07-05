@@ -115,39 +115,26 @@ function aggregate(): PulseStats {
 }
 
 function buildPrompt(stats: PulseStats): string {
-	const hotList = stats.hot_theses.map((t, i) => `${i + 1}. "${t.title}" (heat ${t.heat.toFixed(2)}, ${t.arguments} Args)`).join('\n') || '—';
-	const complexList = stats.complex_theses.map((t, i) => `${i + 1}. "${t.title}" (${t.arguments} Args)`).join('\n') || '—';
-	const catList =
-		stats.driving_categories
-			.map(
-				(c) =>
-					`${c.name}: ${c.thesis_count} Thesen, ${c.argument_count} Argumente, ${Math.round(c.avg_support_ratio * 100)}% Zustimmung`
-			)
-			.join('\n') || '—';
+	const hotList = stats.hot_theses.map((t, i) => `${i + 1}. "${t.title}"`).join('\n') || '—';
+	const complexList = stats.complex_theses.map((t, i) => `${i + 1}. "${t.title}"`).join('\n') || '—';
+	const catList = stats.driving_categories.map((c) => c.name).join(', ') || '—';
 
-	return `Erstelle einen kompakten deutschsprachigen "Community-Puls"-Report für eine Debatten-Plattform. Beobachtend, nicht wertend.
+	return `Fasse einen deutschsprachigen "Community-Puls" für eine Debatten-Plattform. Kurze, knackige Sätze. Beobachtend, nicht wertend.
 
-Aktuelle Zahlen:
-- Thesen gesamt: ${stats.total_theses}
-- Argumente gesamt: ${stats.total_arguments}
-- Neu in den letzten 7 Tagen: ${stats.recent_week.new_theses} Thesen
-
-Heiß diskutiert (nach Aktivitäts-Score):
+Heiß diskutiert:
 ${hotList}
 
-Komplex (viele Argumente + ausgeglichene Vote-Verteilung):
+Komplex (kontrovers, viele Argumente):
 ${complexList}
 
-Kategorien-Treiber:
-${catList}
+Kategorien mit meiste Aktivität: ${catList}
 
-Schreibe 4 kurze Absätze:
-1. "Was bewegt gerade" — heiße Themen, was inhaltlich verbindet.
-2. "Wo es komplex wird" — welche Thesen zeigen echte Kontroverse.
-3. "Kategorien, die die Community treiben" — wo passiert die meiste Arbeit.
-4. "Blick nach vorn" — ein Satz: welches Feld wirkt unterrepräsentiert oder verdient mehr Aufmerksamkeit.
+Schreibe genau 3 Absätze, jeweils 1-2 Sätze:
+1. Was gerade heiß ist — inhaltlicher Nenner.
+2. Wo es komplex wird — welche These(n) zeigen echte Kontroverse.
+3. Blick nach vorn — ein Satz zu einem unterrepräsentierten Feld.
 
-Maximum 250 Wörter, keine Überschriften, nur die vier Absätze.`;
+Keine Zahlen wiederholen (die stehen daneben). Keine Überschriften. Maximum 100 Wörter insgesamt.`;
 }
 
 export async function generatePulse(): Promise<PulseBody> {
@@ -164,7 +151,8 @@ export async function generatePulse(): Promise<PulseBody> {
 
 	const prompt = buildPrompt(stats);
 	const result = await generate(prompt, {
-		system: 'Du beobachtest eine deutschsprachige Debatten-Plattform. Beschreibend, nicht wertend, keine Emojis.'
+		system: 'Du beobachtest eine deutschsprachige Debatten-Plattform. Kurze, knackige Sätze. Beschreibend, nicht wertend. Keine Emojis, keine Zahlen, keine Aufzählungen.',
+		maxTokens: 300
 	});
 
 	return {

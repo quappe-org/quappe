@@ -141,7 +141,6 @@
 			currentWeight={currentWeight}
 			voting={voting}
 			compact
-			weightBudget={currentVote === 'reject' ? 'reject' : 'support'}
 			oncast={castVote}
 		/>
 	</div>

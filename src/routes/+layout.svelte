@@ -6,6 +6,8 @@
 	import { activityStore } from '$lib/stores/activity.svelte';
 	import { uiIntents } from '$lib/stores/ui.svelte';
 	import { forkFeedStore } from '$lib/stores/fork-feed.svelte';
+	import { updatesStore } from '$lib/stores/updates.svelte';
+	import { updatesSeen } from '$lib/stores/updates-seen.svelte';
 	import { getUserId } from '$lib/stores/user';
 	import ComplexitySlider from '$lib/components/ComplexitySlider.svelte';
 	import ActivityGraph from '$lib/components/ActivityGraph.svelte';
@@ -18,7 +20,6 @@
 	let { children }: { children: Snippet } = $props();
 
 	let mounted = $state(false);
-	onMount(() => { mounted = true; });
 
 	function handleComplexityChange(settings: ComplexitySettings) {
 		complexityStore.set(settings);
@@ -28,8 +29,11 @@
 
 	function isActive(path: string): boolean {
 		if (path === '/') return currentPath === '/';
+		if (path === '/my') return currentPath === '/my';
 		return currentPath.startsWith(path);
 	}
+
+	let unreadCount = $derived(updatesSeen.unreadCount(updatesStore.events));
 
 	async function newThesis() {
 		uiIntents.requestNewThesis();
@@ -49,6 +53,7 @@
 	}
 	interface BudgetLite {
 		date: string;
+		spent: { thesis: number; support: number; reject: number };
 		events: BudgetEventLite[];
 	}
 	let budgetExpanded = $state(false);
@@ -65,11 +70,20 @@
 			if (res.ok) {
 				budgetData = await res.json();
 				budgetFetchedAt = Date.now();
+				if (budgetData) budgetStore.syncFromServer(budgetData.spent);
 			}
 		} catch {
 			// silent — the /my page has full details anyway
 		}
 	}
+
+	onMount(() => {
+		mounted = true;
+		ensureBudgetLoaded();
+		updatesStore.refresh();
+		const pollId = setInterval(() => updatesStore.refresh(), 60_000);
+		return () => clearInterval(pollId);
+	});
 
 	function toggleBudget() {
 		budgetExpanded = !budgetExpanded;
@@ -124,6 +138,13 @@
 				<a href="/my" class="nav-item" class:active={isActive('/my')}>
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
 					My Theses
+				</a>
+				<a href="/my/updates" class="nav-item" class:active={isActive('/my/updates')}>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+					Updates
+					{#if mounted && unreadCount > 0}
+						<span class="nav-badge">{unreadCount}</span>
+					{/if}
 				</a>
 				<a href="/pulse" class="nav-item" class:active={isActive('/pulse')}>
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-9 4 18 3-9h4"></path></svg>
@@ -390,6 +411,27 @@
 		background: var(--color-primary-bg);
 		color: var(--color-primary);
 		font-weight: 600;
+	}
+
+	.nav-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1.1rem;
+		height: 1.1rem;
+		padding: 0 0.3rem;
+		margin-left: auto;
+		background: var(--color-primary);
+		color: white;
+		font-size: 0.65rem;
+		font-weight: 700;
+		border-radius: 999px;
+		line-height: 1;
+	}
+
+	.nav-item.active .nav-badge {
+		background: white;
+		color: var(--color-primary);
 	}
 
 	.new-thesis-btn {

@@ -58,7 +58,10 @@ export async function isLlmAvailable(): Promise<boolean> {
  * Generate a completion from Ollama.
  * Returns a structured result — callers should switch on `.ok` and never assume success.
  */
-export async function generate(prompt: string, options: { system?: string } = {}): Promise<LlmResult> {
+export async function generate(
+	prompt: string,
+	options: { system?: string; maxTokens?: number; temperature?: number } = {}
+): Promise<LlmResult> {
 	const { url, model, timeoutMs } = config();
 	const start = Date.now();
 
@@ -75,8 +78,8 @@ export async function generate(prompt: string, options: { system?: string } = {}
 				system: options.system,
 				stream: false,
 				options: {
-					temperature: 0.4,
-					num_predict: 800
+					temperature: options.temperature ?? 0.4,
+					num_predict: options.maxTokens ?? 800
 				}
 			}),
 			signal: ac.signal

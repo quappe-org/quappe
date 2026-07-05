@@ -372,7 +372,6 @@
 							currentVote={currentVote}
 							currentWeight={currentWeight}
 							voting={voting}
-							weightBudget={currentVote === 'reject' ? 'reject' : 'support'}
 							oncast={castThesisVote}
 						/>
 					{/if}

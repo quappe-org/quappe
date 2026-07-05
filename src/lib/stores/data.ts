@@ -616,6 +616,14 @@ export function getArgumentById(id: string): Argument | undefined {
 	return arguments_store.get(id);
 }
 
+export function getForksOf(argument_id: string): Argument[] {
+	const out: Argument[] = [];
+	for (const a of arguments_store.values()) {
+		if (a.forked_from_id === argument_id) out.push(a);
+	}
+	return out;
+}
+
 // ---- User-scoped aggregators (used by report generation) ----
 
 export function getThesesByAuthor(user_id: string): Thesis[] {

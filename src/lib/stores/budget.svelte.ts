@@ -95,5 +95,19 @@ export const budgetStore = {
 		ensureToday();
 		_budget = { ..._budget, [kind]: Math.min(DAILY_LIMIT, _budget[kind] + amount) };
 		saveBudget(_budget);
+	},
+	/**
+	 * Reconcile with server-side truth. The server reconstructs today's spend
+	 * from persistent timestamps (thesis.meta.created_at, argument.meta.created_at,
+	 * vote.cast_at with weight>1). Call on app mount to prevent localStorage drift.
+	 */
+	syncFromServer(spent: { thesis: number; support: number; reject: number }): void {
+		_budget = {
+			thesis: Math.max(0, DAILY_LIMIT - spent.thesis),
+			support: Math.max(0, DAILY_LIMIT - spent.support),
+			reject: Math.max(0, DAILY_LIMIT - spent.reject),
+			lastReset: getToday()
+		};
+		saveBudget(_budget);
 	}
 };

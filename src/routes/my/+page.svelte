@@ -128,7 +128,7 @@
 	}
 </script>
 
-<section class="stack-lg">
+<section class="my-page">
 	<div class="page-head">
 		<h1 class="page-title">My Theses</h1>
 		<p class="page-subtitle">Theses you created or voted on.</p>
@@ -292,10 +292,21 @@
 </section>
 
 <style>
+	.my-page {
+		display: flex;
+		flex-direction: column;
+		gap: 0.9rem;
+	}
+
+	.my-page :global(.card) {
+		padding: 0.9rem 1rem;
+	}
+
 	.page-head {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
+		gap: 0.15rem;
+		margin-bottom: 0.1rem;
 	}
 
 	.page-title {
@@ -321,13 +332,13 @@
 	.standpoint-panel {
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
+		gap: 0.5rem;
 	}
 
 	.standpoint-head {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
+		gap: 0.15rem;
 	}
 
 	.standpoint-title {
@@ -426,13 +437,13 @@
 	.budget-panel {
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
+		gap: 0.5rem;
 	}
 
 	.budget-head {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
+		gap: 0.15rem;
 	}
 
 	.budget-title {
@@ -494,13 +505,13 @@
 	.budget-groups {
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
+		gap: 0.5rem;
 	}
 
 	.budget-group {
 		display: flex;
 		flex-direction: column;
-		gap: 0.3rem;
+		gap: 0.25rem;
 	}
 
 	.budget-group-title {
@@ -516,7 +527,7 @@
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 0.35rem;
+		gap: 0.25rem;
 	}
 
 	.budget-item {
@@ -524,7 +535,7 @@
 		grid-template-columns: 3rem 1fr;
 		gap: 0.5rem;
 		align-items: baseline;
-		padding: 0.35rem 0.5rem;
+		padding: 0.3rem 0.5rem;
 		background: var(--color-bg);
 		border-radius: var(--radius-sm);
 		border: 1px solid var(--color-border);

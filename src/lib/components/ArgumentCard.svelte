@@ -148,7 +148,6 @@
 			currentWeight={currentWeight}
 			voting={voting}
 			compact
-			weightBudget={argument.stance}
 			oncast={castVote}
 		/>
 		<div class="argument-actions">

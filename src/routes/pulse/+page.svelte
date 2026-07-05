@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PulseBody } from '$lib/server/pulse';
+	import { complexityStore } from '$lib/stores/complexity.svelte';
 
 	let { data } = $props();
 
@@ -31,9 +32,18 @@
 	}
 
 	let paragraphs = $derived(pulse?.text ? pulse.text.split(/\n\n+/) : []);
+
+	// Complexity cap: slider controls how many items each column shows.
+	// Server delivers max 5 — we take min(5, complexity.max_theses).
+	let displayLimit = $derived(Math.min(5, complexityStore.settings.max_theses));
+
+	let hotDisplay = $derived(pulse?.stats.hot_theses.slice(0, displayLimit) ?? []);
+	let complexDisplay = $derived(pulse?.stats.complex_theses.slice(0, displayLimit) ?? []);
+	let catDisplay = $derived(pulse?.stats.driving_categories.slice(0, displayLimit) ?? []);
+	let allEmpty = $derived(hotDisplay.length === 0 && complexDisplay.length === 0 && catDisplay.length === 0);
 </script>
 
-<section class="stack-lg">
+<section class="pulse-page">
 	<div class="page-head">
 		<h1 class="page-title">Community Pulse</h1>
 		<p class="page-subtitle">Was bewegt die Community — beobachtend, nicht wertend.</p>
@@ -69,85 +79,111 @@
 			</div>
 		</article>
 
-		<div class="pulse-grid">
-			<section class="pulse-panel card">
-				<h2 class="pulse-panel-title">Heiß diskutiert</h2>
-				<p class="pulse-panel-hint">Aktivitäts-Score = Kombination aus Votes und Argumenten.</p>
-				{#if pulse.stats.hot_theses.length === 0}
-					<p class="pulse-empty">Noch nichts.</p>
+		<div class="pulse-summary">
+			<div class="pulse-summary-item">
+				<span class="pulse-summary-num">{pulse.stats.total_theses}</span>
+				<span class="pulse-summary-label">Thesen</span>
+			</div>
+			<div class="pulse-summary-item">
+				<span class="pulse-summary-num">{pulse.stats.total_arguments}</span>
+				<span class="pulse-summary-label">Argumente</span>
+			</div>
+			<div class="pulse-summary-item">
+				<span class="pulse-summary-num">{pulse.stats.recent_week.new_theses}</span>
+				<span class="pulse-summary-label">Neu · 7 Tage</span>
+			</div>
+		</div>
+
+		<div class="pulse-columns">
+			<section class="pulse-col card pulse-col-hot">
+				<header class="pulse-col-head">
+					<span class="pulse-col-dot pulse-dot-hot" aria-hidden="true"></span>
+					<h2 class="pulse-col-title">Heiß diskutiert</h2>
+				</header>
+				{#if hotDisplay.length === 0}
+					<p class="pulse-col-empty">Noch nichts.</p>
 				{:else}
-					<ol class="pulse-list">
-						{#each pulse.stats.hot_theses as t}
-							<li>
-								<a href="/thesis/{t.id}" class="pulse-link">{t.title}</a>
-								<span class="pulse-metric">heat {t.heat.toFixed(2)} · {t.arguments} Args</span>
+					<ol class="pulse-col-list">
+						{#each hotDisplay as t, i}
+							<li class="pulse-col-item">
+								<span class="pulse-col-rank">{i + 1}</span>
+								<div class="pulse-col-body">
+									<a href="/thesis/{t.id}" class="pulse-col-link">{t.title}</a>
+									<span class="pulse-col-metric">heat {t.heat.toFixed(2)} · {t.arguments} Args</span>
+								</div>
 							</li>
 						{/each}
 					</ol>
 				{/if}
 			</section>
 
-			<section class="pulse-panel card">
-				<h2 class="pulse-panel-title">Komplex</h2>
-				<p class="pulse-panel-hint">Viele Argumente, ausgeglichene Vote-Verteilung.</p>
-				{#if pulse.stats.complex_theses.length === 0}
-					<p class="pulse-empty">Noch nichts.</p>
+			<section class="pulse-col card pulse-col-complex">
+				<header class="pulse-col-head">
+					<span class="pulse-col-dot pulse-dot-complex" aria-hidden="true"></span>
+					<h2 class="pulse-col-title">Komplex</h2>
+				</header>
+				{#if complexDisplay.length === 0}
+					<p class="pulse-col-empty">Noch nichts.</p>
 				{:else}
-					<ol class="pulse-list">
-						{#each pulse.stats.complex_theses as t}
-							<li>
-								<a href="/thesis/{t.id}" class="pulse-link">{t.title}</a>
-								<span class="pulse-metric">{t.arguments} Args</span>
+					<ol class="pulse-col-list">
+						{#each complexDisplay as t, i}
+							<li class="pulse-col-item">
+								<span class="pulse-col-rank">{i + 1}</span>
+								<div class="pulse-col-body">
+									<a href="/thesis/{t.id}" class="pulse-col-link">{t.title}</a>
+									<span class="pulse-col-metric">{t.arguments} Args</span>
+								</div>
 							</li>
 						{/each}
 					</ol>
 				{/if}
 			</section>
 
-			<section class="pulse-panel card">
-				<h2 class="pulse-panel-title">Kategorien-Treiber</h2>
-				<p class="pulse-panel-hint">Wo die meiste inhaltliche Arbeit stattfindet.</p>
-				{#if pulse.stats.driving_categories.length === 0}
-					<p class="pulse-empty">Noch nichts.</p>
+			<section class="pulse-col card pulse-col-cat">
+				<header class="pulse-col-head">
+					<span class="pulse-col-dot pulse-dot-cat" aria-hidden="true"></span>
+					<h2 class="pulse-col-title">Kategorien</h2>
+				</header>
+				{#if catDisplay.length === 0}
+					<p class="pulse-col-empty">Noch nichts.</p>
 				{:else}
-					<ul class="pulse-list">
-						{#each pulse.stats.driving_categories as c}
-							<li>
-								<span class="pulse-cat">{c.name}</span>
-								<span class="pulse-metric">{c.thesis_count} Thesen · {c.argument_count} Args · {Math.round(c.avg_support_ratio * 100)}% pro</span>
+					<ol class="pulse-col-list">
+						{#each catDisplay as c, i}
+							<li class="pulse-col-item">
+								<span class="pulse-col-rank">{i + 1}</span>
+								<div class="pulse-col-body">
+									<span class="pulse-col-link pulse-col-link-plain">{c.name}</span>
+									<span class="pulse-col-metric">{c.thesis_count} Thesen · {c.argument_count} Args · {Math.round(c.avg_support_ratio * 100)}% pro</span>
+								</div>
 							</li>
 						{/each}
-					</ul>
+					</ol>
 				{/if}
-			</section>
-
-			<section class="pulse-panel card">
-				<h2 class="pulse-panel-title">Zahlen</h2>
-				<p class="pulse-panel-hint">Gesamt und aktuelle Woche.</p>
-				<dl class="pulse-numbers">
-					<div>
-						<dt>Thesen gesamt</dt>
-						<dd>{pulse.stats.total_theses}</dd>
-					</div>
-					<div>
-						<dt>Argumente gesamt</dt>
-						<dd>{pulse.stats.total_arguments}</dd>
-					</div>
-					<div>
-						<dt>Neue Thesen (7 Tage)</dt>
-						<dd>{pulse.stats.recent_week.new_theses}</dd>
-					</div>
-				</dl>
 			</section>
 		</div>
+
+		{#if allEmpty}
+			<p class="pulse-empty-all">Noch nichts.</p>
+		{/if}
 	{/if}
 </section>
 
 <style>
+	.pulse-page {
+		display: flex;
+		flex-direction: column;
+		gap: 0.9rem;
+	}
+
+	.pulse-page :global(.card) {
+		padding: 0.9rem 1rem;
+	}
+
 	.page-head {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
+		gap: 0.15rem;
+		margin-bottom: 0.1rem;
 	}
 
 	.page-title {
@@ -166,13 +202,13 @@
 	.pulse-report {
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
+		gap: 0.5rem;
 	}
 
 	.pulse-text {
 		display: flex;
 		flex-direction: column;
-		gap: 0.6rem;
+		gap: 0.5rem;
 	}
 
 	.pulse-text p {
@@ -188,7 +224,7 @@
 		font-size: var(--text-xs);
 		color: var(--color-text-light);
 		font-family: var(--font-mono);
-		padding-top: 0.5rem;
+		padding-top: 0.4rem;
 		border-top: 1px dashed var(--color-border);
 	}
 
@@ -226,126 +262,160 @@
 		margin: 0;
 	}
 
-	.pulse-grid {
+	.pulse-summary {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-		gap: 1rem;
-	}
-
-	.pulse-panel {
-		display: flex;
-		flex-direction: column;
+		grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
 		gap: 0.5rem;
+		padding: 0.6rem 0.9rem;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
 	}
 
-	.pulse-panel-title {
-		font-size: var(--text-lg);
-		font-weight: 600;
-		margin: 0;
-	}
-
-	.pulse-panel-hint {
-		font-size: var(--text-xs);
-		color: var(--color-text-muted);
-		margin: 0;
-	}
-
-	.pulse-empty {
-		font-size: var(--text-sm);
-		color: var(--color-text-light);
-		margin: 0;
-	}
-
-	.pulse-list {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		margin: 0;
-		padding: 0;
-		list-style: none;
-		counter-reset: pulse-item;
-	}
-
-	.pulse-list li {
+	.pulse-summary-item {
 		display: flex;
 		flex-direction: column;
 		gap: 0.15rem;
-		padding-left: 1.5rem;
-		position: relative;
 	}
 
-	ol.pulse-list li::before {
-		counter-increment: pulse-item;
-		content: counter(pulse-item);
-		position: absolute;
-		left: 0;
-		top: 0;
-		width: 1.15rem;
-		height: 1.15rem;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		background: var(--color-bg);
-		border: 1px solid var(--color-border);
-		border-radius: 999px;
-		font-size: 0.65rem;
+	.pulse-summary-num {
+		font-size: var(--text-2xl);
 		font-weight: 700;
-		color: var(--color-text-muted);
 		font-family: var(--font-mono);
-	}
-
-	ul.pulse-list li {
-		padding-left: 0;
-	}
-
-	.pulse-link {
-		font-size: var(--text-sm);
-		font-weight: 500;
-		color: var(--color-text);
-		text-decoration: none;
-	}
-
-	.pulse-link:hover {
-		color: var(--color-primary);
-	}
-
-	.pulse-cat {
-		font-size: var(--text-sm);
-		font-weight: 500;
 		color: var(--color-text);
 	}
 
-	.pulse-metric {
-		font-size: var(--text-xs);
-		color: var(--color-text-light);
-		font-family: var(--font-mono);
-	}
-
-	.pulse-numbers {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-		gap: 0.75rem;
-		margin: 0;
-	}
-
-	.pulse-numbers > div {
-		display: flex;
-		flex-direction: column;
-		gap: 0.2rem;
-	}
-
-	.pulse-numbers dt {
+	.pulse-summary-label {
 		font-size: var(--text-xs);
 		color: var(--color-text-muted);
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
 	}
 
-	.pulse-numbers dd {
-		font-size: var(--text-xl);
-		font-weight: 700;
+	.pulse-columns {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 0.75rem;
+	}
+
+	@media (max-width: 900px) {
+		.pulse-columns {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.pulse-col {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 0.75rem 0.9rem;
+	}
+
+	.pulse-col-head {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding-bottom: 0.4rem;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.pulse-col-dot {
+		display: inline-block;
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+	}
+
+	.pulse-dot-hot {
+		background: #fbbf24;
+	}
+
+	.pulse-dot-complex {
+		background: #22d3ee;
+	}
+
+	.pulse-dot-cat {
+		background: var(--color-text-muted);
+	}
+
+	.pulse-col-title {
+		font-size: var(--text-sm);
+		font-weight: 600;
 		color: var(--color-text);
 		margin: 0;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+
+	.pulse-col-empty {
+		font-size: var(--text-xs);
+		color: var(--color-text-muted);
+		margin: 0;
+	}
+
+	.pulse-col-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+
+	.pulse-col-item {
+		display: grid;
+		grid-template-columns: 1.5rem 1fr;
+		gap: 0.4rem;
+		align-items: baseline;
+	}
+
+	.pulse-col-rank {
 		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--color-text-light);
+		text-align: right;
+	}
+
+	.pulse-col-body {
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
+		min-width: 0;
+	}
+
+	.pulse-col-link {
+		font-size: var(--text-sm);
+		color: var(--color-text);
+		text-decoration: none;
+		line-height: 1.35;
+		overflow: hidden;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+	}
+
+	.pulse-col-link:hover {
+		color: var(--color-primary);
+	}
+
+	.pulse-col-link-plain {
+		color: var(--color-text);
+		-webkit-line-clamp: 1;
+		line-clamp: 1;
+	}
+
+	.pulse-col-metric {
+		font-family: var(--font-mono);
+		font-size: 0.7rem;
+		color: var(--color-text-light);
+	}
+
+	.pulse-empty-all {
+		font-size: var(--text-sm);
+		color: var(--color-text-muted);
+		margin: 0;
+		text-align: center;
+		padding: 1rem;
 	}
 </style>
