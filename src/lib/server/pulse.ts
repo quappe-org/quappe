@@ -9,6 +9,7 @@ import {
 	seedData
 } from '$lib/stores/data';
 import { generate } from './llm';
+import { baseLocale, type Locale } from '$lib/paraglide/runtime';
 
 const PULSE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -16,7 +17,7 @@ interface CachedPulse {
 	generated_at: number;
 	body: PulseBody;
 }
-let _cached: CachedPulse | null = null;
+const _cached = new Map<Locale, CachedPulse>();
 
 interface CategoryPulse {
 	name: string;
@@ -114,15 +115,48 @@ function aggregate(): PulseStats {
 	};
 }
 
-function buildPrompt(stats: PulseStats): string {
-	const hotList = stats.hot_theses.map((t, i) => `${i + 1}. "${t.title}"`).join('\n') || '—';
-	const complexList = stats.complex_theses.map((t, i) => `${i + 1}. "${t.title}"`).join('\n') || '—';
-	const catList = stats.driving_categories.map((c) => c.name).join(', ') || '—';
+interface PulseCopy {
+	system: string;
+	empty: string;
+	buildPrompt: (stats: PulseStats) => string;
+}
 
-	// TODO(i18n): prompt is hardcoded German. Will be selected per user's UI
-	// locale once Paraglide is wired up. Keep DE for now — the seeded content
-	// is DE and the LLM currently outputs the same language.
-	return `Fasse einen deutschsprachigen "Community-Puls" für eine Debatten-Plattform. Kurze, knackige Sätze. Beobachtend, nicht wertend.
+const PULSE_COPY: Record<Locale, PulseCopy> = {
+	en: {
+		system:
+			'You observe an English-language debate platform. Short, crisp sentences. Descriptive, not judgmental. No emojis, no numbers, no bullet lists.',
+		empty: 'Nothing happening in the community yet.',
+		buildPrompt(stats) {
+			const hotList = stats.hot_theses.map((t, i) => `${i + 1}. "${t.title}"`).join('\n') || '—';
+			const complexList = stats.complex_theses.map((t, i) => `${i + 1}. "${t.title}"`).join('\n') || '—';
+			const catList = stats.driving_categories.map((c) => c.name).join(', ') || '—';
+			return `Write an English-language "community pulse" for a debate platform. Short, crisp sentences. Observing, not judging.
+
+Hotly discussed:
+${hotList}
+
+Complex (contested, many arguments):
+${complexList}
+
+Categories with most activity: ${catList}
+
+Write exactly 3 paragraphs, each 1-2 sentences:
+1. What's hot right now — the common thread in content.
+2. Where it gets complex — which thesis/theses show real contention.
+3. A look ahead — one sentence on an under-represented area.
+
+Do not repeat any numbers (they are shown alongside). No headings. Maximum 100 words total.`;
+		}
+	},
+	de: {
+		system:
+			'Du beobachtest eine deutschsprachige Debatten-Plattform. Kurze, knackige Sätze. Beschreibend, nicht wertend. Keine Emojis, keine Zahlen, keine Aufzählungen.',
+		empty: 'Noch nichts los in der Community.',
+		buildPrompt(stats) {
+			const hotList = stats.hot_theses.map((t, i) => `${i + 1}. "${t.title}"`).join('\n') || '—';
+			const complexList = stats.complex_theses.map((t, i) => `${i + 1}. "${t.title}"`).join('\n') || '—';
+			const catList = stats.driving_categories.map((c) => c.name).join(', ') || '—';
+			return `Fasse einen deutschsprachigen "Community-Puls" für eine Debatten-Plattform. Kurze, knackige Sätze. Beobachtend, nicht wertend.
 
 Heiß diskutiert:
 ${hotList}
@@ -138,23 +172,78 @@ Schreibe genau 3 Absätze, jeweils 1-2 Sätze:
 3. Blick nach vorn — ein Satz zu einem unterrepräsentierten Feld.
 
 Keine Zahlen wiederholen (die stehen daneben). Keine Überschriften. Maximum 100 Wörter insgesamt.`;
-}
+		}
+	},
+	fr: {
+		system:
+			"Tu observes une plateforme de débat francophone. Phrases courtes et nettes. Descriptif, pas de jugement. Pas d'emojis, pas de chiffres, pas de listes à puces.",
+		empty: 'Rien ne bouge encore dans la communauté.',
+		buildPrompt(stats) {
+			const hotList = stats.hot_theses.map((t, i) => `${i + 1}. « ${t.title} »`).join('\n') || '—';
+			const complexList = stats.complex_theses.map((t, i) => `${i + 1}. « ${t.title} »`).join('\n') || '—';
+			const catList = stats.driving_categories.map((c) => c.name).join(', ') || '—';
+			return `Rédige un « pouls communautaire » en français pour une plateforme de débat. Phrases courtes et nettes. Observation, pas de jugement.
 
-export async function generatePulse(): Promise<PulseBody> {
+Vivement débattues :
+${hotList}
+
+Complexes (contestées, beaucoup d'arguments) :
+${complexList}
+
+Catégories les plus actives : ${catList}
+
+Écris exactement 3 paragraphes, 1 à 2 phrases chacun :
+1. Ce qui est chaud en ce moment — le fil conducteur des contenus.
+2. Où cela se complique — quelle(s) thèse(s) montrent une vraie contestation.
+3. Un regard vers l'avant — une phrase sur un domaine sous-représenté.
+
+Ne répète aucun chiffre (ils sont affichés à côté). Pas de titres. Maximum 100 mots au total.`;
+		}
+	},
+	es: {
+		system:
+			'Observas una plataforma de debate en español. Frases cortas y nítidas. Descriptivo, no valorativo. Sin emojis, sin cifras, sin listas.',
+		empty: 'Aún no hay movimiento en la comunidad.',
+		buildPrompt(stats) {
+			const hotList = stats.hot_theses.map((t, i) => `${i + 1}. «${t.title}»`).join('\n') || '—';
+			const complexList = stats.complex_theses.map((t, i) => `${i + 1}. «${t.title}»`).join('\n') || '—';
+			const catList = stats.driving_categories.map((c) => c.name).join(', ') || '—';
+			return `Redacta un «pulso de la comunidad» en español para una plataforma de debate. Frases cortas y nítidas. Observando, sin juzgar.
+
+Muy debatidas:
+${hotList}
+
+Complejas (disputadas, muchos argumentos):
+${complexList}
+
+Categorías con más actividad: ${catList}
+
+Escribe exactamente 3 párrafos, 1 o 2 frases cada uno:
+1. Qué está caliente ahora — el hilo común del contenido.
+2. Dónde se vuelve complejo — qué tesis muestran verdadera disputa.
+3. Una mirada hacia adelante — una frase sobre un área infrarrepresentada.
+
+No repitas ninguna cifra (se muestran al lado). Sin encabezados. Máximo 100 palabras en total.`;
+		}
+	}
+};
+
+export async function generatePulse(locale: Locale = baseLocale): Promise<PulseBody> {
 	const stats = aggregate();
+	const copy = PULSE_COPY[locale] ?? PULSE_COPY[baseLocale];
 
 	if (stats.total_theses === 0) {
 		return {
-			text: 'Noch nichts los in der Community.',
+			text: copy.empty,
 			stats,
 			generated_at: new Date().toISOString(),
 			llm: { ok: true, model: null, duration_ms: 0 }
 		};
 	}
 
-	const prompt = buildPrompt(stats);
+	const prompt = copy.buildPrompt(stats);
 	const result = await generate(prompt, {
-		system: 'Du beobachtest eine deutschsprachige Debatten-Plattform. Kurze, knackige Sätze. Beschreibend, nicht wertend. Keine Emojis, keine Zahlen, keine Aufzählungen.',
+		system: copy.system,
 		maxTokens: 300
 	});
 
@@ -168,14 +257,15 @@ export async function generatePulse(): Promise<PulseBody> {
 	};
 }
 
-export function getCachedPulse(): { body: PulseBody; generated_at: number } | null {
-	if (!_cached) return null;
-	if (Date.now() - _cached.generated_at > PULSE_TTL_MS) return null;
-	return _cached;
+export function getCachedPulse(locale: Locale = baseLocale): { body: PulseBody; generated_at: number } | null {
+	const hit = _cached.get(locale);
+	if (!hit) return null;
+	if (Date.now() - hit.generated_at > PULSE_TTL_MS) return null;
+	return hit;
 }
 
-export async function refreshPulseCache(): Promise<PulseBody> {
-	const body = await generatePulse();
-	_cached = { generated_at: Date.now(), body };
+export async function refreshPulseCache(locale: Locale = baseLocale): Promise<PulseBody> {
+	const body = await generatePulse(locale);
+	_cached.set(locale, { generated_at: Date.now(), body });
 	return body;
 }
