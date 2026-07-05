@@ -15,6 +15,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { getLocale, setLocale, locales, type Locale } from '$lib/paraglide/runtime';
 	import '../app.css';
 
 	let { children }: { children: Snippet } = $props();
@@ -106,6 +107,23 @@
 		if (e.kind === 'argument') return `${e.stance === 'support' ? '+' : '−'} ${e.thesis_title}`;
 		if (e.kind === 'weight_vote') return `×${(e.extra_weight ?? 0) + 1} ${e.vote_type} · ${e.thesis_title}`;
 		return '';
+	}
+
+	// Language switcher: setLocale() writes the PARAGLIDE_LOCALE cookie AND
+	// navigates to the URL for the chosen locale (with reload), so the whole
+	// page re-renders in the new language. Endonyms match the language the
+	// user is picking, not the current one.
+	const localeLabels: Record<Locale, string> = {
+		en: 'English',
+		de: 'Deutsch',
+		fr: 'Français',
+		es: 'Español'
+	};
+	let activeLocale = $derived<Locale>(mounted ? getLocale() : 'en');
+
+	function switchLocale(locale: Locale) {
+		if (locale === activeLocale) return;
+		setLocale(locale);
 	}
 </script>
 
@@ -285,6 +303,24 @@
 			<div class="panel">
 				<h3 class="panel-title">Complexity</h3>
 				<ComplexitySlider onchange={handleComplexityChange} />
+			</div>
+
+			<div class="panel">
+				<h3 class="panel-title">Language</h3>
+				<div class="lang-switcher" role="group" aria-label="Language">
+					{#each locales as loc}
+						<button
+							type="button"
+							class="lang-btn"
+							class:active={mounted && loc === activeLocale}
+							aria-pressed={mounted && loc === activeLocale}
+							title={localeLabels[loc]}
+							onclick={() => switchLocale(loc)}
+						>
+							{loc.toUpperCase()}
+						</button>
+					{/each}
+				</div>
 			</div>
 
 			<div class="panel">
@@ -575,6 +611,39 @@
 	.settings-link:hover,
 	.settings-link.active {
 		color: var(--color-primary);
+	}
+
+	.lang-switcher {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 0.25rem;
+	}
+
+	.lang-btn {
+		font-family: inherit;
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.03em;
+		padding: 0.3rem 0.2rem;
+		background: var(--color-bg);
+		color: var(--color-text-muted);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+		transition: background var(--transition-fast), color var(--transition-fast),
+			border-color var(--transition-fast);
+	}
+
+	.lang-btn:hover:not(.active) {
+		color: var(--color-text);
+		border-color: var(--color-text-muted);
+	}
+
+	.lang-btn.active {
+		background: var(--color-primary);
+		color: white;
+		border-color: var(--color-primary);
+		cursor: default;
 	}
 
 	@media (max-width: 1024px) {
