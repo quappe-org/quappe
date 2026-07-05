@@ -37,5 +37,44 @@
 	"lang_en": "English",
 	"lang_de": "Deutsch",
 	"lang_fr": "Français",
-	"lang_es": "Español"
+	"lang_es": "Español",
+
+	"home_search_placeholder": "Search theses…",
+	"home_search_searching_aria": "Searching",
+	"home_search_mode_semantic": "Semantic search",
+	"home_search_mode_fulltext": "Full-text search",
+	"home_search_mode_combined": "Search",
+	"home_search_hits": "{count} hits",
+	"home_search_no_matches": "No matches for \"{query}\".",
+
+	"home_suggestion_label": "Suggested:",
+	"home_suggestion_apply": "Apply",
+	"home_suggestion_dismiss_aria": "Dismiss",
+
+	"home_filter_title": "Filter",
+	"home_filter_clear": "Clear",
+
+	"home_create_title": "Create a Thesis",
+	"home_create_close_aria": "Close",
+	"home_create_title_label": "Title",
+	"home_create_title_placeholder": "State your thesis clearly...",
+	"home_create_desc_label": "Description",
+	"home_create_desc_placeholder": "Provide context and nuance...",
+	"home_create_similar_label": "Already exists?",
+	"home_create_similar_empty": "Nothing comparable found.",
+	"home_create_categories_label": "Categories",
+	"home_create_categories_hint": "optional — we'll suggest some otherwise",
+	"home_create_submit": "Create Thesis",
+	"home_create_submitting": "Creating...",
+	"home_create_cancel": "Cancel",
+
+	"home_list_count": "{visible} of {total}",
+	"home_list_empty_filtered": "No theses in category \"{category}\".",
+	"home_list_empty": "No theses yet. Be the first to create one!",
+	"home_list_limit_note": "Adjust the complexity slider to see more theses.",
+
+	"error_too_many_requests": "Too many requests — wait a moment and try again.",
+	"error_text_too_long": "Text too long — please shorten it.",
+	"error_invalid_input": "Invalid input.",
+	"error_server_generic": "Server responded {status}. Please try again."
 }

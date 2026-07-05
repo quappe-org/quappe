@@ -8,6 +8,7 @@
 	import { getUserId } from '$lib/stores/user';
 	import ThesisCard from '$lib/components/ThesisCard.svelte';
 	import type { ActivityDay } from '$lib/stores/data';
+	import { m } from '$lib/paraglide/messages';
 
 	let { data } = $props();
 
@@ -203,14 +204,14 @@
 			});
 			if (!res.ok) {
 				if (res.status === 429) {
-					createError = 'Too many requests — wait a moment and try again.';
+					createError = m.error_too_many_requests();
 				} else if (res.status === 413) {
-					createError = 'Text too long — please shorten it.';
+					createError = m.error_text_too_long();
 				} else if (res.status === 400) {
 					const body = await res.json().catch(() => ({}));
-					createError = body?.error ?? 'Invalid input.';
+					createError = body?.error ?? m.error_invalid_input();
 				} else {
-					createError = `Server responded ${res.status}. Please try again.`;
+					createError = m.error_server_generic({ status: res.status });
 				}
 				return;
 			}
@@ -272,25 +273,25 @@
 			<input
 				type="search"
 				class="search-input"
-				placeholder="Search theses…"
+				placeholder={m.home_search_placeholder()}
 				bind:value={searchQuery}
 				oninput={onSearchInput}
 				maxlength="200"
 			/>
 			{#if searching}
-				<span class="search-spinner" aria-label="Searching"></span>
+				<span class="search-spinner" aria-label={m.home_search_searching_aria()}></span>
 			{/if}
 		</div>
 	</div>
 
 	{#if suggestedCategories.length > 0}
 		<div class="suggestion-banner">
-			<span class="suggestion-label">Suggested:</span>
+			<span class="suggestion-label">{m.home_suggestion_label()}</span>
 			{#each suggestedCategories as cat}
 				<span class="suggestion-cat">{cat}</span>
 			{/each}
-			<button class="btn btn-sm suggestion-apply" onclick={applySuggested}>Apply</button>
-			<button class="suggestion-dismiss" onclick={() => { suggestedCategories = []; suggestedForThesis = null; }}>×</button>
+			<button class="btn btn-sm suggestion-apply" onclick={applySuggested}>{m.home_suggestion_apply()}</button>
+			<button class="suggestion-dismiss" aria-label={m.home_suggestion_dismiss_aria()} onclick={() => { suggestedCategories = []; suggestedForThesis = null; }}>×</button>
 		</div>
 	{/if}
 
@@ -299,9 +300,9 @@
 		<div class="section">
 			<div class="section-head">
 				<span class="section-filter-active">
-					{searchMode === 'semantic' ? 'Semantic search' : searchMode === 'fulltext' ? 'Full-text search' : 'Search'}
+					{searchMode === 'semantic' ? m.home_search_mode_semantic() : searchMode === 'fulltext' ? m.home_search_mode_fulltext() : m.home_search_mode_combined()}
 				</span>
-				<span class="section-meta">{searchResults.length} Treffer</span>
+				<span class="section-meta">{m.home_search_hits({ count: searchResults.length })}</span>
 			</div>
 			{#if searchResults.length > 0}
 				<div class="grid grid-2">
@@ -310,17 +311,17 @@
 					{/each}
 				</div>
 			{:else if !searching}
-				<p class="empty-state">No matches for "{searchQuery}".</p>
+				<p class="empty-state">{m.home_search_no_matches({ query: searchQuery })}</p>
 			{/if}
 		</div>
 	{:else}
 		<!-- Category drill-down tiles -->
 		<div class="section">
 			<div class="section-head">
-				<h2 class="section-title">Filter</h2>
+				<h2 class="section-title">{m.home_filter_title()}</h2>
 				{#if selectedFilter}
 					<button class="clear-filter" onclick={() => (selectedFilter = null)}>
-						&times; Clear
+						&times; {m.home_filter_clear()}
 					</button>
 				{/if}
 			</div>
@@ -342,12 +343,12 @@
 		{#if showForm}
 			<form class="card create-form" onsubmit={(e) => { e.preventDefault(); createThesis(); }}>
 				<div class="form-header">
-					<h2 class="form-title">Create a Thesis</h2>
+					<h2 class="form-title">{m.home_create_title()}</h2>
 					<button
 						type="button"
 						class="form-close"
-						aria-label="Close"
-						title="Close"
+						aria-label={m.home_create_close_aria()}
+						title={m.home_create_close_aria()}
 						onclick={() => { showForm = false; similarExisting = []; createError = null; }}
 					>
 						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -355,21 +356,21 @@
 				</div>
 
 				<div class="form-group">
-					<label for="thesis-title">Title</label>
-					<input id="thesis-title" type="text" bind:value={title} oninput={onFormTyping} placeholder="State your thesis clearly..." maxlength="200" required />
+					<label for="thesis-title">{m.home_create_title_label()}</label>
+					<input id="thesis-title" type="text" bind:value={title} oninput={onFormTyping} placeholder={m.home_create_title_placeholder()} maxlength="200" required />
 				</div>
 
 				<div class="form-group">
-					<label for="thesis-desc">Description</label>
-					<textarea id="thesis-desc" bind:value={description} oninput={onFormTyping} placeholder="Provide context and nuance..." maxlength="2000" required></textarea>
+					<label for="thesis-desc">{m.home_create_desc_label()}</label>
+					<textarea id="thesis-desc" bind:value={description} oninput={onFormTyping} placeholder={m.home_create_desc_placeholder()} maxlength="2000" required></textarea>
 				</div>
 
 				{#if similarLoading || similarExisting.length > 0}
 					<div class="similar-existing">
 						<div class="similar-head">
-							<span class="similar-label">Already exists?</span>
+							<span class="similar-label">{m.home_create_similar_label()}</span>
 							{#if similarLoading}
-								<span class="search-spinner" aria-label="Searching"></span>
+								<span class="search-spinner" aria-label={m.home_search_searching_aria()}></span>
 							{/if}
 						</div>
 						{#if similarExisting.length > 0}
@@ -388,15 +389,15 @@
 								{/each}
 							</ul>
 						{:else if !similarLoading}
-							<p class="similar-empty">Nichts Vergleichbares gefunden.</p>
+							<p class="similar-empty">{m.home_create_similar_empty()}</p>
 						{/if}
 					</div>
 				{/if}
 
 				<div class="form-group">
 					<label for="thesis-categories">
-						Categories
-						<span class="hint-inline">optional — wir schlagen sonst welche vor</span>
+						{m.home_create_categories_label()}
+						<span class="hint-inline">{m.home_create_categories_hint()}</span>
 					</label>
 					<div class="category-grid" id="thesis-categories">
 						{#each categoriesStore.list as cat}
@@ -412,9 +413,9 @@
 
 				<div class="form-actions">
 					<button class="btn btn-primary" type="submit" disabled={submitting}>
-						{submitting ? 'Creating...' : 'Create Thesis'}
+						{submitting ? m.home_create_submitting() : m.home_create_submit()}
 					</button>
-					<button class="btn" type="button" onclick={() => { showForm = false; similarExisting = []; createError = null; }}>Cancel</button>
+					<button class="btn" type="button" onclick={() => { showForm = false; similarExisting = []; createError = null; }}>{m.home_create_cancel()}</button>
 				</div>
 
 				{#if createError}
@@ -430,7 +431,7 @@
 					<span class="section-filter-active">{selectedFilter}</span>
 				{/if}
 				<span class="section-meta">
-					{visibleTheses.length} of {filteredTotal}
+					{m.home_list_count({ visible: visibleTheses.length, total: filteredTotal })}
 				</span>
 			</div>
 
@@ -443,16 +444,16 @@
 			{#if visibleTheses.length === 0}
 				<p class="empty-state">
 					{#if selectedFilter}
-						No theses in category "{selectedFilter}".
+						{m.home_list_empty_filtered({ category: selectedFilter })}
 					{:else}
-						No theses yet. Be the first to create one!
+						{m.home_list_empty()}
 					{/if}
 				</p>
 			{/if}
 
 			{#if filteredTotal > visibleTheses.length}
 				<p class="limit-note">
-					Adjust the complexity slider to see more theses.
+					{m.home_list_limit_note()}
 				</p>
 			{/if}
 		</div>

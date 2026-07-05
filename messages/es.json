@@ -37,5 +37,44 @@
 	"lang_en": "English",
 	"lang_de": "Deutsch",
 	"lang_fr": "Français",
-	"lang_es": "Español"
+	"lang_es": "Español",
+
+	"home_search_placeholder": "TODO_TRANSLATE:Search theses…",
+	"home_search_searching_aria": "TODO_TRANSLATE:Searching",
+	"home_search_mode_semantic": "TODO_TRANSLATE:Semantic search",
+	"home_search_mode_fulltext": "TODO_TRANSLATE:Full-text search",
+	"home_search_mode_combined": "TODO_TRANSLATE:Search",
+	"home_search_hits": "TODO_TRANSLATE:{count} hits",
+	"home_search_no_matches": "TODO_TRANSLATE:No matches for \"{query}\".",
+
+	"home_suggestion_label": "TODO_TRANSLATE:Suggested:",
+	"home_suggestion_apply": "TODO_TRANSLATE:Apply",
+	"home_suggestion_dismiss_aria": "TODO_TRANSLATE:Dismiss",
+
+	"home_filter_title": "TODO_TRANSLATE:Filter",
+	"home_filter_clear": "TODO_TRANSLATE:Clear",
+
+	"home_create_title": "TODO_TRANSLATE:Create a Thesis",
+	"home_create_close_aria": "TODO_TRANSLATE:Close",
+	"home_create_title_label": "TODO_TRANSLATE:Title",
+	"home_create_title_placeholder": "TODO_TRANSLATE:State your thesis clearly...",
+	"home_create_desc_label": "TODO_TRANSLATE:Description",
+	"home_create_desc_placeholder": "TODO_TRANSLATE:Provide context and nuance...",
+	"home_create_similar_label": "TODO_TRANSLATE:Already exists?",
+	"home_create_similar_empty": "TODO_TRANSLATE:Nothing comparable found.",
+	"home_create_categories_label": "TODO_TRANSLATE:Categories",
+	"home_create_categories_hint": "TODO_TRANSLATE:optional — we'll suggest some otherwise",
+	"home_create_submit": "TODO_TRANSLATE:Create Thesis",
+	"home_create_submitting": "TODO_TRANSLATE:Creating...",
+	"home_create_cancel": "TODO_TRANSLATE:Cancel",
+
+	"home_list_count": "TODO_TRANSLATE:{visible} of {total}",
+	"home_list_empty_filtered": "TODO_TRANSLATE:No theses in category \"{category}\".",
+	"home_list_empty": "TODO_TRANSLATE:No theses yet. Be the first to create one!",
+	"home_list_limit_note": "TODO_TRANSLATE:Adjust the complexity slider to see more theses.",
+
+	"error_too_many_requests": "TODO_TRANSLATE:Too many requests — wait a moment and try again.",
+	"error_text_too_long": "TODO_TRANSLATE:Text too long — please shorten it.",
+	"error_invalid_input": "TODO_TRANSLATE:Invalid input.",
+	"error_server_generic": "TODO_TRANSLATE:Server responded {status}. Please try again."
 }
