@@ -10,6 +10,7 @@
 	import ArgumentCard from '$lib/components/ArgumentCard.svelte';
 	import ForkLines from '$lib/components/ForkLines.svelte';
 	import VoteRow from '$lib/components/VoteRow.svelte';
+	import ActivityGraph from '$lib/components/ActivityGraph.svelte';
 	import type { ActivityDay } from '$lib/stores/data';
 	import { m } from '$lib/paraglide/messages';
 
@@ -25,6 +26,8 @@
 	let related = $state(data.related ?? []);
 	// svelte-ignore state_referenced_locally
 	let relatedMode = $state<string | null>(data.relatedMode ?? null);
+	// svelte-ignore state_referenced_locally
+	let activity = $state<ActivityDay[]>(data.activity ?? []);
 
 	$effect(() => {
 		thesis = data.thesis;
@@ -32,12 +35,9 @@
 		voteSummary = data.voteSummary;
 		related = data.related ?? [];
 		relatedMode = data.relatedMode ?? null;
-		activityStore.set(
-			data.activity ?? [],
-			data.thesis
-				? m.thesis_activity_title({ title: `${data.thesis.title.slice(0, 30)}${data.thesis.title.length > 30 ? '…' : ''}` })
-				: m.thesis_activity_fallback()
-		);
+		activity = data.activity ?? [];
+		// Sidebar activity is now rendered inline at the bottom of the thesis page.
+		activityStore.set([], '');
 		if (data.arguments && data.thesis) {
 			forkFeedStore.update(data.arguments, data.thesis.title);
 		}
@@ -323,7 +323,7 @@
 		{/if}
 
 		<!-- Thesis tile -->
-		<div class="thesis-tile card">
+		<div class="thesis-tile card lifecycle-band lifecycle-band-{thesis.lifecycle?.state ?? 'seedling'}">
 			{#if editingThesis}
 				<form class="edit-form" onsubmit={(e) => { e.preventDefault(); submitEditThesis(); }}>
 					<div class="form-group">
@@ -363,7 +363,9 @@
 						<span class="tag">{category}</span>
 					{/each}
 					<span class="tag lifecycle-tag lifecycle-{thesis.lifecycle?.state ?? 'seedling'}" title={m.thesis_lifecycle_title()}>
-						{thesis.lifecycle?.state ?? 'seedling'}
+						<a href="/about#lifecycle" class="lifecycle-link">
+							{thesis.lifecycle?.state ?? 'seedling'}
+						</a>
 					</span>
 				</div>
 
@@ -552,6 +554,16 @@
 				</ul>
 			</aside>
 		{/if}
+
+		{#if activity.length > 0}
+			<section class="thesis-activity card">
+				<ActivityGraph
+					data={activity}
+					title={m.thesis_activity_title({ title: `${thesis.title.slice(0, 30)}${thesis.title.length > 30 ? '…' : ''}` })}
+					height={70}
+				/>
+			</section>
+		{/if}
 	</article>
 {:else}
 	<div class="not-found">
@@ -598,6 +610,29 @@
 		background: white;
 		border-radius: var(--radius-lg);
 		padding: 1.5rem;
+	}
+
+	/* Lifecycle band on the left edge of the thesis tile. */
+	.lifecycle-band {
+		border-left: 6px solid var(--color-border);
+	}
+	.lifecycle-band-seedling      { border-left-color: #bef264; }
+	.lifecycle-band-discussed     { border-left-color: #93c5fd; }
+	.lifecycle-band-contested     { border-left-color: #fbbf24; }
+	.lifecycle-band-crystallized  { border-left-color: #67e8f9; }
+	.lifecycle-band-faded         { border-left-color: #d4d4d8; }
+	.lifecycle-band-dormant       { border-left-color: #a1a1aa; }
+
+	.lifecycle-link {
+		color: inherit;
+		text-decoration: none;
+	}
+	.lifecycle-link:hover {
+		text-decoration: underline;
+	}
+
+	.thesis-activity {
+		padding: 0.75rem 1rem;
 	}
 
 	.thesis-title {
