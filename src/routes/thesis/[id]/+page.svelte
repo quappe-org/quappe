@@ -362,8 +362,8 @@
 				role="button"
 				tabindex="0"
 				aria-label="Heat: {heat} — open explanation"
-				onclick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = '/about#heat'; }}
-				onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); window.location.href = '/about#heat'; } }}
+				onclick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = '/about/heat'; }}
+				onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); window.location.href = '/about/heat'; } }}
 			></span>
 			<span
 				class="side-band lifecycle-band-strip"
@@ -371,8 +371,8 @@
 				role="button"
 				tabindex="0"
 				aria-label="Lifecycle: {thesis.lifecycle?.state ?? 'seedling'} — open explanation"
-				onclick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = '/about#lifecycle'; }}
-				onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); window.location.href = '/about#lifecycle'; } }}
+				onclick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = '/about/lifecycle'; }}
+				onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); window.location.href = '/about/lifecycle'; } }}
 			></span>
 			{#if editingThesis}
 				<form class="edit-form" onsubmit={(e) => { e.preventDefault(); submitEditThesis(); }}>
