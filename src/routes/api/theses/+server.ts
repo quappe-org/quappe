@@ -77,7 +77,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals }
 	try {
 		const vec = await Promise.race([embedPromise, timeout]);
 		if (vec) {
-			suggested_categories = await suggestCategories(vec, DEFAULT_CATEGORIES, 3);
+			suggested_categories = await suggestCategories(vec, DEFAULT_CATEGORIES);
 		}
 	} catch {
 		// embedding failed — continue without suggestion

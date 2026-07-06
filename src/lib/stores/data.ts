@@ -774,6 +774,24 @@ export function updateArgument(
 	return argument;
 }
 
+/**
+ * Backend-only: assign categories to an argument. Called by the nightly LLM
+ * batch categorizer. Does NOT touch `meta.updated_at` — categorisation is a
+ * machine annotation, not a user edit.
+ */
+export function setArgumentCategories(id: string, categories: string[]): boolean {
+	const argument = arguments_store.get(id);
+	if (!argument) return false;
+	argument.categories = categories;
+	arguments_store.set(id, argument);
+	bumpVersion();
+	return true;
+}
+
+export function getAllArguments(): Argument[] {
+	return Array.from(arguments_store.values());
+}
+
 export function voteOnArgument(
 	argument_id: string,
 	user_id: string,

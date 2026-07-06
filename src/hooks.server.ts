@@ -4,6 +4,7 @@ import { logger } from '$lib/stores/logger';
 import { warmupModel, embed, isModelWarm } from '$lib/server/embeddings';
 import { seedData, getAllTheses, setThesisEmbedding, hasThesisEmbedding } from '$lib/stores/data';
 import { refreshPulseCache } from '$lib/server/pulse';
+import { categorizeUncategorizedArguments } from '$lib/server/argument-categorization';
 import { isLlmAvailable } from '$lib/server/llm';
 import { ensureUserId } from '$lib/server/identity';
 import { paraglideMiddleware } from '$lib/paraglide/server';
@@ -74,6 +75,26 @@ async function pulseLoop() {
 	}
 }
 pulseLoop().catch(() => {});
+
+// Nightly LLM batch that assigns categories to human-authored arguments that
+// don't have any yet. Arguments start uncategorised on purpose: we don't want
+// authors to be forced through another taxonomy picker after they already
+// picked one for the thesis. This job fills the gap asynchronously.
+async function argumentCategorizationLoop() {
+	// Delay first run so it doesn't compete with model warmup + seed backfill.
+	await new Promise((r) => setTimeout(r, 15_000));
+	const day = 24 * 60 * 60 * 1000;
+	while (true) {
+		try {
+			const n = await categorizeUncategorizedArguments();
+			if (n > 0) logger.info('system', `argument categorizer: annotated ${n}`);
+		} catch (err) {
+			logger.warn('system', 'argument categorizer threw', { error: (err as Error)?.message });
+		}
+		await new Promise((r) => setTimeout(r, day));
+	}
+}
+argumentCategorizationLoop().catch(() => {});
 
 /**
  * Log every request that hits the server.

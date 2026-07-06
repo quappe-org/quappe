@@ -121,6 +121,11 @@
 		<span class="evidence evidence-{primaryEvidence}" title="Evidence type (auto-detected)">
 			{primaryEvidence}
 		</span>
+		{#if argument.categories && argument.categories.length > 0}
+			{#each argument.categories as cat}
+				<span class="arg-cat" title="Topic (auto-categorised)">{cat}</span>
+			{/each}
+		{/if}
 		{#if sourceUrls.length > 0}
 			<ul class="sources">
 				{#each sourceUrls as s}
@@ -239,6 +244,18 @@
 	.evidence-experiential { background: #ffedd5; color: #7c2d12; border-color: #fdba74; }
 	.evidence-emotional    { background: #fce7f3; color: #831843; border-color: #f9a8d4; }
 	.evidence-logical      { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+
+	.arg-cat {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.125rem 0.5rem;
+		font-size: var(--text-xs);
+		font-weight: 500;
+		border-radius: var(--radius-sm);
+		background: var(--color-bg);
+		color: var(--color-text-muted);
+		border: 1px solid var(--color-border);
+	}
 
 	.sources {
 		list-style: none;

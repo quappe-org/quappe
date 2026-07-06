@@ -71,10 +71,15 @@ export interface Argument {
 	id: string;
 	thesis_id: string;
 	stance: ArgumentStance; // does this argument support or reject the thesis?
-	content: string; // the argument text
+	content: string;
 	attributes: ArgumentAttribute[];
 	votes: Vote[];
 	forked_from_id?: string; // argument this was forked from (parallel evolution)
+	// Optional — user-authored arguments start with `undefined`. A nightly
+	// backend LLM batch job assigns categories asynchronously. Never inherited
+	// from the parent thesis, so support/reject arguments can carry different
+	// topical labels than the thesis they attach to.
+	categories?: Category[];
 	meta: Meta;
 }
 

@@ -28,11 +28,18 @@ async function getCategoryEmbedding(cat: string): Promise<Float32Array> {
 /**
  * Suggest the top N most relevant categories for a given text embedding.
  * Returns [] if model is not warm yet (non-blocking).
+ *
+ * Only categories whose cosine similarity to the text is above `minScore`
+ * (default 0.35) are returned. If none clears the bar, we return ['other']
+ * — better than a random top-3 that happens to be dressed up as confident.
+ * The `'other'` sentinel is expected to exist in the caller's category list
+ * (it is part of DEFAULT_CATEGORIES).
  */
 export async function suggestCategories(
 	textEmbedding: Float32Array,
 	categories: Category[],
-	topN = 3
+	topN = 2,
+	minScore = 0.35
 ): Promise<Category[]> {
 	if (!isModelWarm() || categories.length === 0) return [];
 
@@ -44,7 +51,9 @@ export async function suggestCategories(
 	);
 
 	scores.sort((a, b) => b.score - a.score);
-	return scores.slice(0, topN).map((s) => s.cat);
+	const confident = scores.filter((s) => s.score >= minScore).slice(0, topN).map((s) => s.cat);
+	if (confident.length > 0) return confident;
+	return categories.includes('other') ? ['other'] : [];
 }
 
 // ---- Similar theses ----

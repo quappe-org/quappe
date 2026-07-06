@@ -191,6 +191,10 @@
 		if (!budgetStore.canCreate('thesis')) return;
 		submitting = true;
 		createError = null;
+		// Server requires ≥1 category. If the user didn't pick, fall back to
+		// 'other' up-front — the LLM suggestion (if confident) will replace it
+		// via the PUT below.
+		const payloadCategories = selectedCategories.length > 0 ? selectedCategories : ['other'];
 		try {
 			const res = await fetch('/api/theses', {
 				method: 'POST',
@@ -198,7 +202,7 @@
 				body: JSON.stringify({
 					title: title.trim(),
 					description: description.trim(),
-					categories: selectedCategories,
+					categories: payloadCategories,
 					author_id: getUserId()
 				})
 			});
@@ -221,8 +225,11 @@
 
 			// If the user picked no categories, auto-apply the server's suggestion
 			// before showing the thesis in the list — this is what "just submit" expects.
+			// Skip the PUT when the suggestion is just ['other'] (no confidence) since
+			// the initial payload already defaulted to that.
 			let finalThesis: Thesis = responseData;
-			if (currentCats.length === 0 && suggested.length > 0) {
+			const suggestionIsFallback = suggested.length === 1 && suggested[0] === 'other';
+			if (currentCats.length === 0 && suggested.length > 0 && !suggestionIsFallback) {
 				try {
 					const putRes = await fetch(`/api/theses/${responseData.id}`, {
 						method: 'PUT',
