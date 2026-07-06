@@ -98,8 +98,12 @@
 >
 	<span
 		class="side-band heat-band"
-		title="Heat: {heat} (recent activity {heatRatio.toFixed(2)}× baseline)"
-		aria-hidden="true"
+		title="Heat: {heat} (recent activity {heatRatio.toFixed(2)}× baseline) — click for details"
+		role="button"
+		tabindex="0"
+		aria-label="Heat: {heat} — open explanation"
+		onclick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = '/about#heat'; }}
+		onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); window.location.href = '/about#heat'; } }}
 	></span>
 	<span
 		class="side-band lifecycle-band-strip"
@@ -181,6 +185,11 @@
 	}
 	.heat-band {
 		left: 0;
+		cursor: pointer;
+		transition: filter var(--transition-fast);
+	}
+	.heat-band:hover {
+		filter: brightness(0.85);
 	}
 	.lifecycle-band-strip {
 		left: 8px;
