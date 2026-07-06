@@ -92,7 +92,10 @@
 	}
 </script>
 
-<a href="/thesis/{thesis.id}" class="card thesis-card heat-{heat}">
+<a
+	href="/thesis/{thesis.id}"
+	class="card thesis-card heat-{heat} lifecycle-band-{thesis.lifecycle?.state ?? 'seedling'}"
+>
 	<h3 class="thesis-title">{thesis.title}</h3>
 	<p class="thesis-description">{thesis.description}</p>
 
@@ -103,15 +106,14 @@
 	</div>
 
 	<div class="thesis-badges">
-		<span class="badge badge-arguments" title="Arguments">
-			<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-				<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-			</svg>
-			{abbreviateNumber(argumentCount)}
-		</span>
-		<span class="badge lifecycle-badge lifecycle-{thesis.lifecycle?.state ?? 'seedling'}" title="Lifecycle: {thesis.lifecycle?.state ?? 'seedling'} (quality {Math.round((thesis.lifecycle?.quality_score ?? 0) * 100)}%)">
+		<button
+			type="button"
+			class="badge lifecycle-badge lifecycle-{thesis.lifecycle?.state ?? 'seedling'}"
+			title="Lifecycle: {thesis.lifecycle?.state ?? 'seedling'} (quality {Math.round((thesis.lifecycle?.quality_score ?? 0) * 100)}%) — click for details"
+			onclick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = '/about#lifecycle'; }}
+		>
 			{thesis.lifecycle?.state ?? 'seedling'}
-		</span>
+		</button>
 	</div>
 
 	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
@@ -129,20 +131,24 @@
 						<span class="vb-seg vb-seg-reject" style="flex: {voteSummary.reject}"></span>
 					{/if}
 				</div>
-				<div class="vote-nums">
-					<span class="vn vn-support">+{voteSummary.support}</span>
-					<span class="vn vn-reject">−{voteSummary.reject}</span>
-				</div>
 			</div>
 		{/if}
-		<VoteRow
-			summary={voteSummary}
-			currentVote={currentVote}
-			currentWeight={currentWeight}
-			voting={voting}
-			compact
-			oncast={castVote}
-		/>
+		<div class="thesis-footer-row">
+			<VoteRow
+				summary={voteSummary}
+				currentVote={currentVote}
+				currentWeight={currentWeight}
+				voting={voting}
+				compact
+				oncast={castVote}
+			/>
+			<span class="badge badge-arguments" title="Arguments">
+				<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+				</svg>
+				{abbreviateNumber(argumentCount)}
+			</span>
+		</div>
 	</div>
 </a>
 
@@ -151,14 +157,29 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
-		border-left: 4px solid var(--color-border);
-		transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-fast);
+		position: relative;
+		padding-left: calc(var(--card-padding, 1rem) + 8px);
+		transition: box-shadow var(--transition-base), transform var(--transition-fast);
 		text-decoration: none;
 		color: inherit;
 		cursor: pointer;
 		min-height: 200px;
 		justify-content: space-between;
+		overflow: hidden;
 	}
+
+	/* Two vertical bands on the left edge: heat (outer) and lifecycle (inner). */
+	.thesis-card::before,
+	.thesis-card::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		width: 4px;
+		background: var(--color-border);
+	}
+	.thesis-card::before { left: 0; }
+	.thesis-card::after  { left: 4px; }
 
 	.thesis-card:hover {
 		box-shadow: var(--shadow-md);
@@ -169,10 +190,20 @@
 		color: var(--color-primary);
 	}
 
-	.thesis-card.heat-hot   { border-left-color: #ea580c; box-shadow: inset 0 0 0 1px rgba(234, 88, 12, 0.12); }
-	.thesis-card.heat-warm  { border-left-color: #f59e0b; }
-	.thesis-card.heat-cool  { border-left-color: #93c5fd; }
-	.thesis-card.heat-cold  { border-left-color: #3b82f6; }
+	/* Heat band (::before) */
+	.thesis-card.heat-hot::before   { background: #ea580c; }
+	.thesis-card.heat-warm::before  { background: #f59e0b; }
+	.thesis-card.heat-cool::before  { background: #93c5fd; }
+	.thesis-card.heat-cold::before  { background: #3b82f6; }
+	.thesis-card.heat-hot           { box-shadow: inset 0 0 0 1px rgba(234, 88, 12, 0.12); }
+
+	/* Lifecycle band (::after) */
+	.thesis-card.lifecycle-band-seedling::after     { background: #bef264; }
+	.thesis-card.lifecycle-band-discussed::after    { background: #93c5fd; }
+	.thesis-card.lifecycle-band-contested::after    { background: #fbbf24; }
+	.thesis-card.lifecycle-band-crystallized::after { background: #67e8f9; }
+	.thesis-card.lifecycle-band-faded::after        { background: #d4d4d8; }
+	.thesis-card.lifecycle-band-dormant::after      { background: #a1a1aa; }
 
 	.thesis-title {
 		font-size: var(--text-lg);
@@ -224,9 +255,15 @@
 		padding: 0.125rem 0.5rem;
 		font-size: var(--text-xs);
 		font-weight: 500;
+		font-family: inherit;
 		border-radius: var(--radius-sm);
 		text-transform: capitalize;
 		border: 1px solid transparent;
+		cursor: pointer;
+	}
+	.lifecycle-badge:hover {
+		filter: brightness(0.96);
+		text-decoration: underline;
 	}
 
 	.lifecycle-seedling     { background: #ecfccb; color: #365314; border-color: #bef264; }
@@ -243,6 +280,14 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
+	}
+
+	.thesis-footer-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		flex-wrap: wrap;
 	}
 
 	.vote-bar-wrap {
@@ -271,15 +316,4 @@
 	.vb-seg-support { background: var(--color-support); }
 	.vb-seg-neutral { background: var(--color-neutral); }
 	.vb-seg-reject  { background: var(--color-reject); }
-
-	.vote-nums {
-		display: flex;
-		gap: 0.375rem;
-		font-size: var(--text-xs);
-		font-family: var(--font-mono);
-		font-variant-numeric: tabular-nums;
-	}
-
-	.vn-support { color: var(--color-support); }
-	.vn-reject  { color: var(--color-reject); }
 </style>
