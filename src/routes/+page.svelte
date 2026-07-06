@@ -22,7 +22,7 @@
 		allTheses = data.theses;
 		heat = data.heat ?? {};
 		argumentCounts = data.argumentCounts ?? {};
-		activityStore.set(data.activity ?? [], 'Platform activity');
+		activityStore.set([], '');
 	});
 
 	// Listen for external "new thesis" intent (from sidebar button)
