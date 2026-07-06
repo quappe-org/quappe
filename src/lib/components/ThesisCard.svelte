@@ -96,6 +96,20 @@
 	href="/thesis/{thesis.id}"
 	class="card thesis-card heat-{heat} lifecycle-band-{thesis.lifecycle?.state ?? 'seedling'}"
 >
+	<span
+		class="side-band heat-band"
+		title="Heat: {heat} (recent activity {heatRatio.toFixed(2)}× baseline)"
+		aria-hidden="true"
+	></span>
+	<span
+		class="side-band lifecycle-band-strip"
+		title="Lifecycle: {thesis.lifecycle?.state ?? 'seedling'} — click for details"
+		role="button"
+		tabindex="0"
+		aria-label="Lifecycle: {thesis.lifecycle?.state ?? 'seedling'} — open explanation"
+		onclick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = '/about#lifecycle'; }}
+		onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); window.location.href = '/about#lifecycle'; } }}
+	></span>
 	<h3 class="thesis-title">{thesis.title}</h3>
 	<p class="thesis-description">{thesis.description}</p>
 
@@ -103,17 +117,6 @@
 		{#each thesis.categories as category}
 			<span class="tag">{category}</span>
 		{/each}
-	</div>
-
-	<div class="thesis-badges">
-		<button
-			type="button"
-			class="badge lifecycle-badge lifecycle-{thesis.lifecycle?.state ?? 'seedling'}"
-			title="Lifecycle: {thesis.lifecycle?.state ?? 'seedling'} (quality {Math.round((thesis.lifecycle?.quality_score ?? 0) * 100)}%) — click for details"
-			onclick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = '/about#lifecycle'; }}
-		>
-			{thesis.lifecycle?.state ?? 'seedling'}
-		</button>
 	</div>
 
 	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
@@ -158,7 +161,7 @@
 		flex-direction: column;
 		gap: 0.75rem;
 		position: relative;
-		padding-left: calc(var(--card-padding, 1rem) + 8px);
+		padding-left: calc(var(--card-padding, 1rem) + 16px);
 		transition: box-shadow var(--transition-base), transform var(--transition-fast);
 		text-decoration: none;
 		color: inherit;
@@ -169,17 +172,39 @@
 	}
 
 	/* Two vertical bands on the left edge: heat (outer) and lifecycle (inner). */
-	.thesis-card::before,
-	.thesis-card::after {
-		content: '';
+	.side-band {
 		position: absolute;
 		top: 0;
 		bottom: 0;
-		width: 4px;
+		width: 8px;
 		background: var(--color-border);
 	}
-	.thesis-card::before { left: 0; }
-	.thesis-card::after  { left: 4px; }
+	.heat-band {
+		left: 0;
+	}
+	.lifecycle-band-strip {
+		left: 8px;
+		cursor: pointer;
+		transition: filter var(--transition-fast);
+	}
+	.lifecycle-band-strip:hover {
+		filter: brightness(0.85);
+	}
+
+	/* Heat band */
+	.thesis-card.heat-hot  .heat-band { background: #ea580c; }
+	.thesis-card.heat-warm .heat-band { background: #f59e0b; }
+	.thesis-card.heat-cool .heat-band { background: #93c5fd; }
+	.thesis-card.heat-cold .heat-band { background: #3b82f6; }
+	.thesis-card.heat-hot           { box-shadow: inset 0 0 0 1px rgba(234, 88, 12, 0.12); }
+
+	/* Lifecycle band */
+	.thesis-card.lifecycle-band-seedling     .lifecycle-band-strip { background: #bef264; }
+	.thesis-card.lifecycle-band-discussed    .lifecycle-band-strip { background: #93c5fd; }
+	.thesis-card.lifecycle-band-contested    .lifecycle-band-strip { background: #fbbf24; }
+	.thesis-card.lifecycle-band-crystallized .lifecycle-band-strip { background: #67e8f9; }
+	.thesis-card.lifecycle-band-faded        .lifecycle-band-strip { background: #d4d4d8; }
+	.thesis-card.lifecycle-band-dormant      .lifecycle-band-strip { background: #a1a1aa; }
 
 	.thesis-card:hover {
 		box-shadow: var(--shadow-md);
@@ -189,21 +214,6 @@
 	.thesis-card:hover .thesis-title {
 		color: var(--color-primary);
 	}
-
-	/* Heat band (::before) */
-	.thesis-card.heat-hot::before   { background: #ea580c; }
-	.thesis-card.heat-warm::before  { background: #f59e0b; }
-	.thesis-card.heat-cool::before  { background: #93c5fd; }
-	.thesis-card.heat-cold::before  { background: #3b82f6; }
-	.thesis-card.heat-hot           { box-shadow: inset 0 0 0 1px rgba(234, 88, 12, 0.12); }
-
-	/* Lifecycle band (::after) */
-	.thesis-card.lifecycle-band-seedling::after     { background: #bef264; }
-	.thesis-card.lifecycle-band-discussed::after    { background: #93c5fd; }
-	.thesis-card.lifecycle-band-contested::after    { background: #fbbf24; }
-	.thesis-card.lifecycle-band-crystallized::after { background: #67e8f9; }
-	.thesis-card.lifecycle-band-faded::after        { background: #d4d4d8; }
-	.thesis-card.lifecycle-band-dormant::after      { background: #a1a1aa; }
 
 	.thesis-title {
 		font-size: var(--text-lg);
@@ -229,13 +239,6 @@
 		gap: 0.375rem;
 	}
 
-	.thesis-badges {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.375rem;
-		align-items: center;
-	}
-
 	.badge-arguments {
 		display: inline-flex;
 		align-items: center;
@@ -248,30 +251,6 @@
 		color: var(--color-text-muted);
 		border: 1px solid var(--color-border);
 	}
-
-	.lifecycle-badge {
-		display: inline-flex;
-		align-items: center;
-		padding: 0.125rem 0.5rem;
-		font-size: var(--text-xs);
-		font-weight: 500;
-		font-family: inherit;
-		border-radius: var(--radius-sm);
-		text-transform: capitalize;
-		border: 1px solid transparent;
-		cursor: pointer;
-	}
-	.lifecycle-badge:hover {
-		filter: brightness(0.96);
-		text-decoration: underline;
-	}
-
-	.lifecycle-seedling     { background: #ecfccb; color: #365314; border-color: #bef264; }
-	.lifecycle-discussed    { background: #dbeafe; color: #1e3a8a; border-color: #93c5fd; }
-	.lifecycle-contested    { background: #fef3c7; color: #78350f; border-color: #fbbf24; }
-	.lifecycle-crystallized { background: #cffafe; color: #164e63; border-color: #67e8f9; font-weight: 600; }
-	.lifecycle-faded        { background: #f1f5f9; color: #64748b; border-color: #cbd5e1; }
-	.lifecycle-dormant      { background: #f8fafc; color: #94a3b8; border-color: #e2e8f0; }
 
 	.thesis-footer {
 		margin-top: 0.25rem;
