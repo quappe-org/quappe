@@ -3,20 +3,17 @@
 	import type { ComplexitySettings } from '$lib/models/types';
 	import { complexityStore } from '$lib/stores/complexity.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
-	import { activityStore } from '$lib/stores/activity.svelte';
 	import { uiIntents } from '$lib/stores/ui.svelte';
 	import { forkFeedStore } from '$lib/stores/fork-feed.svelte';
 	import { updatesStore } from '$lib/stores/updates.svelte';
 	import { updatesSeen } from '$lib/stores/updates-seen.svelte';
-	import { themeStore, type Theme } from '$lib/stores/theme.svelte';
+	import { themeStore } from '$lib/stores/theme.svelte';
 	import { bootstrapUserId } from '$lib/stores/user';
 	import ComplexitySlider from '$lib/components/ComplexitySlider.svelte';
-	import ActivityGraph from '$lib/components/ActivityGraph.svelte';
 	import Logo from '$lib/components/Logo.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { getLocale, setLocale, locales, type Locale } from '$lib/paraglide/runtime';
 	import { m } from '$lib/paraglide/messages';
 	import '../app.css';
 
@@ -82,8 +79,6 @@
 	onMount(() => {
 		mounted = true;
 		themeStore.init();
-		// Sync client-side cache with server-set signed cookie BEFORE anything
-		// else touches user_id. Then load budget + updates.
 		bootstrapUserId().then(() => {
 			ensureBudgetLoaded();
 			updatesStore.refresh();
@@ -111,23 +106,6 @@
 		if (e.kind === 'weight_vote') return `×${(e.extra_weight ?? 0) + 1} ${e.vote_type} · ${e.thesis_title}`;
 		return '';
 	}
-
-	// Language switcher: setLocale() writes the PARAGLIDE_LOCALE cookie AND
-	// navigates to the URL for the chosen locale (with reload), so the whole
-	// page re-renders in the new language. Endonyms match the language the
-	// user is picking, not the current one.
-	const localeLabels: Record<Locale, string> = {
-		en: 'English',
-		de: 'Deutsch',
-		fr: 'Français',
-		es: 'Español'
-	};
-	let activeLocale = $derived<Locale>(mounted ? getLocale() : 'en');
-
-	function switchLocale(locale: Locale) {
-		if (locale === activeLocale) return;
-		setLocale(locale);
-	}
 </script>
 
 <div class="app">
@@ -144,7 +122,7 @@
 	</header>
 
 	<div class="shell">
-		<!-- LEFT SIDEBAR: Brand + Navigation -->
+		<!-- LEFT SIDEBAR: Brand + Nav + New thesis + Fork feed + Budget + Complexity + About/Settings -->
 		<aside class="sidebar sidebar-left">
 			<a href="/" class="brand brand-sidebar">
 				<Logo size={28} />
@@ -185,25 +163,6 @@
 					{m.nav_new_thesis()}
 				</button>
 			</nav>
-
-			<div class="nav-separator" aria-hidden="true"></div>
-
-			<nav class="nav nav-secondary">
-				<a href="/about" class="nav-item" class:active={isActive('/about')}>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
-					{m.nav_about()}
-				</a>
-			</nav>
-		</aside>
-
-		<!-- MAIN CONTENT -->
-		<main class="main">
-			{@render children()}
-		</main>
-
-		<!-- RIGHT SIDEBAR: Fork Feed + Budget + Activity + Complexity + Settings -->
-		<aside class="sidebar sidebar-right">
-			<div class="brand-spacer" aria-hidden="true"></div>
 
 			{#if mounted && forkFeedStore.pending.length > 0}
 				<div class="panel fork-feed-panel">
@@ -299,61 +258,32 @@
 				{/if}
 			</div>
 
-			{#if activityStore.data.length > 0}
-				<ActivityGraph data={activityStore.data} title={activityStore.title} height={60} />
-			{/if}
-
 			<div class="panel">
 				<h3 class="panel-title">{m.panel_complexity_title()}</h3>
 				<ComplexitySlider onchange={handleComplexityChange} />
 			</div>
 
-			<div class="panel">
-				<h3 class="panel-title">{m.panel_language_title()}</h3>
-				<div class="lang-switcher" role="group" aria-label={m.panel_language_title()}>
-					{#each locales as loc}
-						<button
-							type="button"
-							class="lang-btn"
-							class:active={mounted && loc === activeLocale}
-							aria-pressed={mounted && loc === activeLocale}
-							title={localeLabels[loc]}
-							onclick={() => switchLocale(loc)}
-						>
-							{loc.toUpperCase()}
-						</button>
-					{/each}
-				</div>
-			</div>
+			<div class="nav-separator" aria-hidden="true"></div>
 
-			<div class="panel">
-				<h3 class="panel-title">{m.panel_theme_title()}</h3>
-				<div class="lang-switcher theme-switcher" role="group" aria-label={m.panel_theme_title()}>
-					{#each [{ id: 'rainbow', label: m.panel_theme_rainbow() }, { id: 'pastel', label: m.panel_theme_pastel() }, { id: 'grayscale', label: m.panel_theme_grayscale() }] as t}
-						<button
-							type="button"
-							class="lang-btn theme-btn"
-							class:active={mounted && themeStore.current === t.id}
-							aria-pressed={mounted && themeStore.current === t.id}
-							title={t.label}
-							onclick={() => themeStore.set(t.id as Theme)}
-						>
-							{t.label}
-						</button>
-					{/each}
-				</div>
-			</div>
-
-			<div class="panel">
-				<a href="/settings" class="settings-link" class:active={isActive('/settings')}>
+			<nav class="nav nav-secondary">
+				<a href="/about" class="nav-item" class:active={isActive('/about')}>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+					{m.nav_about()}
+				</a>
+				<a href="/settings" class="nav-item" class:active={isActive('/settings')}>
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<circle cx="12" cy="12" r="3"></circle>
 						<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68 1.65 1.65 0 0 0 9 3.17V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
 					</svg>
 					{m.nav_settings()}
 				</a>
-			</div>
+			</nav>
 		</aside>
+
+		<!-- MAIN CONTENT -->
+		<main class="main">
+			{@render children()}
+		</main>
 	</div>
 </div>
 
@@ -397,11 +327,6 @@
 		margin-bottom: 0.25rem;
 	}
 
-	/* Mirrors height of .brand-sidebar so the right sidebar starts at same y-position as nav */
-	.brand-spacer {
-		height: calc(28px + 0.5rem + 1rem + 1px + 0.25rem);
-	}
-
 	.brand:hover {
 		color: var(--color-primary);
 	}
@@ -417,9 +342,9 @@
 	.shell {
 		flex: 1;
 		display: grid;
-		grid-template-columns: 200px 1fr 260px;
-		gap: 1.25rem;
-		max-width: 1600px;
+		grid-template-columns: 220px 1fr;
+		gap: 1.5rem;
+		max-width: 1400px;
 		width: 100%;
 		margin: 0 auto;
 		padding: 1rem 1.25rem;
@@ -435,12 +360,8 @@
 		position: sticky;
 		top: 1.5rem;
 		align-self: flex-start;
-	}
-
-	.sidebar-right {
-		position: sticky;
-		top: 1.5rem;
-		align-self: flex-start;
+		max-height: calc(100vh - 2rem);
+		overflow-y: auto;
 	}
 
 	.nav {
@@ -524,7 +445,7 @@
 	.nav-separator {
 		height: 1px;
 		background: var(--color-border);
-		margin: 1rem 0.5rem;
+		margin: 0.5rem 0.5rem;
 	}
 
 	.nav-secondary {
@@ -539,10 +460,10 @@
 		background: var(--color-surface);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
-		padding: 1rem;
+		padding: 0.85rem 1rem;
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
+		gap: 0.6rem;
 	}
 
 	.panel-title {
@@ -562,14 +483,14 @@
 	.budget-list {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 0.4rem;
 	}
 
 	.budget-row {
 		display: grid;
-		grid-template-columns: 80px 1fr 40px;
+		grid-template-columns: 70px 1fr 42px;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 0.4rem;
 	}
 
 	.budget-label {
@@ -619,74 +540,10 @@
 		color: var(--color-reject);
 	}
 
-	.settings-link {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		font-size: var(--text-sm);
-		color: var(--color-text-muted);
-		text-decoration: none;
-		font-weight: 500;
-	}
-
-	.settings-link:hover,
-	.settings-link.active {
-		color: var(--color-primary);
-	}
-
-	.lang-switcher {
-		display: grid;
-		grid-template-columns: repeat(4, 1fr);
-		gap: 0.25rem;
-	}
-
-	.lang-btn {
-		font-family: inherit;
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.03em;
-		padding: 0.3rem 0.2rem;
-		background: var(--color-bg);
-		color: var(--color-text-muted);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
-		cursor: pointer;
-		transition: background var(--transition-fast), color var(--transition-fast),
-			border-color var(--transition-fast);
-	}
-
-	.lang-btn:hover:not(.active) {
-		color: var(--color-text);
-		border-color: var(--color-text-muted);
-	}
-
-	.lang-btn.active {
-		background: var(--color-primary);
-		color: white;
-		border-color: var(--color-primary);
-		cursor: default;
-	}
-
-	/* Theme switcher: three word-buttons instead of four 2-letter codes */
-	.theme-switcher {
-		grid-template-columns: repeat(3, 1fr);
-	}
-
-	.theme-btn {
-		text-transform: none;
-		letter-spacing: 0;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
 	@media (max-width: 1024px) {
 		.shell {
-			grid-template-columns: 180px 1fr;
+			grid-template-columns: 200px 1fr;
 			padding: 0.75rem 1rem;
-		}
-		.sidebar-right {
-			display: none;
 		}
 	}
 
@@ -712,6 +569,7 @@
 			border-right: 1px solid var(--color-border);
 			padding: 1rem;
 			z-index: 90;
+			overflow-y: auto;
 		}
 	}
 

@@ -2,12 +2,37 @@
 	import { getUserId } from '$lib/stores/user';
 	import { categoriesStore } from '$lib/stores/categories.svelte';
 	import { complexityBoundsStore } from '$lib/stores/complexity-bounds.svelte';
+	import { themeStore, type Theme } from '$lib/stores/theme.svelte';
+	import { getLocale, setLocale, locales, type Locale } from '$lib/paraglide/runtime';
+	import { onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	let userId = $state('');
 	$effect(() => {
 		userId = getUserId();
 	});
+
+	// Language & theme — mounted guard so SSR doesn't lock in a wrong active state
+	let mounted = $state(false);
+	onMount(() => { mounted = true; });
+
+	const localeLabels: Record<Locale, string> = {
+		en: 'English',
+		de: 'Deutsch',
+		fr: 'Français',
+		es: 'Español'
+	};
+	let activeLocale = $derived<Locale>(mounted ? getLocale() : 'en');
+	function switchLocale(locale: Locale) {
+		if (locale === activeLocale) return;
+		setLocale(locale);
+	}
+
+	const themes: { id: Theme; label: () => string }[] = [
+		{ id: 'rainbow', label: () => m.panel_theme_rainbow() },
+		{ id: 'pastel', label: () => m.panel_theme_pastel() },
+		{ id: 'grayscale', label: () => m.panel_theme_grayscale() }
+	];
 
 	// Category management
 	let newCategory = $state('');
@@ -48,6 +73,46 @@
 </script>
 
 <section class="stack-lg">
+	<div class="card stack">
+		<div class="setting-group">
+			<h3 class="setting-label">{m.panel_language_title()}</h3>
+		</div>
+		<div class="pill-group" role="group" aria-label={m.panel_language_title()}>
+			{#each locales as loc}
+				<button
+					type="button"
+					class="pill-btn"
+					class:active={mounted && loc === activeLocale}
+					aria-pressed={mounted && loc === activeLocale}
+					title={localeLabels[loc]}
+					onclick={() => switchLocale(loc)}
+				>
+					{localeLabels[loc]}
+				</button>
+			{/each}
+		</div>
+	</div>
+
+	<div class="card stack">
+		<div class="setting-group">
+			<h3 class="setting-label">{m.panel_theme_title()}</h3>
+		</div>
+		<div class="pill-group" role="group" aria-label={m.panel_theme_title()}>
+			{#each themes as t}
+				<button
+					type="button"
+					class="pill-btn"
+					class:active={mounted && themeStore.current === t.id}
+					aria-pressed={mounted && themeStore.current === t.id}
+					title={t.label()}
+					onclick={() => themeStore.set(t.id)}
+				>
+					{t.label()}
+				</button>
+			{/each}
+		</div>
+	</div>
+
 	<div class="card stack">
 		<div class="setting-group">
 			<h3 class="setting-label">{m.settings_id_title()}</h3>
@@ -336,5 +401,37 @@
 	}
 	.admin-link:hover {
 		text-decoration: underline;
+	}
+
+	.pill-group {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+	}
+
+	.pill-btn {
+		font-family: inherit;
+		font-size: var(--text-sm);
+		font-weight: 500;
+		padding: 0.35rem 0.75rem;
+		background: var(--color-bg);
+		color: var(--color-text-muted);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		cursor: pointer;
+		transition: background var(--transition-fast), color var(--transition-fast),
+			border-color var(--transition-fast);
+	}
+
+	.pill-btn:hover:not(.active) {
+		color: var(--color-text);
+		border-color: var(--color-text-muted);
+	}
+
+	.pill-btn.active {
+		background: var(--color-primary);
+		color: white;
+		border-color: var(--color-primary);
+		cursor: default;
 	}
 </style>
