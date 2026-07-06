@@ -1,9 +1,13 @@
 <script lang="ts">
 	import type { PulseBody } from '$lib/server/pulse';
+	import type { ActivityDay } from '$lib/stores/data';
 	import { complexityStore } from '$lib/stores/complexity.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import ActivityGraph from '$lib/components/ActivityGraph.svelte';
 
 	let { data } = $props();
+
+	let activity = $derived<ActivityDay[]>(data.activity ?? []);
 
 	interface PulseResponse extends PulseBody {
 		cached?: boolean;
@@ -94,6 +98,12 @@
 				<span class="pulse-summary-label">{m.pulse_summary_new_week()}</span>
 			</div>
 		</div>
+
+		{#if activity.length > 0}
+			<div class="pulse-activity card">
+				<ActivityGraph data={activity} title={m.my_platform_activity()} height={80} />
+			</div>
+		{/if}
 
 		<div class="pulse-columns">
 			<section class="pulse-col card pulse-col-hot">
@@ -291,6 +301,10 @@
 		color: var(--color-text-muted);
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
+	}
+
+	.pulse-activity {
+		padding: 0.75rem 0.9rem;
 	}
 
 	.pulse-columns {
