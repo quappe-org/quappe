@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { VoteSummary, VoteType } from '$lib/models/types';
 	import { abbreviateNumber } from '$lib/utils/format';
-	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	interface Props {
@@ -10,7 +9,8 @@
 		currentWeight: number; // how heavy did I vote already
 		voting?: boolean;
 		compact?: boolean;
-		oncast: (type: VoteType, weight: number) => void;
+		showButtons?: boolean;
+		oncast?: (type: VoteType, weight: number) => void;
 	}
 
 	let {
@@ -19,6 +19,7 @@
 		currentWeight,
 		voting = false,
 		compact = false,
+		showButtons = true,
 		oncast
 	}: Props = $props();
 
@@ -33,14 +34,7 @@
 			if (targetWeight === currentWeight) targetWeight = 1;
 		}
 
-		const costsBudget = targetWeight > 1 && (type === 'support' || type === 'reject');
-		if (costsBudget) {
-			const extraNeeded = targetWeight - 1 - Math.max(0, currentWeight - 1);
-			if (extraNeeded > 0 && !budgetStore.canAfford(extraNeeded)) return;
-			if (extraNeeded > 0) budgetStore.spend(extraNeeded);
-		}
-
-		oncast(type, targetWeight);
+		oncast?.(type, targetWeight);
 	}
 </script>
 
@@ -51,6 +45,7 @@
 		<span class="vc neutral" title="{summary.neutral} weighted neutral"><span class="sign">~</span>{abbreviateNumber(summary.neutral)}</span>
 	</div>
 
+	{#if showButtons}
 	<div class="vote-buttons">
 		<button
 			class="vb vb-support"
@@ -91,6 +86,7 @@
 			{#if !compact}<span class="vb-label">{m.vote_neutral()}</span>{/if}
 		</button>
 	</div>
+	{/if}
 </div>
 
 <style>
@@ -142,9 +138,9 @@
 		align-items: center;
 		justify-content: center;
 		gap: 0.375rem;
-		min-width: 44px;
-		height: 34px;
-		padding: 0 0.75rem;
+		min-width: 52px;
+		height: 40px;
+		padding: 0 0.9rem;
 		border-radius: var(--radius-sm);
 		font-family: inherit;
 		font-size: var(--text-sm);
@@ -156,12 +152,12 @@
 	}
 
 	.vote-row.compact .vb {
-		min-width: 30px;
-		height: 26px;
-		padding: 0 0.5rem;
-		font-size: var(--text-xs);
-		gap: 0.2rem;
-		border-width: 1px;
+		min-width: 44px;
+		height: 34px;
+		padding: 0 0.65rem;
+		font-size: var(--text-sm);
+		gap: 0.3rem;
+		border-width: 1.5px;
 	}
 
 	.vb-label {
@@ -204,10 +200,11 @@
 
 	.glyph {
 		font-family: var(--font-mono);
-		font-size: 1.05em;
+		font-size: 1.15em;
+		font-weight: 700;
 	}
 
 	.vote-row.compact .glyph {
-		font-size: 1em;
+		font-size: 1.1em;
 	}
 </style>

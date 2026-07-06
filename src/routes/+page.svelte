@@ -3,6 +3,7 @@
 	import { complexityStore } from '$lib/stores/complexity.svelte';
 	import { categoriesStore } from '$lib/stores/categories.svelte';
 	import { activityStore } from '$lib/stores/activity.svelte';
+	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { uiIntents } from '$lib/stores/ui.svelte';
 	import { getUserId } from '$lib/stores/user';
 	import ThesisCard from '$lib/components/ThesisCard.svelte';
@@ -187,6 +188,11 @@
 
 	async function createThesis() {
 		if (!title.trim() || !description.trim()) return;
+		if (!budgetStore.canCreateThesis()) {
+			createError = m.error_thesis_limit_reached();
+			return;
+		}
+		budgetStore.spendThesis();
 		submitting = true;
 		createError = null;
 		// Server requires ≥1 category. If the user didn't pick, fall back to
@@ -205,6 +211,7 @@
 				})
 			});
 			if (!res.ok) {
+				budgetStore.refundThesis();
 				if (res.status === 429) {
 					createError = m.error_too_many_requests();
 				} else if (res.status === 413) {
@@ -263,6 +270,9 @@
 			selectedCategories = [];
 			similarExisting = [];
 			showForm = false;
+		} catch (err) {
+			budgetStore.refundThesis();
+			createError = m.error_server_generic({ status: 0 });
 		} finally {
 			submitting = false;
 		}
@@ -457,7 +467,7 @@
 
 			{#if filteredTotal > visibleTheses.length}
 				<p class="limit-note">
-					{m.home_list_limit_note()}
+					{m.complexity_slider_hint()}
 				</p>
 			{/if}
 		</div>

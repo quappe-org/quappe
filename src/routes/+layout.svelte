@@ -42,16 +42,17 @@
 
 	// ---- Budget expand ----
 	interface BudgetEventLite {
-		kind: 'weight_vote';
+		kind: 'vote' | 'thesis';
 		at: string;
 		thesis_id: string;
 		thesis_title: string;
 		vote_type?: string;
-		extra_weight?: number;
+		weight?: number;
 	}
 	interface BudgetLite {
 		date: string;
-		spent: number;
+		votes_spent: number;
+		theses_created: number;
 		events: BudgetEventLite[];
 	}
 	let budgetExpanded = $state(false);
@@ -67,7 +68,7 @@
 			if (res.ok) {
 				budgetData = await res.json();
 				budgetFetchedAt = Date.now();
-				if (budgetData) budgetStore.syncFromServer(budgetData.spent);
+				if (budgetData) budgetStore.syncFromServer(budgetData.votes_spent, budgetData.theses_created);
 			}
 		} catch {
 			// silent — the /my page has full details anyway
@@ -99,7 +100,8 @@
 	}
 
 	function eventLabel(e: BudgetEventLite): string {
-		return `×${(e.extra_weight ?? 0) + 1} ${e.vote_type} · ${e.thesis_title}`;
+		if (e.kind === 'thesis') return `+ ${e.thesis_title}`;
+		return `×${e.weight ?? 1} ${e.vote_type} · ${e.thesis_title}`;
 	}
 </script>
 
@@ -206,11 +208,18 @@
 				<p class="panel-hint">{m.panel_budget_hint()}</p>
 				<div class="budget-list">
 					<div class="budget-row">
-						<span class="budget-label">{m.panel_budget_weight()}</span>
+						<span class="budget-label">{m.panel_budget_votes()}</span>
 						<span class="budget-bar">
-							<span class="budget-bar-fill" style="width: {(budgetStore.remaining / budgetStore.limit) * 100}%"></span>
+							<span class="budget-bar-fill" style="width: {(budgetStore.votesRemaining / budgetStore.votesLimit) * 100}%"></span>
 						</span>
-						<span class="budget-count" class:low={budgetStore.remaining === 0}>{budgetStore.remaining}/{budgetStore.limit}</span>
+						<span class="budget-count" class:low={budgetStore.votesRemaining === 0}>{budgetStore.votesRemaining}/{budgetStore.votesLimit}</span>
+					</div>
+					<div class="budget-row">
+						<span class="budget-label">{m.panel_budget_theses()}</span>
+						<span class="budget-bar">
+							<span class="budget-bar-fill" style="width: {(budgetStore.thesesRemaining / budgetStore.thesesLimit) * 100}%"></span>
+						</span>
+						<span class="budget-count" class:low={budgetStore.thesesRemaining === 0}>{budgetStore.thesesRemaining}/{budgetStore.thesesLimit}</span>
 					</div>
 				</div>
 

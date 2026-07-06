@@ -118,7 +118,7 @@
 		{/if}
 
 		{#if filteredTheses.length > visibleTheses.length}
-			<p class="limit-note">{m.top_limit_note()}</p>
+			<p class="limit-note">{m.complexity_slider_hint()}</p>
 		{/if}
 	</div>
 </section>

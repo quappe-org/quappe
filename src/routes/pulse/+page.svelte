@@ -46,6 +46,11 @@
 	let complexDisplay = $derived(pulse?.stats.complex_theses.slice(0, displayLimit) ?? []);
 	let catDisplay = $derived(pulse?.stats.driving_categories.slice(0, displayLimit) ?? []);
 	let allEmpty = $derived(hotDisplay.length === 0 && complexDisplay.length === 0 && catDisplay.length === 0);
+	let isCapped = $derived(
+		(pulse?.stats.hot_theses.length ?? 0) > hotDisplay.length ||
+			(pulse?.stats.complex_theses.length ?? 0) > complexDisplay.length ||
+			(pulse?.stats.driving_categories.length ?? 0) > catDisplay.length
+	);
 </script>
 
 <section class="pulse-page">
@@ -175,6 +180,8 @@
 
 		{#if allEmpty}
 			<p class="pulse-empty-all">{m.pulse_empty_all()}</p>
+		{:else if isCapped}
+			<p class="complexity-note">{m.complexity_slider_hint()}</p>
 		{/if}
 	{/if}
 </section>
@@ -432,5 +439,13 @@
 		margin: 0;
 		text-align: center;
 		padding: 1rem;
+	}
+
+	.complexity-note {
+		text-align: center;
+		font-size: var(--text-xs);
+		color: var(--color-text-light);
+		font-style: italic;
+		margin: 0.25rem 0 0;
 	}
 </style>

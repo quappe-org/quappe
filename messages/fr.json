@@ -21,8 +21,9 @@
 	"panel_fork_updates_switch_new": "Passer au nouveau",
 
 	"panel_budget_title": "Budget quotidien",
-	"panel_budget_hint": "Poids de vote supplémentaire uniquement. Réinitialisé chaque jour.",
+	"panel_budget_hint": "Votes et nouvelles thèses. Réinitialisé chaque jour.",
 	"panel_budget_weight": "Poids supplémentaire",
+	"panel_budget_votes": "Votes",
 	"panel_budget_theses": "Thèses",
 	"panel_budget_support_args": "Args pour",
 	"panel_budget_reject_args": "Args contre",
@@ -75,6 +76,7 @@
 	"home_list_limit_note": "Ajustez le curseur de complexité pour voir plus de thèses.",
 
 	"error_too_many_requests": "Trop de requêtes — patientez un instant puis réessayez.",
+	"error_thesis_limit_reached": "Limite quotidienne atteinte (7 thèses/jour). Réessayez demain.",
 	"error_text_too_long": "Texte trop long — veuillez le raccourcir.",
 	"error_invalid_input": "Saisie invalide.",
 	"error_not_allowed": "Non autorisé.",
@@ -186,6 +188,11 @@
 	"my_budget_weight_on_argument": "sur argument",
 	"my_budget_weight_on_thesis": "sur thèse",
 	"my_budget_weight_detail": "+{extra} {vote_type} ({target})",
+	"my_budget_vote_detail": "×{weight} {vote_type} ({target})",
+	"my_budget_thesis_created": "Nouvelle thèse créée",
+	"my_section_authored": "Vos thèses",
+	"my_section_voted": "Thèses sur lesquelles vous avez voté",
+	"complexity_slider_hint": "Ajustez le curseur de complexité pour en voir plus ou moins.",
 
 	"pulse_page_title": "Pouls communautaire",
 	"pulse_page_subtitle": "Ce qui anime la communauté — observé, pas jugé.",

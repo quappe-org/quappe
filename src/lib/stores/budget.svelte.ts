@@ -1,12 +1,18 @@
-// Unified daily budget: single bucket of 62 units.
-// Only *extra vote weight* (weight > 1) draws from it.
-// Creating theses / arguments and casting weight-1 votes are always free.
+// Daily budgets, client-side.
+//
+//  - Vote budget: 62 units. Each support/reject cast costs 1 (regardless of
+//    weight); pushing weight up by 1 also costs 1. Neutral votes are free.
+//  - Thesis budget: 7 new theses/day.
+//
+// Both reset at local midnight. Reconciled from the server on demand.
 
-const DAILY_LIMIT = 62;
+const VOTE_LIMIT = 62;
+const THESIS_LIMIT = 7;
 const STORAGE_KEY = 'quappe_budget';
 
 interface BudgetState {
-	remaining: number;
+	votes_remaining: number;
+	theses_remaining: number;
 	lastReset: string; // ISO date (YYYY-MM-DD)
 }
 
@@ -15,7 +21,11 @@ function getToday(): string {
 }
 
 function emptyState(): BudgetState {
-	return { remaining: DAILY_LIMIT, lastReset: getToday() };
+	return {
+		votes_remaining: VOTE_LIMIT,
+		theses_remaining: THESIS_LIMIT,
+		lastReset: getToday()
+	};
 }
 
 function loadBudget(): BudgetState {
@@ -24,13 +34,17 @@ function loadBudget(): BudgetState {
 	if (!stored) return emptyState();
 	try {
 		const parsed = JSON.parse(stored) as Partial<BudgetState> & Record<string, unknown>;
-		// Migration: legacy shape had thesis/support/reject buckets. Discard.
-		if (typeof parsed.remaining !== 'number' || typeof parsed.lastReset !== 'string') {
+		if (
+			typeof parsed.votes_remaining !== 'number' ||
+			typeof parsed.theses_remaining !== 'number' ||
+			typeof parsed.lastReset !== 'string'
+		) {
 			return emptyState();
 		}
 		if (parsed.lastReset !== getToday()) return emptyState();
 		return {
-			remaining: Math.max(0, Math.min(DAILY_LIMIT, parsed.remaining)),
+			votes_remaining: Math.max(0, Math.min(VOTE_LIMIT, parsed.votes_remaining)),
+			theses_remaining: Math.max(0, Math.min(THESIS_LIMIT, parsed.theses_remaining)),
 			lastReset: parsed.lastReset
 		};
 	} catch {
@@ -53,40 +67,70 @@ function ensureToday() {
 }
 
 export const budgetStore = {
-	get remaining() {
+	// ---- Votes ----
+	get votesRemaining() {
 		ensureToday();
-		return _budget.remaining;
+		return _budget.votes_remaining;
 	},
-	get limit() {
-		return DAILY_LIMIT;
+	get votesLimit() {
+		return VOTE_LIMIT;
 	},
-	canAfford(amount: number): boolean {
+	canAffordVotes(amount = 1): boolean {
 		ensureToday();
-		return _budget.remaining >= amount;
+		return _budget.votes_remaining >= amount;
 	},
-	spend(amount = 1): boolean {
+	spendVotes(amount = 1): boolean {
 		ensureToday();
-		if (_budget.remaining < amount) return false;
-		_budget = { ..._budget, remaining: _budget.remaining - amount };
+		if (_budget.votes_remaining < amount) return false;
+		_budget = { ..._budget, votes_remaining: _budget.votes_remaining - amount };
 		saveBudget(_budget);
 		return true;
 	},
-	refund(amount = 1): void {
+	refundVotes(amount = 1): void {
 		ensureToday();
 		_budget = {
 			..._budget,
-			remaining: Math.min(DAILY_LIMIT, _budget.remaining + amount)
+			votes_remaining: Math.min(VOTE_LIMIT, _budget.votes_remaining + amount)
 		};
 		saveBudget(_budget);
 	},
-	/**
-	 * Reconcile with server-side truth. The server sums today's extra weight
-	 * (weight - 1) across all support/reject votes; that's the only thing that
-	 * costs budget now. Call on app mount to prevent localStorage drift.
-	 */
-	syncFromServer(spent: number): void {
+
+	// ---- Theses ----
+	get thesesRemaining() {
+		ensureToday();
+		return _budget.theses_remaining;
+	},
+	get thesesLimit() {
+		return THESIS_LIMIT;
+	},
+	canCreateThesis(): boolean {
+		ensureToday();
+		return _budget.theses_remaining > 0;
+	},
+	spendThesis(): boolean {
+		ensureToday();
+		if (_budget.theses_remaining <= 0) return false;
+		_budget = { ..._budget, theses_remaining: _budget.theses_remaining - 1 };
+		saveBudget(_budget);
+		return true;
+	},
+	refundThesis(): void {
+		ensureToday();
 		_budget = {
-			remaining: Math.max(0, DAILY_LIMIT - spent),
+			..._budget,
+			theses_remaining: Math.min(THESIS_LIMIT, _budget.theses_remaining + 1)
+		};
+		saveBudget(_budget);
+	},
+
+	/**
+	 * Reconcile with server-side truth. `votesSpent` = count of today's
+	 * support/reject casts + weight bumps; `thesesCreated` = new theses today.
+	 */
+	syncFromServer(votesSpent: number, thesesCreated: number): void {
+		_budget = {
+			votes_remaining: Math.max(0, VOTE_LIMIT - votesSpent),
+			theses_remaining: Math.max(0, THESIS_LIMIT - thesesCreated),
 			lastReset: getToday()
 		};
 		saveBudget(_budget);

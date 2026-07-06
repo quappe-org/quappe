@@ -21,8 +21,9 @@
 	"panel_fork_updates_switch_new": "Switch to new",
 
 	"panel_budget_title": "Daily Budget",
-	"panel_budget_hint": "Extra vote weight only. Resets daily.",
+	"panel_budget_hint": "Votes and new theses. Resets daily.",
 	"panel_budget_weight": "Extra weight",
+	"panel_budget_votes": "Votes",
 	"panel_budget_theses": "Theses",
 	"panel_budget_support_args": "Support args",
 	"panel_budget_reject_args": "Reject args",
@@ -75,6 +76,7 @@
 	"home_list_limit_note": "Adjust the complexity slider to see more theses.",
 
 	"error_too_many_requests": "Too many requests — wait a moment and try again.",
+	"error_thesis_limit_reached": "Daily thesis limit reached (7/day). Try again tomorrow.",
 	"error_text_too_long": "Text too long — please shorten it.",
 	"error_invalid_input": "Invalid input.",
 	"error_not_allowed": "Not allowed.",
@@ -186,6 +188,11 @@
 	"my_budget_weight_on_argument": "on argument",
 	"my_budget_weight_on_thesis": "on thesis",
 	"my_budget_weight_detail": "+{extra} {vote_type} ({target})",
+	"my_budget_vote_detail": "×{weight} {vote_type} ({target})",
+	"my_budget_thesis_created": "New thesis created",
+	"my_section_authored": "Your theses",
+	"my_section_voted": "Theses you voted on",
+	"complexity_slider_hint": "Adjust the complexity slider to see more or less.",
 
 	"pulse_page_title": "Community Pulse",
 	"pulse_page_subtitle": "What moves the community — observed, not judged.",

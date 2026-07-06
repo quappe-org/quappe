@@ -2,6 +2,7 @@
 	import type { Thesis } from '$lib/models/types';
 	import { getUserId } from '$lib/stores/user';
 	import { activityStore } from '$lib/stores/activity.svelte';
+	import { complexityStore } from '$lib/stores/complexity.svelte';
 	import ThesisCard from '$lib/components/ThesisCard.svelte';
 	import { onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -21,13 +22,22 @@
 		activityStore.set(data.activity ?? [], m.my_platform_activity());
 	});
 
-	let myTheses = $derived.by(() => {
-		if (typeof window === 'undefined') return [];
+	let authoredTheses = $derived.by(() => {
+		if (typeof window === 'undefined') return [] as Thesis[];
+		const userId = getUserId();
+		return allTheses.filter((t) => t.meta.author_id === userId);
+	});
+
+	let votedTheses = $derived.by(() => {
+		if (typeof window === 'undefined') return [] as Thesis[];
 		const userId = getUserId();
 		return allTheses.filter(
-			(t) => t.meta.author_id === userId || t.votes.some((v) => v.user_id === userId)
+			(t) => t.meta.author_id !== userId && t.votes.some((v) => v.user_id === userId)
 		);
 	});
+
+	let authoredCapped = $derived(authoredTheses.slice(0, complexityStore.settings.max_theses));
+	let votedCapped = $derived(votedTheses.slice(0, complexityStore.settings.max_theses));
 
 	// ---- Standpoint report ----
 	interface ReportBody {
@@ -71,19 +81,22 @@
 
 	// ---- Budget today ----
 	interface BudgetEvent {
-		kind: 'weight_vote';
+		kind: 'vote' | 'thesis';
 		at: string;
 		thesis_id: string;
 		thesis_title: string;
 		vote_type?: string;
-		extra_weight?: number;
+		weight?: number;
 		target?: 'thesis' | 'argument';
 	}
 	interface BudgetBody {
 		date: string;
-		spent: number;
-		limit: number;
-		remaining: number;
+		votes_spent: number;
+		votes_limit: number;
+		votes_remaining: number;
+		theses_created: number;
+		theses_limit: number;
+		theses_remaining: number;
 		events: BudgetEvent[];
 	}
 	let budget = $state<BudgetBody | null>(null);
@@ -170,7 +183,7 @@
 	<aside id="budget" class="budget-panel card">
 		<div class="budget-head">
 			<h2 class="budget-title">{m.my_budget_title()}</h2>
-			<p class="budget-sub">{m.my_budget_sub({ limit: budget?.limit ?? 62 })}</p>
+			<p class="budget-sub">{m.my_budget_sub({ limit: budget?.votes_limit ?? 62 })}</p>
 		</div>
 
 		{#if budgetLoading && !budget}
@@ -178,12 +191,12 @@
 		{:else if budget}
 			<div class="budget-summary">
 				<div class="budget-summary-item">
-					<span class="budget-summary-num">{budget.spent}</span>
-					<span class="budget-summary-label">{m.my_budget_summary_extra()}</span>
+					<span class="budget-summary-num">{budget.votes_remaining}/{budget.votes_limit}</span>
+					<span class="budget-summary-label">{m.panel_budget_votes()}</span>
 				</div>
 				<div class="budget-summary-item">
-					<span class="budget-summary-num">{budget.remaining}</span>
-					<span class="budget-summary-label">{m.panel_budget_weight()}</span>
+					<span class="budget-summary-num">{budget.theses_remaining}/{budget.theses_limit}</span>
+					<span class="budget-summary-label">{m.panel_budget_theses()}</span>
 				</div>
 			</div>
 
@@ -196,7 +209,11 @@
 							<time class="budget-time">{fmtTime(e.at)}</time>
 							<div class="budget-item-body">
 								<a class="budget-link" href="/thesis/{e.thesis_id}">{e.thesis_title}</a>
-								<p class="budget-content">{m.my_budget_weight_detail({ extra: e.extra_weight ?? 0, vote_type: e.vote_type ?? '', target: e.target === 'argument' ? m.my_budget_weight_on_argument() : m.my_budget_weight_on_thesis() })}</p>
+								{#if e.kind === 'thesis'}
+									<p class="budget-content">{m.my_budget_thesis_created()}</p>
+								{:else}
+									<p class="budget-content">{m.my_budget_vote_detail({ weight: e.weight ?? 1, vote_type: e.vote_type ?? '', target: e.target === 'argument' ? m.my_budget_weight_on_argument() : m.my_budget_weight_on_thesis() })}</p>
+								{/if}
 							</div>
 						</li>
 					{/each}
@@ -205,13 +222,31 @@
 		{/if}
 	</aside>
 
-	<div class="grid grid-2">
-		{#each myTheses as thesis (thesis.id)}
-			<ThesisCard {thesis} heatRatio={heat[thesis.id] ?? 0} argumentCount={argumentCounts[thesis.id] ?? 0} />
-		{/each}
-	</div>
+	{#if authoredCapped.length > 0}
+		<h2 class="section-title">{m.my_section_authored()}</h2>
+		<div class="grid grid-2">
+			{#each authoredCapped as thesis (thesis.id)}
+				<ThesisCard {thesis} heatRatio={heat[thesis.id] ?? 0} argumentCount={argumentCounts[thesis.id] ?? 0} showVoteButtons={false} />
+			{/each}
+		</div>
+		{#if authoredTheses.length > authoredCapped.length}
+			<p class="complexity-note">{m.complexity_slider_hint()}</p>
+		{/if}
+	{/if}
 
-	{#if myTheses.length === 0}
+	{#if votedCapped.length > 0}
+		<h2 class="section-title">{m.my_section_voted()}</h2>
+		<div class="grid grid-2">
+			{#each votedCapped as thesis (thesis.id)}
+				<ThesisCard {thesis} heatRatio={heat[thesis.id] ?? 0} argumentCount={argumentCounts[thesis.id] ?? 0} />
+			{/each}
+		</div>
+		{#if votedTheses.length > votedCapped.length}
+			<p class="complexity-note">{m.complexity_slider_hint()}</p>
+		{/if}
+	{/if}
+
+	{#if authoredTheses.length === 0 && votedTheses.length === 0}
 		<p class="empty-state">{m.my_empty_state()}</p>
 	{/if}
 </section>
@@ -252,6 +287,21 @@
 		color: var(--color-text-muted);
 		padding: 3rem 1rem;
 		font-size: var(--text-lg);
+	}
+
+	.section-title {
+		font-size: var(--text-lg);
+		font-weight: 600;
+		color: var(--color-text);
+		margin: 0.5rem 0 0;
+	}
+
+	.complexity-note {
+		font-size: var(--text-xs);
+		color: var(--color-text-muted);
+		text-align: center;
+		margin: 0.25rem 0 0;
+		font-style: italic;
 	}
 
 	.standpoint-panel {
@@ -392,9 +442,9 @@
 
 	.budget-summary {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-		gap: 0.5rem;
-		padding: 0.5rem 0;
+		grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+		gap: 0.75rem;
+		padding: 0.75rem 0;
 		border-bottom: 1px dashed var(--color-border);
 	}
 

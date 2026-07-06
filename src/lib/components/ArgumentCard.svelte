@@ -4,6 +4,7 @@
 	import { primaryEvidenceType } from '$lib/utils/evidence';
 	import VoteRow from '$lib/components/VoteRow.svelte';
 	import SwipeVote from '$lib/components/SwipeVote.svelte';
+	import { budgetStore } from '$lib/stores/budget.svelte';
 
 	let { argument, forkedFromContent, leading = false, onFork, onEdit }: {
 		argument: Argument;
@@ -72,6 +73,12 @@
 
 	async function castVote(type: VoteType, weight: number) {
 		if (voting) return;
+		const isCycleReset = currentVote === type && weight === 1 && currentWeight >= 3;
+		const chargeable = (type === 'support' || type === 'reject') && !isCycleReset;
+		if (chargeable) {
+			if (!budgetStore.canAffordVotes(1)) return;
+			budgetStore.spendVotes(1);
+		}
 		voting = true;
 		try {
 			const userId = getUserId();
@@ -80,26 +87,28 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ type, weight, user_id: userId })
 			});
-			if (res.ok) {
-				const data = await res.json();
-				const summary = data.vote_summary as VoteSummary;
-				const newVote: VoteType | null = currentVote === type && currentWeight === weight ? null : type;
-				const newWeight: number = newVote ? weight : 1;
-				currentVote = newVote;
-				currentWeight = newWeight;
-				hasVotedLocally = true;
-				if (newVote) markVotedArg(argument.id);
-				const votes = [
-					...Array(summary.support).fill({ user_id: '', type: 'support', weight: 1, cast_at: '' }),
-					...Array(summary.reject).fill({ user_id: '', type: 'reject', weight: 1, cast_at: '' }),
-					...Array(summary.neutral).fill({ user_id: '', type: 'neutral', weight: 1, cast_at: '' })
-				];
-				if (newVote) {
-					const idx = votes.findIndex((v) => v.type === newVote);
-					if (idx >= 0) votes[idx] = { user_id: userId, type: newVote, weight: newWeight, cast_at: new Date().toISOString() };
-				}
-				argument.votes = votes;
+			if (!res.ok) {
+				if (chargeable) budgetStore.refundVotes(1);
+				return;
 			}
+			const data = await res.json();
+			const summary = data.vote_summary as VoteSummary;
+			const newVote: VoteType | null = currentVote === type && currentWeight === weight ? null : type;
+			const newWeight: number = newVote ? weight : 1;
+			currentVote = newVote;
+			currentWeight = newWeight;
+			hasVotedLocally = true;
+			if (newVote) markVotedArg(argument.id);
+			const votes = [
+				...Array(summary.support).fill({ user_id: '', type: 'support', weight: 1, cast_at: '' }),
+				...Array(summary.reject).fill({ user_id: '', type: 'reject', weight: 1, cast_at: '' }),
+				...Array(summary.neutral).fill({ user_id: '', type: 'neutral', weight: 1, cast_at: '' })
+			];
+			if (newVote) {
+				const idx = votes.findIndex((v) => v.type === newVote);
+				if (idx >= 0) votes[idx] = { user_id: userId, type: newVote, weight: newWeight, cast_at: new Date().toISOString() };
+			}
+			argument.votes = votes;
 		} finally {
 			voting = false;
 		}

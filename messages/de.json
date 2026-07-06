@@ -21,8 +21,9 @@
 	"panel_fork_updates_switch_new": "Zum neuen wechseln",
 
 	"panel_budget_title": "Tages­budget",
-	"panel_budget_hint": "Nur zusätzliches Stimmgewicht. Setzt sich täglich zurück.",
+	"panel_budget_hint": "Stimmen und neue Thesen. Setzt sich täglich zurück.",
 	"panel_budget_weight": "Extra-Gewicht",
+	"panel_budget_votes": "Stimmen",
 	"panel_budget_theses": "Thesen",
 	"panel_budget_support_args": "Pro-Argumente",
 	"panel_budget_reject_args": "Contra-Argumente",
@@ -75,6 +76,7 @@
 	"home_list_limit_note": "Bewege den Komplexitäts-Regler, um mehr Thesen zu sehen.",
 
 	"error_too_many_requests": "Zu viele Anfragen — bitte kurz warten und erneut versuchen.",
+	"error_thesis_limit_reached": "Tageslimit erreicht (7 Thesen/Tag). Morgen wieder.",
 	"error_text_too_long": "Text zu lang — bitte kürzen.",
 	"error_invalid_input": "Ungültige Eingabe.",
 	"error_not_allowed": "Nicht erlaubt.",
@@ -186,6 +188,11 @@
 	"my_budget_weight_on_argument": "auf Argument",
 	"my_budget_weight_on_thesis": "auf These",
 	"my_budget_weight_detail": "+{extra} {vote_type} ({target})",
+	"my_budget_vote_detail": "×{weight} {vote_type} ({target})",
+	"my_budget_thesis_created": "Neue These erstellt",
+	"my_section_authored": "Deine Thesen",
+	"my_section_voted": "Thesen, die du bewertet hast",
+	"complexity_slider_hint": "Komplexitäts-Slider anpassen, um mehr oder weniger zu sehen.",
 
 	"pulse_page_title": "Community-Puls",
 	"pulse_page_subtitle": "Was die Community bewegt — beobachtet, nicht bewertet.",

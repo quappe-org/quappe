@@ -3,6 +3,7 @@
 	import { complexityStore } from '$lib/stores/complexity.svelte';
 	import { categoriesStore } from '$lib/stores/categories.svelte';
 	import { activityStore } from '$lib/stores/activity.svelte';
+	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { getUserId, markVotedArg } from '$lib/stores/user';
 	import { forkFeedStore } from '$lib/stores/fork-feed.svelte';
 	import { abbreviateNumber } from '$lib/utils/format';
@@ -143,6 +144,12 @@
 
 	async function castThesisVote(type: VoteType, weight: number) {
 		if (voting || !thesis) return;
+		const isCycleReset = currentVote === type && weight === 1 && currentWeight >= 3;
+		const chargeable = (type === 'support' || type === 'reject') && !isCycleReset;
+		if (chargeable) {
+			if (!budgetStore.canAffordVotes(1)) return;
+			budgetStore.spendVotes(1);
+		}
 		voting = true;
 		try {
 			const userId = getUserId();
@@ -151,14 +158,16 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ type, weight, user_id: userId })
 			});
-			if (res.ok) {
-				const responseData = await res.json();
-				voteSummary = responseData.vote_summary;
-				const isRetract = currentVote === type && currentWeight === weight;
-				currentVote = isRetract ? null : type;
-				currentWeight = isRetract ? 1 : weight;
-				hasVotedLocally = true;
+			if (!res.ok) {
+				if (chargeable) budgetStore.refundVotes(1);
+				return;
 			}
+			const responseData = await res.json();
+			voteSummary = responseData.vote_summary;
+			const isRetract = currentVote === type && currentWeight === weight;
+			currentVote = isRetract ? null : type;
+			currentWeight = isRetract ? 1 : weight;
+			hasVotedLocally = true;
 		} finally {
 			voting = false;
 		}
@@ -620,6 +629,9 @@
 							</li>
 						{/each}
 					</ul>
+				{/if}
+				{#if args.length > supportArgs.length + rejectArgs.length + poolArgs.length}
+					<p class="complexity-note">{m.complexity_slider_hint()}</p>
 				{/if}
 			</section>
 		</section>
@@ -1163,6 +1175,14 @@
 		border-radius: var(--radius-md);
 		background: var(--color-surface);
 		margin: 0;
+	}
+
+	.complexity-note {
+		text-align: center;
+		font-size: var(--text-xs);
+		color: var(--color-text-light);
+		font-style: italic;
+		margin: 0.5rem 0 0;
 	}
 
 	.argument-pool-list {

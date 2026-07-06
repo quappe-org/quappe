@@ -25,6 +25,12 @@
 		updatesStore.events.filter((e) => e.kind === 'lifecycle').slice(0, cap)
 	);
 
+	let isCapped = $derived(
+		updatesStore.events.filter((e) => e.kind === 'fork').length > forks.length ||
+			updatesStore.events.filter((e) => e.kind === 'new_argument').length > newArgs.length ||
+			updatesStore.events.filter((e) => e.kind === 'lifecycle').length > lifecycles.length
+	);
+
 	function fmtTime(iso: string): string {
 		try {
 			const d = new Date(iso);
@@ -131,6 +137,9 @@
 				{/if}
 			</section>
 		</div>
+		{#if isCapped}
+			<p class="complexity-note">{m.complexity_slider_hint()}</p>
+		{/if}
 	{/if}
 </section>
 
@@ -366,5 +375,13 @@
 	.updates-content-new {
 		color: var(--color-text);
 		font-weight: 500;
+	}
+
+	.complexity-note {
+		text-align: center;
+		font-size: var(--text-xs);
+		color: var(--color-text-light);
+		font-style: italic;
+		margin: 0.25rem 0 0;
 	}
 </style>

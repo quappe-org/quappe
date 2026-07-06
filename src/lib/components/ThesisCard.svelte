@@ -6,8 +6,14 @@
 	import { m } from '$lib/paraglide/messages';
 	import VoteRow from '$lib/components/VoteRow.svelte';
 	import SwipeVote from '$lib/components/SwipeVote.svelte';
+	import { budgetStore } from '$lib/stores/budget.svelte';
 
-	let { thesis, heatRatio = 0, argumentCount = 0 }: { thesis: Thesis; heatRatio?: number; argumentCount?: number } = $props();
+	let {
+		thesis,
+		heatRatio = 0,
+		argumentCount = 0,
+		showVoteButtons = true
+	}: { thesis: Thesis; heatRatio?: number; argumentCount?: number; showVoteButtons?: boolean } = $props();
 
 	let voteSummary = $derived.by<VoteSummary>(() => {
 		let support = 0, reject = 0, neutral = 0, voters = 0;
@@ -85,6 +91,13 @@
 
 	async function castVote(type: VoteType, weight: number) {
 		if (voting) return;
+		// Cycle-reset (retraction) and neutral casts are free. Every other support/reject costs 1.
+		const isCycleReset = currentVote === type && weight === 1 && currentWeight >= 3;
+		const chargeable = (type === 'support' || type === 'reject') && !isCycleReset;
+		if (chargeable) {
+			if (!budgetStore.canAffordVotes(1)) return;
+			budgetStore.spendVotes(1);
+		}
 		voting = true;
 		try {
 			const userId = getUserId();
@@ -93,45 +106,47 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ type, weight, user_id: userId })
 			});
-			if (res.ok) {
-				const data = await res.json();
-				const summary = data.vote_summary as VoteSummary;
-				// If same type and same weight, server retracted the vote.
-				const newVote: VoteType | null = currentVote === type && currentWeight === weight ? null : type;
-				const newWeight: number = newVote ? weight : 1;
-				currentVote = newVote;
-				currentWeight = newWeight;
-				hasVotedLocally = true;
-				// Rebuild synthetic votes list so summary reactivity works for this card.
-				const totalWeightSupport = summary.support;
-				const totalWeightReject = summary.reject;
-				const totalWeightNeutral = summary.neutral;
-				const votes = [
-					...Array(totalWeightSupport).fill({ user_id: '', type: 'support', weight: 1, cast_at: '' }),
-					...Array(totalWeightReject).fill({ user_id: '', type: 'reject', weight: 1, cast_at: '' }),
-					...Array(totalWeightNeutral).fill({ user_id: '', type: 'neutral', weight: 1, cast_at: '' })
-				];
-				if (newVote) {
-					// Replace one placeholder with the real user's vote to preserve current-vote detection.
-					const idx = votes.findIndex((v) => v.type === newVote);
-					if (idx >= 0) {
-						votes[idx] = {
-							user_id: userId,
-							type: newVote,
-							weight: newWeight,
-							cast_at: new Date().toISOString()
-						};
-					}
-				}
-				thesis.votes = votes;
+			if (!res.ok) {
+				if (chargeable) budgetStore.refundVotes(1);
+				return;
 			}
+			const data = await res.json();
+			const summary = data.vote_summary as VoteSummary;
+			// If same type and same weight, server retracted the vote.
+			const newVote: VoteType | null = currentVote === type && currentWeight === weight ? null : type;
+			const newWeight: number = newVote ? weight : 1;
+			currentVote = newVote;
+			currentWeight = newWeight;
+			hasVotedLocally = true;
+			// Rebuild synthetic votes list so summary reactivity works for this card.
+			const totalWeightSupport = summary.support;
+			const totalWeightReject = summary.reject;
+			const totalWeightNeutral = summary.neutral;
+			const votes = [
+				...Array(totalWeightSupport).fill({ user_id: '', type: 'support', weight: 1, cast_at: '' }),
+				...Array(totalWeightReject).fill({ user_id: '', type: 'reject', weight: 1, cast_at: '' }),
+				...Array(totalWeightNeutral).fill({ user_id: '', type: 'neutral', weight: 1, cast_at: '' })
+			];
+			if (newVote) {
+				// Replace one placeholder with the real user's vote to preserve current-vote detection.
+				const idx = votes.findIndex((v) => v.type === newVote);
+				if (idx >= 0) {
+					votes[idx] = {
+						user_id: userId,
+						type: newVote,
+						weight: newWeight,
+						cast_at: new Date().toISOString()
+					};
+				}
+			}
+			thesis.votes = votes;
 		} finally {
 			voting = false;
 		}
 	}
 </script>
 
-<SwipeVote oncast={castVote}>
+<SwipeVote oncast={showVoteButtons ? castVote : undefined}>
 	<a
 		href="/thesis/{thesis.id}"
 		class="card thesis-card heat-{heat} lifecycle-band-{thesis.lifecycle?.state ?? 'seedling'}"
@@ -202,6 +217,7 @@
 				currentWeight={currentWeight}
 				voting={voting}
 				compact
+				showButtons={showVoteButtons}
 				oncast={castVote}
 			/>
 			<span class="badge badge-arguments" title="Arguments">
