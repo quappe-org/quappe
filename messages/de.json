@@ -124,6 +124,12 @@
 	"argcol_empty_support": "Noch keine Pro-Argumente.",
 	"argcol_empty_reject": "Noch keine Contra-Argumente.",
 
+	"argpool_title": "Weitere Argumente",
+	"argpool_hint": "Sortiert nach Zustimmung und Neuigkeit. Mit genug Rückhalt steigen sie oben in die Top-Spalten auf.",
+	"argpool_empty": "Keine weiteren Argumente — die Top-Spalten zeigen bereits alles.",
+	"argpool_stance_support": "pro",
+	"argpool_stance_reject": "contra",
+
 	"related_title": "Verwandte Thesen",
 	"related_mode_semantic": "semantisch",
 	"related_mode_thematic": "thematisch",

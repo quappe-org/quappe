@@ -124,6 +124,12 @@
 	"argcol_empty_support": "No supporting arguments yet.",
 	"argcol_empty_reject": "No rejecting arguments yet.",
 
+	"argpool_title": "More arguments",
+	"argpool_hint": "Sorted by community support and freshness. Enough support and they rise into the top columns above.",
+	"argpool_empty": "No further arguments — the top columns show everything so far.",
+	"argpool_stance_support": "pro",
+	"argpool_stance_reject": "con",
+
 	"related_title": "Related theses",
 	"related_mode_semantic": "semantic",
 	"related_mode_thematic": "thematic",

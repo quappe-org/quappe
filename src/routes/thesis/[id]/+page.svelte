@@ -87,6 +87,28 @@
 			.slice(0, complexityStore.settings.max_arguments);
 	});
 
+	// "Weitere Argumente": everything below the top-column cap, sorted by
+	// time-weighted hot score (HN-style). Fresh but well-received arguments
+	// bubble upward; stale ones sink. Once the community backs them enough,
+	// they will overtake something in the top-columns naturally.
+	let poolArgs = $derived.by(() => {
+		const topIds = new Set<string>([
+			...supportArgs.map((a) => a.id),
+			...rejectArgs.map((a) => a.id)
+		]);
+		const now = Date.now();
+		return args
+			.filter((a) => !topIds.has(a.id))
+			.map((a) => {
+				const ageDays = Math.max(0, (now - new Date(a.meta.created_at).getTime()) / (24 * 60 * 60 * 1000));
+				const score = scoreOf(a);
+				// HN-style: score / (age + 2)^1.5. +2 to prevent divide-by-zero and to soften brand-new items.
+				return { arg: a, hot: score / Math.pow(ageDays + 2, 1.5) };
+			})
+			.sort((a, b) => b.hot - a.hot)
+			.map((x) => x.arg);
+	});
+
 	let totalSupport = $derived(args.filter((a) => a.stance === 'support').length);
 	let totalReject = $derived(args.filter((a) => a.stance === 'reject').length);
 
@@ -528,6 +550,32 @@
 					</div>
 				</div>
 			</div>
+
+			<section class="argument-pool">
+				<header class="argument-pool-head">
+					<h3 class="argument-pool-title">{m.argpool_title()}</h3>
+					<p class="argument-pool-hint">{m.argpool_hint()}</p>
+				</header>
+				{#if poolArgs.length === 0}
+					<p class="argument-pool-empty">{m.argpool_empty()}</p>
+				{:else}
+					<ul class="argument-pool-list">
+						{#each poolArgs as arg (arg.id)}
+							<li class="argument-pool-item" class:is-support={arg.stance === 'support'} class:is-reject={arg.stance === 'reject'}>
+								<span class="argument-pool-stance argument-pool-stance-{arg.stance}">
+									{arg.stance === 'support' ? m.argpool_stance_support() : m.argpool_stance_reject()}
+								</span>
+								<ArgumentCard
+									argument={arg}
+									forkedFromContent={forkSourceContent(arg)}
+									onFork={openFork}
+									onEdit={openEdit}
+								/>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
 		</section>
 
 		{#if visibleRelated.length > 0}
@@ -946,6 +994,90 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 1rem;
+	}
+
+	/* Argument pool (below the top columns) */
+	.argument-pool {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		padding-top: 1rem;
+		border-top: 1px dashed var(--color-border);
+	}
+
+	.argument-pool-head {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+	}
+
+	.argument-pool-title {
+		font-size: var(--text-base);
+		font-weight: 600;
+		margin: 0;
+		color: var(--color-text-muted);
+	}
+
+	.argument-pool-hint {
+		font-size: var(--text-xs);
+		color: var(--color-text-light);
+		margin: 0;
+	}
+
+	.argument-pool-empty {
+		font-size: var(--text-sm);
+		color: var(--color-text-light);
+		text-align: center;
+		padding: 1rem;
+		border: 1px dashed var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+		margin: 0;
+	}
+
+	.argument-pool-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+		gap: 0.75rem;
+	}
+
+	.argument-pool-item {
+		position: relative;
+	}
+
+	.argument-pool-item.is-support :global(.argument-card) {
+		border-left: 3px solid var(--color-support);
+	}
+	.argument-pool-item.is-reject :global(.argument-card) {
+		border-left: 3px solid var(--color-reject);
+	}
+
+	.argument-pool-stance {
+		position: absolute;
+		top: 0.5rem;
+		right: 0.5rem;
+		z-index: 2;
+		font-size: 0.6rem;
+		font-family: var(--font-mono);
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		padding: 0.1rem 0.4rem;
+		border-radius: 9999px;
+		border: 1px solid transparent;
+	}
+	.argument-pool-stance-support {
+		background: var(--color-support-bg);
+		color: var(--color-support);
+		border-color: var(--color-support);
+	}
+	.argument-pool-stance-reject {
+		background: var(--color-reject-bg);
+		color: var(--color-reject);
+		border-color: var(--color-reject);
 	}
 
 	/* Related theses */

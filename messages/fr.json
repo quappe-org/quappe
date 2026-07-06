@@ -124,6 +124,12 @@
 	"argcol_empty_support": "Aucun argument pour pour le moment.",
 	"argcol_empty_reject": "Aucun argument contre pour le moment.",
 
+	"argpool_title": "Autres arguments",
+	"argpool_hint": "Triés par adhésion et fraîcheur. Avec un soutien suffisant, ils rejoignent les colonnes du haut.",
+	"argpool_empty": "Aucun autre argument — les colonnes du haut montrent déjà tout.",
+	"argpool_stance_support": "pour",
+	"argpool_stance_reject": "contre",
+
 	"related_title": "Thèses liées",
 	"related_mode_semantic": "sémantique",
 	"related_mode_thematic": "thématique",

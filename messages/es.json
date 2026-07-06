@@ -124,6 +124,12 @@
 	"argcol_empty_support": "Aún no hay argumentos a favor.",
 	"argcol_empty_reject": "Aún no hay argumentos en contra.",
 
+	"argpool_title": "Más argumentos",
+	"argpool_hint": "Ordenados por adhesión y novedad. Con suficiente apoyo suben a las columnas de arriba.",
+	"argpool_empty": "No hay más argumentos — las columnas de arriba ya muestran todo.",
+	"argpool_stance_support": "a favor",
+	"argpool_stance_reject": "en contra",
+
 	"related_title": "Tesis relacionadas",
 	"related_mode_semantic": "semántica",
 	"related_mode_thematic": "temática",
