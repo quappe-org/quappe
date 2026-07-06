@@ -99,6 +99,13 @@
 	"thesis_admin_confirm_archive": "Diese These archivieren?",
 	"thesis_admin_confirm_unarchive": "Diese These reaktivieren?",
 
+	"danger_zone_title": "Gefahrenzone",
+	"danger_zone_hint": "Aktionen, die die Sichtbarkeit dieser These verändern. Rückgängig machbar, aber für alle sichtbar.",
+	"danger_zone_archive_title": "These archivieren",
+	"danger_zone_archive_desc": "Verschwindet aus Listen und keine neuen Argumente/Votes mehr. Bestehende Inhalte bleiben lesbar.",
+	"danger_zone_unarchive_title": "These reaktivieren",
+	"danger_zone_unarchive_desc": "Landet wieder in den Listen. Argumente und Votes werden wieder möglich.",
+
 	"argform_title_new": "Neues Argument",
 	"argform_title_fork": "Forken & anpassen",
 	"argform_title_edit": "Argument bearbeiten",

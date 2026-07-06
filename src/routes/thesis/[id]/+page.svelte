@@ -28,6 +28,8 @@
 	let relatedMode = $state<string | null>(data.relatedMode ?? null);
 	// svelte-ignore state_referenced_locally
 	let activity = $state<ActivityDay[]>(data.activity ?? []);
+	// svelte-ignore state_referenced_locally
+	let heatRatio = $state<number>(data.heatRatio ?? 0);
 
 	$effect(() => {
 		thesis = data.thesis;
@@ -36,11 +38,19 @@
 		related = data.related ?? [];
 		relatedMode = data.relatedMode ?? null;
 		activity = data.activity ?? [];
+		heatRatio = data.heatRatio ?? 0;
 		// Sidebar activity is now rendered inline at the bottom of the thesis page.
 		activityStore.set([], '');
 		if (data.arguments && data.thesis) {
 			forkFeedStore.update(data.arguments, data.thesis.title);
 		}
+	});
+
+	let heat = $derived.by(() => {
+		if (heatRatio >= 1.5) return 'hot';
+		if (heatRatio >= 0.75) return 'warm';
+		if (heatRatio > 0) return 'cool';
+		return 'cold';
 	});
 
 	let visibleRelated = $derived(related.slice(0, complexityStore.settings.max_related));
@@ -345,7 +355,25 @@
 		{/if}
 
 		<!-- Thesis tile -->
-		<div class="thesis-tile card lifecycle-band lifecycle-band-{thesis.lifecycle?.state ?? 'seedling'}">
+		<div class="thesis-tile card heat-{heat} lifecycle-band-{thesis.lifecycle?.state ?? 'seedling'}">
+			<span
+				class="side-band heat-band"
+				title="Heat: {heat} (recent activity {heatRatio.toFixed(2)}× baseline) — click for details"
+				role="button"
+				tabindex="0"
+				aria-label="Heat: {heat} — open explanation"
+				onclick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = '/about#heat'; }}
+				onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); window.location.href = '/about#heat'; } }}
+			></span>
+			<span
+				class="side-band lifecycle-band-strip"
+				title="Lifecycle: {thesis.lifecycle?.state ?? 'seedling'} — click for details"
+				role="button"
+				tabindex="0"
+				aria-label="Lifecycle: {thesis.lifecycle?.state ?? 'seedling'} — open explanation"
+				onclick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = '/about#lifecycle'; }}
+				onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); window.location.href = '/about#lifecycle'; } }}
+			></span>
 			{#if editingThesis}
 				<form class="edit-form" onsubmit={(e) => { e.preventDefault(); submitEditThesis(); }}>
 					<div class="form-group">
@@ -384,11 +412,6 @@
 					{#each thesis.categories as category}
 						<span class="tag">{category}</span>
 					{/each}
-					<span class="tag lifecycle-tag lifecycle-{thesis.lifecycle?.state ?? 'seedling'}" title={m.thesis_lifecycle_title()}>
-						<a href="/about#lifecycle" class="lifecycle-link">
-							{thesis.lifecycle?.state ?? 'seedling'}
-						</a>
-					</span>
 				</div>
 
 				{#if voteSummary && voteSummary.total > 0}
@@ -422,14 +445,17 @@
 							oncast={castThesisVote}
 						/>
 					{/if}
-					<div class="thesis-admin-row">
-						{#if isAuthor}
+					<span class="badge badge-arguments" title="Arguments">
+						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+						</svg>
+						{abbreviateNumber(args.length)}
+					</span>
+					{#if isAuthor}
+						<div class="thesis-admin-row">
 							<button class="btn btn-sm" onclick={openEditThesis}>{m.thesis_admin_edit()}</button>
-						{/if}
-						<button class="btn btn-sm" onclick={toggleArchive}>
-							{thesis.archived ? m.thesis_admin_unarchive() : m.thesis_admin_archive()}
-						</button>
-					</div>
+						</div>
+					{/if}
 				</div>
 			{/if}
 		</div>
@@ -612,6 +638,24 @@
 				/>
 			</section>
 		{/if}
+
+		{#if isAuthor}
+			<section class="danger-zone">
+				<header class="danger-zone-head">
+					<h3 class="danger-zone-title">{m.danger_zone_title()}</h3>
+					<p class="danger-zone-hint">{m.danger_zone_hint()}</p>
+				</header>
+				<div class="danger-zone-row">
+					<div class="danger-zone-item-info">
+						<strong>{thesis.archived ? m.danger_zone_unarchive_title() : m.danger_zone_archive_title()}</strong>
+						<span>{thesis.archived ? m.danger_zone_unarchive_desc() : m.danger_zone_archive_desc()}</span>
+					</div>
+					<button class="btn btn-danger" onclick={toggleArchive}>
+						{thesis.archived ? m.thesis_admin_unarchive() : m.thesis_admin_archive()}
+					</button>
+				</div>
+			</section>
+		{/if}
 	</article>
 {:else}
 	<div class="not-found">
@@ -650,7 +694,7 @@
 		color: var(--color-primary);
 	}
 
-	/* Thesis tile */
+	/* Thesis tile — mirrors the ThesisCard visual language */
 	.thesis-tile {
 		display: flex;
 		flex-direction: column;
@@ -658,29 +702,126 @@
 		background: white;
 		border-radius: var(--radius-lg);
 		padding: 1.5rem;
+		position: relative;
+		padding-left: calc(1.5rem + 16px);
+		overflow: hidden;
 	}
 
-	/* Lifecycle band on the left edge of the thesis tile. */
-	.lifecycle-band {
-		border-left: 6px solid var(--color-border);
+	/* Two vertical bands on the left edge: heat (outer) and lifecycle (inner). */
+	.side-band {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		width: 8px;
+		background: var(--color-border);
+		transition: filter var(--transition-fast);
 	}
-	.lifecycle-band-seedling      { border-left-color: #bef264; }
-	.lifecycle-band-discussed     { border-left-color: #93c5fd; }
-	.lifecycle-band-contested     { border-left-color: #fbbf24; }
-	.lifecycle-band-crystallized  { border-left-color: #67e8f9; }
-	.lifecycle-band-faded         { border-left-color: #d4d4d8; }
-	.lifecycle-band-dormant       { border-left-color: #a1a1aa; }
+	.heat-band {
+		left: 0;
+		cursor: pointer;
+	}
+	.lifecycle-band-strip {
+		left: 8px;
+		cursor: pointer;
+	}
+	.heat-band:hover,
+	.lifecycle-band-strip:hover {
+		filter: brightness(0.85);
+	}
 
-	.lifecycle-link {
-		color: inherit;
-		text-decoration: none;
-	}
-	.lifecycle-link:hover {
-		text-decoration: underline;
+	/* Heat band */
+	.thesis-tile.heat-hot  .heat-band { background: #ea580c; }
+	.thesis-tile.heat-warm .heat-band { background: #f59e0b; }
+	.thesis-tile.heat-cool .heat-band { background: #93c5fd; }
+	.thesis-tile.heat-cold .heat-band { background: #3b82f6; }
+
+	/* Lifecycle band */
+	.thesis-tile.lifecycle-band-seedling     .lifecycle-band-strip { background: #bef264; }
+	.thesis-tile.lifecycle-band-discussed    .lifecycle-band-strip { background: #93c5fd; }
+	.thesis-tile.lifecycle-band-contested    .lifecycle-band-strip { background: #fbbf24; }
+	.thesis-tile.lifecycle-band-crystallized .lifecycle-band-strip { background: #67e8f9; }
+	.thesis-tile.lifecycle-band-faded        .lifecycle-band-strip { background: #d4d4d8; }
+	.thesis-tile.lifecycle-band-dormant      .lifecycle-band-strip { background: #a1a1aa; }
+
+	.badge-arguments {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.125rem 0.5rem;
+		font-size: var(--text-xs);
+		font-weight: 500;
+		border-radius: var(--radius-sm);
+		background: var(--color-bg);
+		color: var(--color-text-muted);
+		border: 1px solid var(--color-border);
 	}
 
 	.thesis-activity {
 		padding: 0.75rem 1rem;
+	}
+
+	/* Danger zone (bottom of the page, author-only) */
+	.danger-zone {
+		border: 1px solid var(--color-reject);
+		border-radius: var(--radius-lg);
+		padding: 1rem 1.25rem;
+		background: var(--color-reject-bg);
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.danger-zone-head {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+	}
+
+	.danger-zone-title {
+		font-size: var(--text-base);
+		font-weight: 700;
+		color: var(--color-reject);
+		margin: 0;
+	}
+
+	.danger-zone-hint {
+		font-size: var(--text-xs);
+		color: var(--color-text-muted);
+		margin: 0;
+	}
+
+	.danger-zone-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0.75rem;
+		border-radius: var(--radius-md);
+		background: white;
+		border: 1px solid var(--color-reject);
+	}
+
+	.danger-zone-item-info {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+		font-size: var(--text-sm);
+	}
+	.danger-zone-item-info strong {
+		color: var(--color-text);
+	}
+	.danger-zone-item-info span {
+		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+	}
+
+	.btn-danger {
+		background: var(--color-reject);
+		color: white;
+		border: 1px solid var(--color-reject);
+	}
+	.btn-danger:hover {
+		filter: brightness(0.92);
 	}
 
 	.thesis-title {
@@ -760,20 +901,6 @@
 		gap: 0.5rem;
 		flex-wrap: wrap;
 	}
-
-	.lifecycle-tag {
-		text-transform: capitalize;
-		background: var(--color-bg);
-		color: var(--color-text-muted);
-		border: 1px solid var(--color-border);
-	}
-	.lifecycle-tag.lifecycle-crystallized {
-		background: #cffafe;
-		color: #164e63;
-		border-color: #67e8f9;
-	}
-	.lifecycle-tag.lifecycle-discussed { background: #dbeafe; color: #1e3a8a; border-color: #93c5fd; }
-	.lifecycle-tag.lifecycle-contested { background: #fef3c7; color: #78350f; border-color: #fbbf24; }
 
 	.arguments-section {
 		display: flex;

@@ -99,6 +99,13 @@
 	"thesis_admin_confirm_archive": "Archiver cette thèse ?",
 	"thesis_admin_confirm_unarchive": "Désarchiver cette thèse ?",
 
+	"danger_zone_title": "Zone à risque",
+	"danger_zone_hint": "Actions qui modifient la visibilité de cette thèse. Réversibles, mais visibles pour tous.",
+	"danger_zone_archive_title": "Archiver la thèse",
+	"danger_zone_archive_desc": "Elle disparaît des listes et n'accepte plus arguments ni votes. Le contenu existant reste lisible.",
+	"danger_zone_unarchive_title": "Désarchiver la thèse",
+	"danger_zone_unarchive_desc": "Elle revient dans les listes. Arguments et votes redeviennent possibles.",
+
 	"argform_title_new": "Nouvel argument",
 	"argform_title_fork": "Forker et adapter",
 	"argform_title_edit": "Modifier l'argument",

@@ -99,6 +99,13 @@
 	"thesis_admin_confirm_archive": "Archive this thesis?",
 	"thesis_admin_confirm_unarchive": "Unarchive this thesis?",
 
+	"danger_zone_title": "Danger zone",
+	"danger_zone_hint": "Actions that change the thesis's visibility. Reversible, but visible to everyone.",
+	"danger_zone_archive_title": "Archive thesis",
+	"danger_zone_archive_desc": "Hides it from listings and stops new arguments and votes. Existing content stays readable.",
+	"danger_zone_unarchive_title": "Unarchive thesis",
+	"danger_zone_unarchive_desc": "Brings it back into listings. Arguments and votes reopen.",
+
 	"argform_title_new": "New argument",
 	"argform_title_fork": "Fork & adapt",
 	"argform_title_edit": "Edit argument",

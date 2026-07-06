@@ -99,6 +99,13 @@
 	"thesis_admin_confirm_archive": "¿Archivar esta tesis?",
 	"thesis_admin_confirm_unarchive": "¿Desarchivar esta tesis?",
 
+	"danger_zone_title": "Zona peligrosa",
+	"danger_zone_hint": "Acciones que cambian la visibilidad de esta tesis. Reversibles, pero visibles para todos.",
+	"danger_zone_archive_title": "Archivar tesis",
+	"danger_zone_archive_desc": "Sale de los listados y ya no acepta argumentos ni votos. El contenido existente queda legible.",
+	"danger_zone_unarchive_title": "Desarchivar tesis",
+	"danger_zone_unarchive_desc": "Vuelve a los listados. Se pueden añadir argumentos y votos.",
+
 	"argform_title_new": "Nuevo argumento",
 	"argform_title_fork": "Bifurcar y adaptar",
 	"argform_title_edit": "Editar argumento",
