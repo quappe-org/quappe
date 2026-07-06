@@ -377,5 +377,10 @@
 	"about_complexity_tip_title": "Tip",
 	"about_complexity_tip_p": "Start low, then raise the slider when you want the long tail. It's per-session, so it doesn't leak between people using the same device.",
 
-	"about_transp_license_link": "License & policy"
+	"about_transp_license_link": "License & policy",
+
+	"panel_theme_title": "Theme",
+	"panel_theme_rainbow": "Rainbow",
+	"panel_theme_pastel": "Pastel",
+	"panel_theme_grayscale": "Grays"
 }

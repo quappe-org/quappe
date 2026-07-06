@@ -61,6 +61,60 @@
 	--transition-base: 200ms ease;
 }
 
+/* Theme: Rainbow Pastel — softer, lower-saturation palette */
+[data-theme='pastel'] {
+	--color-bg: #fdfcfb;
+	--color-surface: #ffffff;
+	--color-border: #ecebe7;
+	--color-text: #3f3d56;
+	--color-text-muted: #8b8aa3;
+	--color-text-light: #b7b6cc;
+
+	--color-support: #7ab89c;
+	--color-support-bg: #f0f8f4;
+	--color-support-border: #cbe6d8;
+	--color-reject: #d98a8a;
+	--color-reject-bg: #fbf2f2;
+	--color-reject-border: #ecc9c9;
+	--color-neutral: #9ea2a9;
+	--color-neutral-bg: #f6f6f7;
+	--color-neutral-border: #e0e1e4;
+
+	--color-primary: #8b7bd9;
+	--color-primary-hover: #7566cc;
+	--color-primary-bg: #f2effb;
+}
+
+/* Theme: 50 shades of gray — desaturated everything */
+[data-theme='grayscale'] {
+	--color-bg: #f6f6f6;
+	--color-surface: #ffffff;
+	--color-border: #dedede;
+	--color-text: #1e1e1e;
+	--color-text-muted: #6b6b6b;
+	--color-text-light: #a0a0a0;
+
+	--color-support: #3d3d3d;
+	--color-support-bg: #ececec;
+	--color-support-border: #cfcfcf;
+	--color-reject: #7a7a7a;
+	--color-reject-bg: #f0f0f0;
+	--color-reject-border: #d9d9d9;
+	--color-neutral: #8c8c8c;
+	--color-neutral-bg: #f2f2f2;
+	--color-neutral-border: #dedede;
+
+	--color-primary: #2b2b2b;
+	--color-primary-hover: #1a1a1a;
+	--color-primary-bg: #eaeaea;
+}
+
+/* In grayscale theme, force accent color spots to gray too */
+[data-theme='grayscale'] .fork-feed-badge,
+[data-theme='grayscale'] .nav-badge {
+	filter: grayscale(1);
+}
+
 /* Reset */
 *,
 *::before,

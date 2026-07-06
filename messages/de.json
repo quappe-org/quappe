@@ -377,5 +377,10 @@
 	"about_complexity_tip_title": "Tipp",
 	"about_complexity_tip_p": "Fang niedrig an, dreh hoch, wenn du den Long Tail willst. Der Regler gilt pro Sitzung — mehrere Nutzer am gleichen Gerät bekommen sich nicht in die Quere.",
 
-	"about_transp_license_link": "Lizenz & Nutzung"
+	"about_transp_license_link": "Lizenz & Nutzung",
+
+	"panel_theme_title": "Farbschema",
+	"panel_theme_rainbow": "Rainbow",
+	"panel_theme_pastel": "Pastell",
+	"panel_theme_grayscale": "Grau"
 }

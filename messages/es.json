@@ -377,5 +377,10 @@
 	"about_complexity_tip_title": "Consejo",
 	"about_complexity_tip_p": "Empieza bajo, sube el deslizador cuando quieras la cola larga. Es por sesión — no interfiere entre usuarios que comparten el mismo dispositivo.",
 
-	"about_transp_license_link": "Licencia y política"
+	"about_transp_license_link": "Licencia y política",
+
+	"panel_theme_title": "Tema",
+	"panel_theme_rainbow": "Rainbow",
+	"panel_theme_pastel": "Pastel",
+	"panel_theme_grayscale": "Grises"
 }

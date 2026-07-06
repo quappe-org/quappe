@@ -8,6 +8,7 @@
 	import { forkFeedStore } from '$lib/stores/fork-feed.svelte';
 	import { updatesStore } from '$lib/stores/updates.svelte';
 	import { updatesSeen } from '$lib/stores/updates-seen.svelte';
+	import { themeStore, type Theme } from '$lib/stores/theme.svelte';
 	import { bootstrapUserId } from '$lib/stores/user';
 	import ComplexitySlider from '$lib/components/ComplexitySlider.svelte';
 	import ActivityGraph from '$lib/components/ActivityGraph.svelte';
@@ -80,6 +81,7 @@
 
 	onMount(() => {
 		mounted = true;
+		themeStore.init();
 		// Sync client-side cache with server-set signed cookie BEFORE anything
 		// else touches user_id. Then load budget + updates.
 		bootstrapUserId().then(() => {
@@ -319,6 +321,24 @@
 							onclick={() => switchLocale(loc)}
 						>
 							{loc.toUpperCase()}
+						</button>
+					{/each}
+				</div>
+			</div>
+
+			<div class="panel">
+				<h3 class="panel-title">{m.panel_theme_title()}</h3>
+				<div class="lang-switcher theme-switcher" role="group" aria-label={m.panel_theme_title()}>
+					{#each [{ id: 'rainbow', label: m.panel_theme_rainbow() }, { id: 'pastel', label: m.panel_theme_pastel() }, { id: 'grayscale', label: m.panel_theme_grayscale() }] as t}
+						<button
+							type="button"
+							class="lang-btn theme-btn"
+							class:active={mounted && themeStore.current === t.id}
+							aria-pressed={mounted && themeStore.current === t.id}
+							title={t.label}
+							onclick={() => themeStore.set(t.id as Theme)}
+						>
+							{t.label}
 						</button>
 					{/each}
 				</div>
@@ -645,6 +665,19 @@
 		color: white;
 		border-color: var(--color-primary);
 		cursor: default;
+	}
+
+	/* Theme switcher: three word-buttons instead of four 2-letter codes */
+	.theme-switcher {
+		grid-template-columns: repeat(3, 1fr);
+	}
+
+	.theme-btn {
+		text-transform: none;
+		letter-spacing: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	@media (max-width: 1024px) {

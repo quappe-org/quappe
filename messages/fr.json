@@ -377,5 +377,10 @@
 	"about_complexity_tip_title": "Astuce",
 	"about_complexity_tip_p": "Commencez bas, montez quand vous voulez la longue traîne. Le curseur est par session — pas de conflit entre utilisateurs sur le même appareil.",
 
-	"about_transp_license_link": "Licence & politique"
+	"about_transp_license_link": "Licence & politique",
+
+	"panel_theme_title": "Thème",
+	"panel_theme_rainbow": "Rainbow",
+	"panel_theme_pastel": "Pastel",
+	"panel_theme_grayscale": "Gris"
 }
