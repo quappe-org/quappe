@@ -165,7 +165,7 @@
 		flex-direction: column;
 		gap: 0.75rem;
 		position: relative;
-		padding-left: calc(var(--card-padding, 1.5rem) + 16px);
+		padding: 0.9rem 1rem 0.9rem calc(1rem + 16px);
 		transition: box-shadow var(--transition-base), transform var(--transition-fast);
 		text-decoration: none;
 		color: inherit;
