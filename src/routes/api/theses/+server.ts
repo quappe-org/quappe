@@ -6,10 +6,12 @@ import {
 	getTopTheses,
 	createThesis,
 	setThesisEmbedding,
+	setThesisLang,
 	seedData
 } from '$lib/stores/data';
 import { embed, isModelWarm } from '$lib/server/embeddings';
 import { suggestCategories } from '$lib/server/similarity';
+import { detectLanguage } from '$lib/server/language-detect';
 import { DEFAULT_CATEGORIES } from '$lib/models/types';
 import { checkLength, checkCategories, checkRate, getClientIp } from '$lib/server/limits';
 
@@ -57,6 +59,12 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals }
 	if (catErr) return catErr;
 
 	const thesis = createThesis(title, description, categories, locals.user_id, location);
+
+	// Fire-and-forget language detection — thesis is available immediately;
+	// `lang` fills in seconds later. Failure keeps `lang` undefined.
+	detectLanguage(`${title} ${description}`)
+		.then((lang) => setThesisLang(thesis.id, lang))
+		.catch(() => {});
 
 	// Try to compute suggestion within a bounded time budget so the response
 	// stays snappy but users get suggestions on the first thesis they create

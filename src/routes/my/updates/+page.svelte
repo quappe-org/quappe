@@ -21,11 +21,8 @@
 	let newArgs = $derived(
 		updatesStore.events.filter((e) => e.kind === 'new_argument').slice(0, cap)
 	);
-	let votesOnArgs = $derived(
-		updatesStore.events.filter((e) => e.kind === 'vote_on_argument').slice(0, cap)
-	);
-	let votesOnTh = $derived(
-		updatesStore.events.filter((e) => e.kind === 'vote_on_thesis').slice(0, cap)
+	let lifecycles = $derived(
+		updatesStore.events.filter((e) => e.kind === 'lifecycle').slice(0, cap)
 	);
 
 	function fmtTime(iso: string): string {
@@ -42,12 +39,6 @@
 		} catch {
 			return iso;
 		}
-	}
-
-	function voteGlyph(t?: string): string {
-		if (t === 'support') return '+';
-		if (t === 'reject') return '−';
-		return '~';
 	}
 </script>
 
@@ -118,49 +109,22 @@
 
 			<section class="updates-col card">
 				<header class="updates-col-head">
-					<span class="updates-col-dot updates-dot-argvote" aria-hidden="true"></span>
-					<h2 class="updates-col-title">{m.updates_col_argvotes_title()}</h2>
-					<span class="updates-col-count">{votesOnArgs.length}</span>
+					<span class="updates-col-dot updates-dot-lifecycle" aria-hidden="true"></span>
+					<h2 class="updates-col-title">{m.updates_col_lifecycle_title()}</h2>
+					<span class="updates-col-count">{lifecycles.length}</span>
 				</header>
-				{#if votesOnArgs.length === 0}
+				{#if lifecycles.length === 0}
 					<p class="updates-col-empty">{m.updates_col_empty()}</p>
 				{:else}
 					<ul class="updates-list">
-						{#each votesOnArgs as e, i (e.target_argument_id + '_' + e.at + '_' + i)}
+						{#each lifecycles as e, i (e.thesis_id + '_' + e.at + '_' + i)}
 							<li class="updates-item" class:updates-new={updatesSeen.isNew(e.at)}>
 								<div class="updates-item-row">
 									<time class="updates-time">{fmtTime(e.at)}</time>
-									<span class="updates-vote updates-vote-{e.vote_type}">
-										{voteGlyph(e.vote_type)}{#if (e.vote_weight ?? 1) > 1}×{e.vote_weight}{/if}
-									</span>
+									<span class="updates-lifecycle-state">{e.lifecycle_state}</span>
 									<a class="updates-thesis" href="/thesis/{e.thesis_id}">{e.thesis_title}</a>
 								</div>
-								<p class="updates-content-muted">{e.target_argument_content}</p>
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</section>
-
-			<section class="updates-col card">
-				<header class="updates-col-head">
-					<span class="updates-col-dot updates-dot-thvote" aria-hidden="true"></span>
-					<h2 class="updates-col-title">{m.updates_col_thvotes_title()}</h2>
-					<span class="updates-col-count">{votesOnTh.length}</span>
-				</header>
-				{#if votesOnTh.length === 0}
-					<p class="updates-col-empty">{m.updates_col_empty()}</p>
-				{:else}
-					<ul class="updates-list">
-						{#each votesOnTh as e, i (e.thesis_id + '_' + e.at + '_' + i)}
-							<li class="updates-item" class:updates-new={updatesSeen.isNew(e.at)}>
-								<div class="updates-item-row">
-									<time class="updates-time">{fmtTime(e.at)}</time>
-									<span class="updates-vote updates-vote-{e.vote_type}">
-										{voteGlyph(e.vote_type)}{#if (e.vote_weight ?? 1) > 1}×{e.vote_weight}{/if}
-									</span>
-									<a class="updates-thesis" href="/thesis/{e.thesis_id}">{e.thesis_title}</a>
-								</div>
+								<p class="updates-content-muted">{m.updates_lifecycle_now({ state: e.lifecycle_state ?? '' })}</p>
 							</li>
 						{/each}
 					</ul>
@@ -224,7 +188,7 @@
 
 	.updates-grid {
 		display: grid;
-		grid-template-columns: repeat(2, 1fr);
+		grid-template-columns: repeat(3, 1fr);
 		gap: 0.75rem;
 	}
 
@@ -257,8 +221,7 @@
 
 	.updates-dot-fork { background: #f97316; }
 	.updates-dot-newarg { background: var(--color-primary); }
-	.updates-dot-argvote { background: #22d3ee; }
-	.updates-dot-thvote { background: #fbbf24; }
+	.updates-dot-lifecycle { background: #a78bfa; }
 
 	.updates-col-title {
 		font-size: var(--text-sm);
@@ -366,22 +329,16 @@
 		color: var(--color-reject);
 	}
 
-	.updates-vote {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 1.4rem;
-		height: 1.1rem;
-		padding: 0 0.3rem;
-		font-family: var(--font-mono);
-		font-size: 0.7rem;
-		font-weight: 700;
+	.updates-lifecycle-state {
+		display: inline-block;
+		padding: 0.05rem 0.35rem;
+		font-size: 0.65rem;
+		font-weight: 600;
 		border-radius: var(--radius-sm);
+		text-transform: capitalize;
+		background: #ede9fe;
+		color: #5b21b6;
 	}
-
-	.updates-vote-support { background: var(--color-support-bg); color: var(--color-support); }
-	.updates-vote-reject { background: var(--color-reject-bg); color: var(--color-reject); }
-	.updates-vote-neutral { background: var(--color-neutral-bg); color: var(--color-neutral); }
 
 	.updates-content,
 	.updates-content-muted,

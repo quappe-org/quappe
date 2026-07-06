@@ -2,7 +2,6 @@
 	import type { Thesis, Category } from '$lib/models/types';
 	import { complexityStore } from '$lib/stores/complexity.svelte';
 	import { categoriesStore } from '$lib/stores/categories.svelte';
-	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { activityStore } from '$lib/stores/activity.svelte';
 	import { uiIntents } from '$lib/stores/ui.svelte';
 	import { getUserId } from '$lib/stores/user';
@@ -188,7 +187,6 @@
 
 	async function createThesis() {
 		if (!title.trim() || !description.trim()) return;
-		if (!budgetStore.canCreate('thesis')) return;
 		submitting = true;
 		createError = null;
 		// Server requires ≥1 category. If the user didn't pick, fall back to
@@ -242,7 +240,6 @@
 				}
 			}
 
-			budgetStore.spend('thesis');
 			allTheses = [finalThesis, ...allTheses];
 
 			// Banner: only show if the suggestion adds something the user did NOT

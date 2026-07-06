@@ -1,16 +1,12 @@
-// Input budget system with 3 separate daily buckets
-// Each bucket: 7 actions per day
-// Reading and voting is always free
+// Unified daily budget: single bucket of 62 units.
+// Only *extra vote weight* (weight > 1) draws from it.
+// Creating theses / arguments and casting weight-1 votes are always free.
 
-const DAILY_LIMIT = 7;
+const DAILY_LIMIT = 62;
 const STORAGE_KEY = 'quappe_budget';
 
-export type BudgetKind = 'thesis' | 'support' | 'reject';
-
 interface BudgetState {
-	thesis: number;
-	support: number;
-	reject: number;
+	remaining: number;
 	lastReset: string; // ISO date (YYYY-MM-DD)
 }
 
@@ -19,12 +15,7 @@ function getToday(): string {
 }
 
 function emptyState(): BudgetState {
-	return {
-		thesis: DAILY_LIMIT,
-		support: DAILY_LIMIT,
-		reject: DAILY_LIMIT,
-		lastReset: getToday()
-	};
+	return { remaining: DAILY_LIMIT, lastReset: getToday() };
 }
 
 function loadBudget(): BudgetState {
@@ -32,14 +23,15 @@ function loadBudget(): BudgetState {
 	const stored = localStorage.getItem(STORAGE_KEY);
 	if (!stored) return emptyState();
 	try {
-		const state: BudgetState = JSON.parse(stored);
-		if (state.lastReset !== getToday()) return emptyState();
-		// Migration: ensure all fields exist
+		const parsed = JSON.parse(stored) as Partial<BudgetState> & Record<string, unknown>;
+		// Migration: legacy shape had thesis/support/reject buckets. Discard.
+		if (typeof parsed.remaining !== 'number' || typeof parsed.lastReset !== 'string') {
+			return emptyState();
+		}
+		if (parsed.lastReset !== getToday()) return emptyState();
 		return {
-			thesis: state.thesis ?? DAILY_LIMIT,
-			support: state.support ?? DAILY_LIMIT,
-			reject: state.reject ?? DAILY_LIMIT,
-			lastReset: state.lastReset
+			remaining: Math.max(0, Math.min(DAILY_LIMIT, parsed.remaining)),
+			lastReset: parsed.lastReset
 		};
 	} catch {
 		return emptyState();
@@ -61,51 +53,40 @@ function ensureToday() {
 }
 
 export const budgetStore = {
-	get thesis() {
+	get remaining() {
 		ensureToday();
-		return _budget.thesis;
-	},
-	get support() {
-		ensureToday();
-		return _budget.support;
-	},
-	get reject() {
-		ensureToday();
-		return _budget.reject;
+		return _budget.remaining;
 	},
 	get limit() {
 		return DAILY_LIMIT;
 	},
-	canCreate(kind: BudgetKind): boolean {
+	canAfford(amount: number): boolean {
 		ensureToday();
-		return _budget[kind] > 0;
+		return _budget.remaining >= amount;
 	},
-	canAfford(kind: BudgetKind, amount: number): boolean {
+	spend(amount = 1): boolean {
 		ensureToday();
-		return _budget[kind] >= amount;
-	},
-	spend(kind: BudgetKind, amount = 1): boolean {
-		ensureToday();
-		if (_budget[kind] < amount) return false;
-		_budget = { ..._budget, [kind]: _budget[kind] - amount };
+		if (_budget.remaining < amount) return false;
+		_budget = { ..._budget, remaining: _budget.remaining - amount };
 		saveBudget(_budget);
 		return true;
 	},
-	refund(kind: BudgetKind, amount = 1): void {
+	refund(amount = 1): void {
 		ensureToday();
-		_budget = { ..._budget, [kind]: Math.min(DAILY_LIMIT, _budget[kind] + amount) };
+		_budget = {
+			..._budget,
+			remaining: Math.min(DAILY_LIMIT, _budget.remaining + amount)
+		};
 		saveBudget(_budget);
 	},
 	/**
-	 * Reconcile with server-side truth. The server reconstructs today's spend
-	 * from persistent timestamps (thesis.meta.created_at, argument.meta.created_at,
-	 * vote.cast_at with weight>1). Call on app mount to prevent localStorage drift.
+	 * Reconcile with server-side truth. The server sums today's extra weight
+	 * (weight - 1) across all support/reject votes; that's the only thing that
+	 * costs budget now. Call on app mount to prevent localStorage drift.
 	 */
-	syncFromServer(spent: { thesis: number; support: number; reject: number }): void {
+	syncFromServer(spent: number): void {
 		_budget = {
-			thesis: Math.max(0, DAILY_LIMIT - spent.thesis),
-			support: Math.max(0, DAILY_LIMIT - spent.support),
-			reject: Math.max(0, DAILY_LIMIT - spent.reject),
+			remaining: Math.max(0, DAILY_LIMIT - spent),
 			lastReset: getToday()
 		};
 		saveBudget(_budget);

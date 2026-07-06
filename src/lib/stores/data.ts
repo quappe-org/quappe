@@ -322,6 +322,21 @@ export function archiveThesis(id: string, archived: boolean = true): Thesis | un
 	return thesis;
 }
 
+export function setThesisLang(id: string, lang: string): boolean {
+	const thesis = theses.get(id);
+	if (!thesis) return false;
+	thesis.lang = lang;
+	return true;
+}
+
+export function getThesesMissingLang(): Thesis[] {
+	const out: Thesis[] = [];
+	for (const t of theses.values()) {
+		if (!t.lang) out.push(t);
+	}
+	return out;
+}
+
 export function deleteThesis(id: string): boolean {
 	// Also delete all arguments for this thesis - use reverse index
 	const argIds = args_by_thesis.get(id);
@@ -966,7 +981,7 @@ const THESIS_SEEDS: ThesisSeed[] = [
 	{ title: 'Stadtplanung sollte 15-Minuten-Prinzip folgen', description: 'Alles Wichtige in 15 Minuten zu Fuß erreichbar - so leben wir gesünder und nachhaltiger.', categories: ['environment', 'health', 'family'] }
 ];
 
-export function seedData(): void {
+export function seedData(devUserId?: string): void {
 	if (theses_hot.size > 0 || theses_warm.size > 0 || theses_cold.size > 0) return;
 
 	// Default seed: 200 examples (dev-friendly).
@@ -999,6 +1014,7 @@ export function seedData(): void {
 	// Generate a pool of pseudo-users - scale with target count (rough: 1 user per 4 theses, min 25)
 	const userCount = Math.max(25, Math.min(50000, Math.floor(targetCount / 4)));
 	const users: string[] = [];
+	if (devUserId) users.push(devUserId);
 	for (let i = 0; i < userCount; i++) users.push(generateId());
 
 	// Helper: random index
@@ -1190,6 +1206,136 @@ export function seedData(): void {
 	}
 
 	const t1 = Date.now();
+
+	// "My theses" cohort — three extra theses authored by the dev user in mixed
+	// lifecycle states, so /my has realistic content to exercise the UI.
+	// Also seeds fork relationships in both directions to feed notification triggers.
+	if (devUserId) {
+		const myConfigs: Array<{ state: 'seedling' | 'discussed' | 'crystallized'; ageDays: number; voters: number; args: number; supportBias: number }> = [
+			{ state: 'seedling', ageDays: 3, voters: 2, args: 1, supportBias: 0.55 },
+			{ state: 'discussed', ageDays: 20, voters: 40, args: 15, supportBias: 0.55 },
+			{ state: 'crystallized', ageDays: 60, voters: 150, args: 40, supportBias: 0.75 }
+		];
+
+		// Collect a few "other" arguments to use as fork sources (from freshly-seeded pool).
+		const otherArgs: Argument[] = [];
+		for (const a of arguments_store.values()) {
+			if (a.meta.author_id !== devUserId) otherArgs.push(a);
+			if (otherArgs.length >= 50) break;
+		}
+		const myArgIds: string[] = []; // Track for fork-back seeding
+
+		for (let mi = 0; mi < myConfigs.length; mi++) {
+			const cfg = myConfigs[mi];
+			const seed = THESIS_SEEDS[(idx + mi) % THESIS_SEEDS.length];
+			const created = pastDate(cfg.ageDays + 1, cfg.ageDays);
+			const thesis: Thesis = {
+				id: generateId(),
+				title: `[Meine These] ${seed.title}`,
+				description: seed.description,
+				categories: seed.categories,
+				votes: [],
+				related_thesis_ids: [],
+				archived: false,
+				lifecycle: {
+					state: 'seedling',
+					state_since: created,
+					quality_score: 0
+				},
+				meta: {
+					created_at: created,
+					updated_at: new Date().toISOString(),
+					author_id: devUserId,
+					location: 'DE'
+				}
+			};
+
+			const voters = pickN(users.filter((u) => u !== devUserId), Math.min(cfg.voters, users.length - 1));
+			for (const voter of voters) {
+				const r = Math.random();
+				let type: 'support' | 'reject' | 'neutral' = 'neutral';
+				if (r < cfg.supportBias) type = 'support';
+				else if (r < cfg.supportBias + (1 - cfg.supportBias) * 0.7) type = 'reject';
+				const w = Math.random() < 0.1 ? 2 + Math.floor(Math.random() * 2) : 1;
+				thesis.votes.push({
+					user_id: voter,
+					type,
+					weight: w,
+					cast_at: pastDate(Math.min(cfg.ageDays, 10))
+				});
+				totalVotes++;
+			}
+
+			for (let ai = 0; ai < cfg.args; ai++) {
+				const stance: 'support' | 'reject' = Math.random() < cfg.supportBias ? 'support' : 'reject';
+				const argAuthor: string = ai % 7 === 0 ? devUserId : pick(users.filter((u) => u !== devUserId));
+				// ~20% of args on my theses are forks of others' arguments
+				const forkSource = Math.random() < 0.2 && otherArgs.length > 0 ? pick(otherArgs) : null;
+				const arg: Argument = {
+					id: generateId(),
+					thesis_id: thesis.id,
+					stance,
+					content: pick(argTemplates[stance]),
+					attributes: [{ evidence_type: pick(['logical', 'study', 'experiential', 'authority'] as const) }],
+					votes: [],
+					forked_from_id: forkSource?.id,
+					meta: {
+						created_at: pastDate(Math.min(cfg.ageDays, 10)),
+						updated_at: new Date().toISOString(),
+						author_id: argAuthor
+					}
+				};
+				const argVoteCount = Math.floor(Math.random() * 8);
+				const argVoters = pickN(users, Math.min(argVoteCount, users.length));
+				for (const v of argVoters) {
+					arg.votes.push({
+						user_id: v,
+						type: pick(['support', 'reject', 'neutral'] as const),
+						weight: 1,
+						cast_at: pastDate(Math.min(cfg.ageDays, 10))
+					});
+					totalArgVotes++;
+				}
+				arguments_store.set(arg.id, arg);
+				indexArgument(arg);
+				totalArgs++;
+				if (argAuthor === devUserId) myArgIds.push(arg.id);
+			}
+
+			theses_hot.set(thesis.id, thesis);
+			createdTheses.push(thesis);
+		}
+
+		// Fork-back: create a handful of other-authored arguments that fork the
+		// dev user's arguments, so the "your argument was forked" notification
+		// has real data to draw from.
+		if (myArgIds.length > 0) {
+			const otherTheses = getAllTheses().filter((t) => t.meta.author_id !== devUserId);
+			const forkTargets = pickN(otherTheses, Math.min(6, otherTheses.length));
+			for (const t of forkTargets) {
+				const sourceId = pick(myArgIds);
+				const forkAuthor = pick(users.filter((u) => u !== devUserId));
+				const stance: 'support' | 'reject' = Math.random() < 0.55 ? 'support' : 'reject';
+				const arg: Argument = {
+					id: generateId(),
+					thesis_id: t.id,
+					stance,
+					content: pick(argTemplates[stance]),
+					attributes: [{ evidence_type: pick(['logical', 'study', 'experiential', 'authority'] as const) }],
+					votes: [],
+					forked_from_id: sourceId,
+					meta: {
+						created_at: pastDate(5),
+						updated_at: new Date().toISOString(),
+						author_id: forkAuthor
+					}
+				};
+				arguments_store.set(arg.id, arg);
+				indexArgument(arg);
+				totalArgs++;
+			}
+		}
+	}
 
 	// Now that all votes / args are in place, run the lifecycle transition for every thesis
 	// once so tiers are populated correctly.

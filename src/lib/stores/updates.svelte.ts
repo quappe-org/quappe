@@ -3,7 +3,7 @@
 // cookie — no user_id in the URL. Refreshed on demand and via a 60s poll
 // started from the root layout.
 
-export type UpdateKind = 'fork' | 'new_argument' | 'vote_on_argument' | 'vote_on_thesis';
+export type UpdateKind = 'fork' | 'new_argument' | 'lifecycle';
 
 export interface UpdateEvent {
 	kind: UpdateKind;
@@ -17,10 +17,7 @@ export interface UpdateEvent {
 	argument_id?: string;
 	argument_stance?: 'support' | 'reject';
 	argument_content?: string;
-	vote_type?: 'support' | 'reject' | 'neutral';
-	vote_weight?: number;
-	target_argument_id?: string;
-	target_argument_content?: string;
+	lifecycle_state?: string;
 }
 
 interface UpdatesResponse {
@@ -30,8 +27,7 @@ interface UpdatesResponse {
 	counts: {
 		forks: number;
 		new_arguments: number;
-		votes_on_arguments: number;
-		votes_on_theses: number;
+		lifecycle: number;
 		total: number;
 	};
 }

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Argument, ArgumentStance, VoteType, VoteSummary, Category } from '$lib/models/types';
 	import { complexityStore } from '$lib/stores/complexity.svelte';
-	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { categoriesStore } from '$lib/stores/categories.svelte';
 	import { activityStore } from '$lib/stores/activity.svelte';
 	import { getUserId, markVotedArg } from '$lib/stores/user';
@@ -10,9 +9,11 @@
 	import ArgumentCard from '$lib/components/ArgumentCard.svelte';
 	import ForkLines from '$lib/components/ForkLines.svelte';
 	import VoteRow from '$lib/components/VoteRow.svelte';
+	import SwipeVote from '$lib/components/SwipeVote.svelte';
 	import ActivityGraph from '$lib/components/ActivityGraph.svelte';
 	import type { ActivityDay } from '$lib/stores/data';
 	import { m } from '$lib/paraglide/messages';
+	import { getLocale } from '$lib/paraglide/runtime';
 
 	let { data } = $props();
 
@@ -256,9 +257,6 @@
 			return;
 		}
 
-		const budgetKind = argStance === 'support' ? 'support' : 'reject';
-		if (!budgetStore.canCreate(budgetKind)) return;
-
 		argSubmitting = true;
 		try {
 			const res = await fetch('/api/arguments', {
@@ -278,7 +276,6 @@
 				return;
 			}
 			const newArg: Argument = await res.json();
-			budgetStore.spend(budgetKind);
 			args = [...args, newArg];
 			cancelArgForm();
 		} finally {
@@ -292,6 +289,36 @@
 	let editDescription = $state('');
 	let editCategories = $state<Category[]>([]);
 	let editSubmitting = $state(false);
+
+	// --- Translation (session-cached) ---
+	let translated = $state<{ title: string; description: string } | null>(null);
+	let translating = $state(false);
+	let translateNeeded = $derived.by(() => {
+		if (!thesis?.lang) return false;
+		if (typeof window === 'undefined') return false;
+		return thesis.lang !== getLocale();
+	});
+	let displayTitle = $derived(translated?.title ?? thesis?.title ?? '');
+	let displayDescription = $derived(translated?.description ?? thesis?.description ?? '');
+
+	async function toggleTranslate() {
+		if (!thesis) return;
+		if (translated) {
+			translated = null;
+			return;
+		}
+		if (translating) return;
+		translating = true;
+		try {
+			const target = getLocale();
+			const res = await fetch(`/api/theses/${thesis.id}/translate?to=${target}`);
+			if (!res.ok) return;
+			const data = (await res.json()) as { title: string; description: string; target: string };
+			translated = { title: data.title, description: data.description };
+		} finally {
+			translating = false;
+		}
+	}
 
 	function openEditThesis() {
 		if (!thesis) return;
@@ -355,6 +382,7 @@
 		{/if}
 
 		<!-- Thesis tile -->
+		<SwipeVote oncast={castThesisVote}>
 		<div class="thesis-tile card heat-{heat} lifecycle-band-{thesis.lifecycle?.state ?? 'seedling'}">
 			<span
 				class="side-band heat-band"
@@ -405,35 +433,30 @@
 					</div>
 				</form>
 			{:else}
-				<h1 class="thesis-title">{thesis.title}</h1>
-				<p class="thesis-description">{thesis.description}</p>
+				<h1 class="thesis-title">{displayTitle}</h1>
+				<p class="thesis-description">{displayDescription}</p>
 
 				<div class="thesis-meta-row">
 					{#each thesis.categories as category}
 						<span class="tag">{category}</span>
 					{/each}
+					{#if translateNeeded}
+						<button
+							type="button"
+							class="translate-btn"
+							onclick={toggleTranslate}
+							disabled={translating}
+						>
+							{#if translating}
+								{m.translate_pending()}
+							{:else if translated}
+								{m.translate_show_original()}
+							{:else}
+								{m.translate_to({ locale: getLocale().toUpperCase() })}
+							{/if}
+						</button>
+					{/if}
 				</div>
-
-				{#if voteSummary && voteSummary.total > 0}
-					<div class="thesis-vote-bar-wrap" title={m.thesis_vote_summary_title({ support: voteSummary.support, reject: voteSummary.reject, neutral: voteSummary.neutral })}>
-						<div class="thesis-vote-bar">
-							{#if voteSummary.support > 0}
-								<span class="tvb-seg tvb-support" style="flex: {voteSummary.support}"></span>
-							{/if}
-							{#if voteSummary.neutral > 0}
-								<span class="tvb-seg tvb-neutral" style="flex: {voteSummary.neutral}"></span>
-							{/if}
-							{#if voteSummary.reject > 0}
-								<span class="tvb-seg tvb-reject" style="flex: {voteSummary.reject}"></span>
-							{/if}
-						</div>
-						<div class="thesis-vote-nums">
-							<span class="tvn-support">+{voteSummary.support}</span>
-							<span class="tvn-reject">−{voteSummary.reject}</span>
-							<span class="tvn-voters">{(voteSummary.voters ?? 0) === 1 ? m.thesis_vote_voters_one({ count: abbreviateNumber(voteSummary.voters ?? 0) }) : m.thesis_vote_voters_other({ count: abbreviateNumber(voteSummary.voters ?? 0) })}</span>
-						</div>
-					</div>
-				{/if}
 
 				<div class="thesis-tile-footer">
 					{#if voteSummary}
@@ -459,6 +482,7 @@
 				</div>
 			{/if}
 		</div>
+		</SwipeVote>
 
 		<section class="arguments-section">
 			{#if showArgForm}
@@ -524,9 +548,7 @@
 						<button
 							class="btn btn-sm add-arg-btn"
 							onclick={() => openNewArg('support')}
-							disabled={!budgetStore.canCreate('support')}
-							title={!budgetStore.canCreate('support') ? m.argcol_add_disabled_support() : ''}
-						>{m.argcol_add_arg({ remaining: budgetStore.support })}</button>
+						>{m.argcol_add_arg()}</button>
 					</div>
 					<div class="arguments-list" bind:this={supportColRef}>
 						<ForkLines arguments={supportArgs} container={supportColRef} />
@@ -555,9 +577,7 @@
 						<button
 							class="btn btn-sm add-arg-btn"
 							onclick={() => openNewArg('reject')}
-							disabled={!budgetStore.canCreate('reject')}
-							title={!budgetStore.canCreate('reject') ? m.argcol_add_disabled_reject() : ''}
-						>{m.argcol_add_arg({ remaining: budgetStore.reject })}</button>
+						>{m.argcol_add_arg()}</button>
 					</div>
 					<div class="arguments-list" bind:this={rejectColRef}>
 						<ForkLines arguments={rejectArgs} container={rejectColRef} />
@@ -844,46 +864,29 @@
 		gap: 0.375rem;
 	}
 
-	/* Vote bar */
-	.thesis-vote-bar-wrap {
-		display: flex;
+	.translate-btn {
+		display: inline-flex;
 		align-items: center;
-		gap: 0.625rem;
-	}
-
-	.thesis-vote-bar {
-		flex: 1;
-		display: flex;
-		height: 6px;
-		border-radius: 3px;
-		overflow: hidden;
-		gap: 1px;
-		background: var(--color-bg);
-	}
-
-	.tvb-seg {
-		display: block;
-		height: 100%;
-		min-width: 2px;
-		border-radius: 2px;
-	}
-
-	.tvb-support { background: var(--color-support); }
-	.tvb-neutral  { background: var(--color-neutral); }
-	.tvb-reject   { background: var(--color-reject); }
-
-	.thesis-vote-nums {
-		display: flex;
-		gap: 0.5rem;
+		padding: 0.125rem 0.6rem;
 		font-size: var(--text-xs);
-		font-family: var(--font-mono);
-		font-variant-numeric: tabular-nums;
-		align-items: center;
+		font-weight: 500;
+		border-radius: var(--radius-sm);
+		background: var(--color-primary-bg);
+		color: var(--color-primary);
+		border: 1px solid var(--color-primary-bg);
+		font-family: inherit;
+		cursor: pointer;
+		transition: filter var(--transition-fast);
 	}
 
-	.tvn-support { color: var(--color-support); }
-	.tvn-reject  { color: var(--color-reject); }
-	.tvn-voters  { color: var(--color-text-light); margin-left: 0.25rem; }
+	.translate-btn:hover:not(:disabled) {
+		filter: brightness(0.95);
+	}
+
+	.translate-btn:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
 
 	/* Footer row: vote buttons + admin actions */
 	.thesis-tile-footer {

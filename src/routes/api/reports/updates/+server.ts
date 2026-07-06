@@ -1,8 +1,7 @@
-// /my/updates data source — aggregates 4 kinds of reactions on a user's content:
-// 1. Forks of the user's arguments
-// 2. New arguments on theses the user authored
-// 3. Votes on the user's arguments
-// 4. Votes on the user's theses
+// /my/updates data source — aggregates 3 kinds of notifications:
+// 1. New counter-arguments on the user's theses
+// 2. Forks of the user's arguments
+// 3. Lifecycle transitions on theses the user supported (within last 14 days)
 //
 // Self-actions (user reacting to their own content) are filtered out.
 
@@ -13,10 +12,11 @@ import {
 	getArgumentsByAuthor,
 	getArgumentsForThesis,
 	getForksOf,
-	getThesisById
+	getThesisById,
+	getAllTheses
 } from '$lib/stores/data';
 
-type UpdateKind = 'fork' | 'new_argument' | 'vote_on_argument' | 'vote_on_thesis';
+type UpdateKind = 'fork' | 'new_argument' | 'lifecycle';
 
 interface UpdateEvent {
 	kind: UpdateKind;
@@ -32,11 +32,8 @@ interface UpdateEvent {
 	argument_id?: string;
 	argument_stance?: 'support' | 'reject';
 	argument_content?: string;
-	// vote_*
-	vote_type?: 'support' | 'reject' | 'neutral';
-	vote_weight?: number;
-	target_argument_id?: string;
-	target_argument_content?: string;
+	// lifecycle
+	lifecycle_state?: string;
 }
 
 interface UpdatesBody {
@@ -46,8 +43,7 @@ interface UpdatesBody {
 	counts: {
 		forks: number;
 		new_arguments: number;
-		votes_on_arguments: number;
-		votes_on_theses: number;
+		lifecycle: number;
 		total: number;
 	};
 }
@@ -55,6 +51,8 @@ interface UpdatesBody {
 function snip(s: string, n = 140): string {
 	return s.length > n ? s.slice(0, n - 1) + '…' : s;
 }
+
+const LIFECYCLE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
 function aggregate(user_id: string): UpdatesBody {
 	const myTheses = getThesesByAuthor(user_id);
@@ -70,7 +68,7 @@ function aggregate(user_id: string): UpdatesBody {
 				kind: 'fork',
 				at: fork.meta.created_at,
 				thesis_id: fork.thesis_id,
-				thesis_title: parent?.title ?? '(unbekannt)',
+				thesis_title: parent?.title ?? '(unknown)',
 				original_argument_id: a.id,
 				original_content: snip(a.content),
 				fork_argument_id: fork.id,
@@ -95,47 +93,37 @@ function aggregate(user_id: string): UpdatesBody {
 		}
 	}
 
-	// 3. Votes on my arguments
-	for (const a of myArgs) {
-		const parent = getThesisById(a.thesis_id);
-		for (const v of a.votes) {
-			if (v.user_id === user_id) continue;
-			events.push({
-				kind: 'vote_on_argument',
-				at: v.cast_at,
-				thesis_id: a.thesis_id,
-				thesis_title: parent?.title ?? '(unbekannt)',
-				vote_type: v.type,
-				vote_weight: v.weight ?? 1,
-				target_argument_id: a.id,
-				target_argument_content: snip(a.content)
-			});
-		}
-	}
-
-	// 4. Votes on my theses
-	for (const t of myTheses) {
-		for (const v of t.votes) {
-			if (v.user_id === user_id) continue;
-			events.push({
-				kind: 'vote_on_thesis',
-				at: v.cast_at,
-				thesis_id: t.id,
-				thesis_title: t.title,
-				vote_type: v.type,
-				vote_weight: v.weight ?? 1
-			});
-		}
+	// 3. Lifecycle transitions on theses I supported (within the last 14 days).
+	// One entry per thesis, dated at `state_since`. Skips theses I authored
+	// (those are already covered by 1 and 2).
+	const now = Date.now();
+	for (const t of getAllTheses()) {
+		if (t.meta.author_id === user_id) continue;
+		const myVote = t.votes.find((v) => v.user_id === user_id && v.type === 'support');
+		if (!myVote) continue;
+		const stateSince = t.lifecycle.state_since;
+		if (!stateSince) continue;
+		const since = new Date(stateSince).getTime();
+		if (!Number.isFinite(since)) continue;
+		if (now - since > LIFECYCLE_WINDOW_MS) continue;
+		events.push({
+			kind: 'lifecycle',
+			at: stateSince,
+			thesis_id: t.id,
+			thesis_title: t.title,
+			lifecycle_state: t.lifecycle.state
+		});
 	}
 
 	events.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
 
-	let forks = 0, new_arguments = 0, votes_on_arguments = 0, votes_on_theses = 0;
+	let forks = 0,
+		new_arguments = 0,
+		lifecycle = 0;
 	for (const e of events) {
 		if (e.kind === 'fork') forks++;
 		else if (e.kind === 'new_argument') new_arguments++;
-		else if (e.kind === 'vote_on_argument') votes_on_arguments++;
-		else if (e.kind === 'vote_on_thesis') votes_on_theses++;
+		else if (e.kind === 'lifecycle') lifecycle++;
 	}
 
 	return {
@@ -145,8 +133,7 @@ function aggregate(user_id: string): UpdatesBody {
 		counts: {
 			forks,
 			new_arguments,
-			votes_on_arguments,
-			votes_on_theses,
+			lifecycle,
 			total: events.length
 		}
 	};

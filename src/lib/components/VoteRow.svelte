@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { VoteSummary, VoteType } from '$lib/models/types';
 	import { abbreviateNumber } from '$lib/utils/format';
-	import { budgetStore, type BudgetKind } from '$lib/stores/budget.svelte';
+	import { budgetStore } from '$lib/stores/budget.svelte';
+	import { m } from '$lib/paraglide/messages';
 
 	interface Props {
 		summary: VoteSummary;
@@ -21,40 +22,22 @@
 		oncast
 	}: Props = $props();
 
-	// Which budget bucket pays for extra weight on a vote of the given type.
-	// Neutral votes never cost budget — they represent "no position".
-	function bucketFor(type: VoteType): BudgetKind | null {
-		if (type === 'support') return 'support';
-		if (type === 'reject') return 'reject';
-		return null;
-	}
-
 	function handle(type: VoteType, e: MouseEvent) {
 		e.preventDefault();
 		e.stopPropagation();
 
-		// Determine target weight based on current state:
-		// - clicking same type increases weight (up to 3), or retracts at max
-		// - clicking a different type sets weight back to 1
 		let targetWeight = 1;
 		if (currentVote === type) {
-			if (currentWeight >= 3) targetWeight = 1; // rolls over to weight=1 rather than retract
+			if (currentWeight >= 3) targetWeight = 1;
 			else targetWeight = currentWeight + 1;
-			// The store treats "same type, same weight" as retract-toggle,
-			// which is what we want when the user reaches the max and clicks again.
 			if (targetWeight === currentWeight) targetWeight = 1;
 		}
 
-		// Extra weight (>1) needs budget. First vote is free. Neutral never costs.
-		const bucket = bucketFor(type);
-		if (targetWeight > 1 && bucket) {
+		const costsBudget = targetWeight > 1 && (type === 'support' || type === 'reject');
+		if (costsBudget) {
 			const extraNeeded = targetWeight - 1 - Math.max(0, currentWeight - 1);
-			if (extraNeeded > 0 && !budgetStore.canAfford(bucket, extraNeeded)) {
-				// Not enough budget: bail. Toast would be nicer, we go silent for now.
-				return;
-			}
-			// Actually deduct the delta.
-			for (let i = 0; i < extraNeeded; i++) budgetStore.spend(bucket);
+			if (extraNeeded > 0 && !budgetStore.canAfford(extraNeeded)) return;
+			if (extraNeeded > 0) budgetStore.spend(extraNeeded);
 		}
 
 		oncast(type, targetWeight);
@@ -75,9 +58,10 @@
 			data-weight={currentVote === 'support' ? currentWeight : 0}
 			onclick={(e) => handle('support', e)}
 			disabled={voting}
-			title="Support (click again for weight up to 3)"
+			title={m.vote_support_hint()}
 		>
 			<span class="glyph">+</span>
+			{#if !compact}<span class="vb-label">{m.vote_support()}</span>{/if}
 			{#if currentVote === 'support' && currentWeight > 1}
 				<span class="weight-badge">×{currentWeight}</span>
 			{/if}
@@ -88,9 +72,10 @@
 			data-weight={currentVote === 'reject' ? currentWeight : 0}
 			onclick={(e) => handle('reject', e)}
 			disabled={voting}
-			title="Reject (click again for weight up to 3)"
+			title={m.vote_reject_hint()}
 		>
 			<span class="glyph">−</span>
+			{#if !compact}<span class="vb-label">{m.vote_reject()}</span>{/if}
 			{#if currentVote === 'reject' && currentWeight > 1}
 				<span class="weight-badge">×{currentWeight}</span>
 			{/if}
@@ -100,9 +85,10 @@
 			class:active={currentVote === 'neutral'}
 			onclick={(e) => handle('neutral', e)}
 			disabled={voting}
-			title="Neutral"
+			title={m.vote_neutral_hint()}
 		>
 			<span class="glyph">~</span>
+			{#if !compact}<span class="vb-label">{m.vote_neutral()}</span>{/if}
 		</button>
 	</div>
 </div>
@@ -112,7 +98,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 0.5rem;
+		gap: 0.75rem;
 		flex-wrap: wrap;
 	}
 
@@ -147,7 +133,7 @@
 
 	.vote-buttons {
 		display: inline-flex;
-		gap: 0.25rem;
+		gap: 0.375rem;
 	}
 
 	.vb {
@@ -155,30 +141,40 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		min-width: 30px;
-		height: 26px;
-		padding: 0 0.5rem;
+		gap: 0.375rem;
+		min-width: 44px;
+		height: 34px;
+		padding: 0 0.75rem;
 		border-radius: var(--radius-sm);
 		font-family: inherit;
 		font-size: var(--text-sm);
 		font-weight: 600;
 		line-height: 1;
-		border: 1px solid var(--color-border);
-		background: var(--color-surface);
-		color: var(--color-text-muted);
+		border: 1.5px solid;
 		cursor: pointer;
 		transition: all var(--transition-fast);
 	}
 
 	.vote-row.compact .vb {
-		min-width: 26px;
-		height: 22px;
-		padding: 0 0.375rem;
+		min-width: 30px;
+		height: 26px;
+		padding: 0 0.5rem;
 		font-size: var(--text-xs);
+		gap: 0.2rem;
+		border-width: 1px;
+	}
+
+	.vb-label {
+		font-weight: 600;
 	}
 
 	.vb:hover:not(:disabled) {
-		border-color: currentColor;
+		transform: translateY(-1px);
+		box-shadow: 0 2px 6px -2px currentColor;
+	}
+
+	.vb:active:not(:disabled) {
+		transform: translateY(0);
 	}
 
 	.vb:disabled {
@@ -186,23 +182,32 @@
 		cursor: not-allowed;
 	}
 
+	/* At-rest: colored tint with the color as text (fresh, readable). */
 	.vb-support { color: var(--color-support); background: var(--color-support-bg); border-color: var(--color-support-border); }
 	.vb-reject  { color: var(--color-reject);  background: var(--color-reject-bg);  border-color: var(--color-reject-border); }
 	.vb-neutral { color: var(--color-neutral); background: var(--color-neutral-bg); border-color: var(--color-neutral-border); }
 
+	/* Active: full color fill, white text. */
 	.vb.active { color: white; }
 	.vb.vb-support.active { background: var(--color-support); border-color: var(--color-support); }
 	.vb.vb-reject.active  { background: var(--color-reject);  border-color: var(--color-reject); }
 	.vb.vb-neutral.active { background: var(--color-neutral); border-color: var(--color-neutral); }
 
 	.weight-badge {
-		margin-left: 0.25rem;
-		font-size: 0.65rem;
+		font-size: 0.75rem;
 		font-family: var(--font-mono);
-		opacity: 0.9;
+		opacity: 0.95;
+		padding: 0.05rem 0.3rem;
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.25);
 	}
 
 	.glyph {
 		font-family: var(--font-mono);
+		font-size: 1.05em;
+	}
+
+	.vote-row.compact .glyph {
+		font-size: 1em;
 	}
 </style>

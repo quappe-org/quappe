@@ -2,11 +2,13 @@ import type { Handle } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import { logger } from '$lib/stores/logger';
 import { warmupModel, embed, isModelWarm } from '$lib/server/embeddings';
-import { seedData, getAllTheses, setThesisEmbedding, hasThesisEmbedding } from '$lib/stores/data';
+import { getAllTheses, setThesisEmbedding, hasThesisEmbedding, getThesesMissingLang, setThesisLang } from '$lib/stores/data';
 import { refreshPulseCache } from '$lib/server/pulse';
 import { categorizeUncategorizedArguments } from '$lib/server/argument-categorization';
 import { isLlmAvailable } from '$lib/server/llm';
+import { detectLanguage } from '$lib/server/language-detect';
 import { ensureUserId } from '$lib/server/identity';
+import { seedOnce, isSeeded } from '$lib/server/dev-seed';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 
 // Start warming the embedding model in the background at server startup.
@@ -21,7 +23,10 @@ async function backfillSeedEmbeddings() {
 	while (!isModelWarm()) {
 		await new Promise((r) => setTimeout(r, 200));
 	}
-	seedData();
+	// Wait for the lazy seed to fire on the first authenticated request.
+	while (!isSeeded()) {
+		await new Promise((r) => setTimeout(r, 500));
+	}
 	const theses = getAllTheses().filter((t) => !hasThesisEmbedding(t.id));
 	if (theses.length === 0) {
 		logger.info('system', 'All seed theses already embedded, skipping backfill');
@@ -96,6 +101,42 @@ async function argumentCategorizationLoop() {
 }
 argumentCategorizationLoop().catch(() => {});
 
+// Nightly loop that backfills `thesis.lang` for theses missing it.
+// Seed data starts with no `lang` field; new theses get it via POST, but a
+// batch run keeps the store consistent for any that slipped through (e.g. LLM
+// was down during creation).
+async function languageBackfillLoop() {
+	// Wait for seed to complete before scanning.
+	while (!isSeeded()) {
+		await new Promise((r) => setTimeout(r, 500));
+	}
+	await new Promise((r) => setTimeout(r, 20_000));
+	const day = 24 * 60 * 60 * 1000;
+	while (true) {
+		try {
+			const missing = getThesesMissingLang();
+			if (missing.length > 0) {
+				let annotated = 0;
+				for (const t of missing) {
+					try {
+						const lang = await detectLanguage(`${t.title} ${t.description}`);
+						if (setThesisLang(t.id, lang)) annotated++;
+					} catch {
+						// swallow — one bad thesis shouldn't kill the batch
+					}
+					// Yield to keep request handling snappy
+					await new Promise((r) => setImmediate(r));
+				}
+				if (annotated > 0) logger.info('system', `language backfill: annotated ${annotated}`);
+			}
+		} catch (err) {
+			logger.warn('system', 'language backfill threw', { error: (err as Error)?.message });
+		}
+		await new Promise((r) => setTimeout(r, day));
+	}
+}
+languageBackfillLoop().catch(() => {});
+
 /**
  * Log every request that hits the server.
  * We only log API routes and page loads to keep the noise low - static assets
@@ -125,6 +166,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 		// user_id/author_id fields from the request body.
 		if (!isAsset) {
 			event.locals.user_id = ensureUserId(event.cookies);
+			// Lazy dev seed: fires exactly once, on the first authenticated request,
+			// so the dev user's cookie id can own a small pool of "my" theses.
+			seedOnce(event.locals.user_id);
 		}
 
 		// Hard body-size cap for API writes — first line of defence against

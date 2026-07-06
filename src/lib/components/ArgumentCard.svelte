@@ -3,6 +3,7 @@
 	import { getUserId, markVotedArg } from '$lib/stores/user';
 	import { primaryEvidenceType } from '$lib/utils/evidence';
 	import VoteRow from '$lib/components/VoteRow.svelte';
+	import SwipeVote from '$lib/components/SwipeVote.svelte';
 
 	let { argument, forkedFromContent, leading = false, onFork, onEdit }: {
 		argument: Argument;
@@ -105,7 +106,8 @@
 	}
 </script>
 
-<article class="argument-card" class:argument-leading={leading} data-arg-id={argument.id}>
+<SwipeVote oncast={castVote}>
+	<article class="argument-card" class:argument-leading={leading} data-arg-id={argument.id}>
 	{#if forkedFromContent}
 		<div class="fork-note" title={forkedFromContent}>
 			<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -170,7 +172,8 @@
 			{/if}
 		</div>
 	</div>
-</article>
+	</article>
+</SwipeVote>
 
 <style>
 	.argument-card {

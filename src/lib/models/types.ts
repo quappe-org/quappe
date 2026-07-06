@@ -92,6 +92,7 @@ export interface Thesis {
 	related_thesis_ids: string[]; // graph edges to other Theses
 	archived: boolean; // archived by admin (still visible, but de-emphasized)
 	lifecycle: LifecycleInfo;
+	lang?: string; // 2-letter ISO code (en|de|fr|es); undefined until LLM detects
 	meta: Meta;
 }
 

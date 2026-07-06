@@ -2,7 +2,10 @@
 	import type { Thesis, VoteSummary, VoteType } from '$lib/models/types';
 	import { getUserId } from '$lib/stores/user';
 	import { abbreviateNumber } from '$lib/utils/format';
+	import { getLocale } from '$lib/paraglide/runtime';
+	import { m } from '$lib/paraglide/messages';
 	import VoteRow from '$lib/components/VoteRow.svelte';
+	import SwipeVote from '$lib/components/SwipeVote.svelte';
 
 	let { thesis, heatRatio = 0, argumentCount = 0 }: { thesis: Thesis; heatRatio?: number; argumentCount?: number } = $props();
 
@@ -43,6 +46,42 @@
 			currentWeight = serverVote?.weight ?? 1;
 		}
 	});
+
+	// Session-scoped translation cache. Falls back to original when null.
+	let translated = $state<{ title: string; description: string } | null>(null);
+	let translating = $state(false);
+	let displayLocale = $state<string | null>(null);
+
+	let needsTranslate = $derived.by(() => {
+		if (!thesis.lang) return false;
+		if (typeof window === 'undefined') return false;
+		return thesis.lang !== getLocale();
+	});
+
+	let displayTitle = $derived(translated?.title ?? thesis.title);
+	let displayDescription = $derived(translated?.description ?? thesis.description);
+
+	async function toggleTranslate(e: MouseEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		if (translated) {
+			translated = null;
+			displayLocale = null;
+			return;
+		}
+		if (translating) return;
+		translating = true;
+		try {
+			const target = getLocale();
+			const res = await fetch(`/api/theses/${thesis.id}/translate?to=${target}`);
+			if (!res.ok) return;
+			const data = (await res.json()) as { title: string; description: string; target: string };
+			translated = { title: data.title, description: data.description };
+			displayLocale = data.target;
+		} finally {
+			translating = false;
+		}
+	}
 
 	async function castVote(type: VoteType, weight: number) {
 		if (voting) return;
@@ -92,10 +131,11 @@
 	}
 </script>
 
-<a
-	href="/thesis/{thesis.id}"
-	class="card thesis-card heat-{heat} lifecycle-band-{thesis.lifecycle?.state ?? 'seedling'}"
->
+<SwipeVote oncast={castVote}>
+	<a
+		href="/thesis/{thesis.id}"
+		class="card thesis-card heat-{heat} lifecycle-band-{thesis.lifecycle?.state ?? 'seedling'}"
+	>
 	<span
 		class="side-band heat-band"
 		title="Heat: {heat} (recent activity {heatRatio.toFixed(2)}× baseline) — click for details"
@@ -114,13 +154,28 @@
 		onclick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = '/about/lifecycle'; }}
 		onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); window.location.href = '/about/lifecycle'; } }}
 	></span>
-	<h3 class="thesis-title">{thesis.title}</h3>
-	<p class="thesis-description">{thesis.description}</p>
+	<h3 class="thesis-title">{displayTitle}</h3>
+	<p class="thesis-description">{displayDescription}</p>
 
 	<div class="thesis-categories">
 		{#each thesis.categories as category}
 			<span class="tag">{category}</span>
 		{/each}
+		{#if needsTranslate}
+			<button
+				type="button"
+				class="translate-pill"
+				onclick={toggleTranslate}
+				disabled={translating}
+				title={translated ? m.translate_show_original() : m.translate_to({ locale: getLocale().toUpperCase() })}
+			>
+				{#if translated}
+					{m.translate_show_original()}
+				{:else}
+					→ {getLocale().toUpperCase()}
+				{/if}
+			</button>
+		{/if}
 	</div>
 
 	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
@@ -157,7 +212,8 @@
 			</span>
 		</div>
 	</div>
-</a>
+	</a>
+</SwipeVote>
 
 <style>
 	.thesis-card {
@@ -246,6 +302,30 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.375rem;
+	}
+
+	.translate-pill {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.125rem 0.5rem;
+		font-size: var(--text-xs);
+		font-weight: 500;
+		border-radius: var(--radius-sm);
+		background: var(--color-primary-bg);
+		color: var(--color-primary);
+		border: 1px solid var(--color-primary-bg);
+		font-family: inherit;
+		cursor: pointer;
+		transition: filter var(--transition-fast);
+	}
+
+	.translate-pill:hover:not(:disabled) {
+		filter: brightness(0.95);
+	}
+
+	.translate-pill:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
 	}
 
 	.badge-arguments {

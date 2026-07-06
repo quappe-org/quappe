@@ -71,22 +71,19 @@
 
 	// ---- Budget today ----
 	interface BudgetEvent {
-		kind: 'thesis' | 'argument' | 'weight_vote';
+		kind: 'weight_vote';
 		at: string;
 		thesis_id: string;
 		thesis_title: string;
-		stance?: 'support' | 'reject';
-		content?: string;
-		title?: string;
 		vote_type?: string;
 		extra_weight?: number;
 		target?: 'thesis' | 'argument';
 	}
 	interface BudgetBody {
 		date: string;
-		spent: { thesis: number; support: number; reject: number };
+		spent: number;
 		limit: number;
-		remaining: { thesis: number; support: number; reject: number };
+		remaining: number;
 		events: BudgetEvent[];
 	}
 	let budget = $state<BudgetBody | null>(null);
@@ -105,18 +102,6 @@
 
 	onMount(() => {
 		loadBudget();
-	});
-
-	let byKind = $derived.by(() => {
-		const g = { thesis: [] as BudgetEvent[], support: [] as BudgetEvent[], reject: [] as BudgetEvent[], weight: [] as BudgetEvent[] };
-		if (!budget) return g;
-		for (const e of budget.events) {
-			if (e.kind === 'thesis') g.thesis.push(e);
-			else if (e.kind === 'argument' && e.stance === 'support') g.support.push(e);
-			else if (e.kind === 'argument' && e.stance === 'reject') g.reject.push(e);
-			else if (e.kind === 'weight_vote') g.weight.push(e);
-		}
-		return g;
 	});
 
 	function fmtTime(iso: string): string {
@@ -185,7 +170,7 @@
 	<aside id="budget" class="budget-panel card">
 		<div class="budget-head">
 			<h2 class="budget-title">{m.my_budget_title()}</h2>
-			<p class="budget-sub">{m.my_budget_sub({ limit: budget?.limit ?? 7 })}</p>
+			<p class="budget-sub">{m.my_budget_sub({ limit: budget?.limit ?? 62 })}</p>
 		</div>
 
 		{#if budgetLoading && !budget}
@@ -193,89 +178,29 @@
 		{:else if budget}
 			<div class="budget-summary">
 				<div class="budget-summary-item">
-					<span class="budget-summary-num">{budget.spent.thesis}</span>
-					<span class="budget-summary-label">{m.my_budget_summary_theses()}</span>
-				</div>
-				<div class="budget-summary-item">
-					<span class="budget-summary-num budget-support">{budget.spent.support}</span>
-					<span class="budget-summary-label">{m.my_budget_summary_support()}</span>
-				</div>
-				<div class="budget-summary-item">
-					<span class="budget-summary-num budget-reject">{budget.spent.reject}</span>
-					<span class="budget-summary-label">{m.my_budget_summary_reject()}</span>
-				</div>
-				<div class="budget-summary-item">
-					<span class="budget-summary-num">{byKind.weight.reduce((s, e) => s + (e.extra_weight ?? 0), 0)}</span>
+					<span class="budget-summary-num">{budget.spent}</span>
 					<span class="budget-summary-label">{m.my_budget_summary_extra()}</span>
+				</div>
+				<div class="budget-summary-item">
+					<span class="budget-summary-num">{budget.remaining}</span>
+					<span class="budget-summary-label">{m.panel_budget_weight()}</span>
 				</div>
 			</div>
 
 			{#if budget.events.length === 0}
 				<p class="budget-empty">{m.my_budget_empty()}</p>
 			{:else}
-				<div class="budget-groups">
-					{#if byKind.thesis.length > 0}
-						<section class="budget-group">
-							<h3 class="budget-group-title">{m.my_budget_group_theses({ count: byKind.thesis.length })}</h3>
-							<ul class="budget-list">
-								{#each byKind.thesis as e}
-									<li class="budget-item">
-										<time class="budget-time">{fmtTime(e.at)}</time>
-										<a class="budget-link" href="/thesis/{e.thesis_id}">{e.title}</a>
-									</li>
-								{/each}
-							</ul>
-						</section>
-					{/if}
-					{#if byKind.support.length > 0}
-						<section class="budget-group">
-							<h3 class="budget-group-title budget-support">{m.my_budget_group_support({ count: byKind.support.length })}</h3>
-							<ul class="budget-list">
-								{#each byKind.support as e}
-									<li class="budget-item">
-										<time class="budget-time">{fmtTime(e.at)}</time>
-										<div class="budget-item-body">
-											<a class="budget-link" href="/thesis/{e.thesis_id}">{e.thesis_title}</a>
-											<p class="budget-content">{e.content}</p>
-										</div>
-									</li>
-								{/each}
-							</ul>
-						</section>
-					{/if}
-					{#if byKind.reject.length > 0}
-						<section class="budget-group">
-							<h3 class="budget-group-title budget-reject">{m.my_budget_group_reject({ count: byKind.reject.length })}</h3>
-							<ul class="budget-list">
-								{#each byKind.reject as e}
-									<li class="budget-item">
-										<time class="budget-time">{fmtTime(e.at)}</time>
-										<div class="budget-item-body">
-											<a class="budget-link" href="/thesis/{e.thesis_id}">{e.thesis_title}</a>
-											<p class="budget-content">{e.content}</p>
-										</div>
-									</li>
-								{/each}
-							</ul>
-						</section>
-					{/if}
-					{#if byKind.weight.length > 0}
-						<section class="budget-group">
-							<h3 class="budget-group-title">{m.my_budget_group_weight({ count: byKind.weight.length })}</h3>
-							<ul class="budget-list">
-								{#each byKind.weight as e}
-									<li class="budget-item">
-										<time class="budget-time">{fmtTime(e.at)}</time>
-										<div class="budget-item-body">
-											<a class="budget-link" href="/thesis/{e.thesis_id}">{e.thesis_title}</a>
-											<p class="budget-content">{m.my_budget_weight_detail({ extra: e.extra_weight ?? 0, vote_type: e.vote_type ?? '', target: e.target === 'argument' ? m.my_budget_weight_on_argument() : m.my_budget_weight_on_thesis() })}</p>
-										</div>
-									</li>
-								{/each}
-							</ul>
-						</section>
-					{/if}
-				</div>
+				<ul class="budget-list">
+					{#each budget.events as e}
+						<li class="budget-item">
+							<time class="budget-time">{fmtTime(e.at)}</time>
+							<div class="budget-item-body">
+								<a class="budget-link" href="/thesis/{e.thesis_id}">{e.thesis_title}</a>
+								<p class="budget-content">{m.my_budget_weight_detail({ extra: e.extra_weight ?? 0, vote_type: e.vote_type ?? '', target: e.target === 'argument' ? m.my_budget_weight_on_argument() : m.my_budget_weight_on_thesis() })}</p>
+							</div>
+						</li>
+					{/each}
+				</ul>
 			{/if}
 		{/if}
 	</aside>
@@ -492,33 +417,6 @@
 		color: var(--color-text-muted);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-	}
-
-	.budget-support {
-		color: var(--color-support);
-	}
-
-	.budget-reject {
-		color: var(--color-reject);
-	}
-
-	.budget-groups {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	.budget-group {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-
-	.budget-group-title {
-		font-size: var(--text-sm);
-		font-weight: 600;
-		color: var(--color-text);
-		margin: 0;
 	}
 
 	.budget-list {

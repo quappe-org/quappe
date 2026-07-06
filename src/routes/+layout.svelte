@@ -42,18 +42,16 @@
 
 	// ---- Budget expand ----
 	interface BudgetEventLite {
-		kind: 'thesis' | 'argument' | 'weight_vote';
+		kind: 'weight_vote';
 		at: string;
 		thesis_id: string;
 		thesis_title: string;
-		stance?: 'support' | 'reject';
-		title?: string;
 		vote_type?: string;
 		extra_weight?: number;
 	}
 	interface BudgetLite {
 		date: string;
-		spent: { thesis: number; support: number; reject: number };
+		spent: number;
 		events: BudgetEventLite[];
 	}
 	let budgetExpanded = $state(false);
@@ -101,10 +99,7 @@
 	}
 
 	function eventLabel(e: BudgetEventLite): string {
-		if (e.kind === 'thesis') return m.panel_budget_event_thesis({ title: e.title ?? e.thesis_title });
-		if (e.kind === 'argument') return `${e.stance === 'support' ? '+' : '−'} ${e.thesis_title}`;
-		if (e.kind === 'weight_vote') return `×${(e.extra_weight ?? 0) + 1} ${e.vote_type} · ${e.thesis_title}`;
-		return '';
+		return `×${(e.extra_weight ?? 0) + 1} ${e.vote_type} · ${e.thesis_title}`;
 	}
 </script>
 
@@ -156,8 +151,7 @@
 				<button
 					class="new-thesis-btn"
 					onclick={newThesis}
-					disabled={!budgetStore.canCreate('thesis')}
-					title={!budgetStore.canCreate('thesis') ? m.nav_new_thesis_disabled_hint() : m.nav_new_thesis_hint()}
+					title={m.nav_new_thesis_hint()}
 				>
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
 					{m.nav_new_thesis()}
@@ -212,25 +206,11 @@
 				<p class="panel-hint">{m.panel_budget_hint()}</p>
 				<div class="budget-list">
 					<div class="budget-row">
-						<span class="budget-label">{m.panel_budget_theses()}</span>
+						<span class="budget-label">{m.panel_budget_weight()}</span>
 						<span class="budget-bar">
-							<span class="budget-bar-fill" style="width: {(budgetStore.thesis / budgetStore.limit) * 100}%"></span>
+							<span class="budget-bar-fill" style="width: {(budgetStore.remaining / budgetStore.limit) * 100}%"></span>
 						</span>
-						<span class="budget-count" class:low={budgetStore.thesis === 0}>{budgetStore.thesis}/{budgetStore.limit}</span>
-					</div>
-					<div class="budget-row">
-						<span class="budget-label budget-support">{m.panel_budget_support_args()}</span>
-						<span class="budget-bar">
-							<span class="budget-bar-fill bar-support" style="width: {(budgetStore.support / budgetStore.limit) * 100}%"></span>
-						</span>
-						<span class="budget-count" class:low={budgetStore.support === 0}>{budgetStore.support}/{budgetStore.limit}</span>
-					</div>
-					<div class="budget-row">
-						<span class="budget-label budget-reject">{m.panel_budget_reject_args()}</span>
-						<span class="budget-bar">
-							<span class="budget-bar-fill bar-reject" style="width: {(budgetStore.reject / budgetStore.limit) * 100}%"></span>
-						</span>
-						<span class="budget-count" class:low={budgetStore.reject === 0}>{budgetStore.reject}/{budgetStore.limit}</span>
+						<span class="budget-count" class:low={budgetStore.remaining === 0}>{budgetStore.remaining}/{budgetStore.limit}</span>
 					</div>
 				</div>
 
@@ -498,14 +478,6 @@
 		color: var(--color-text-muted);
 	}
 
-	.budget-support {
-		color: var(--color-support);
-	}
-
-	.budget-reject {
-		color: var(--color-reject);
-	}
-
 	.budget-bar {
 		height: 6px;
 		background: var(--color-bg);
@@ -519,14 +491,6 @@
 		height: 100%;
 		background: var(--color-primary);
 		transition: width var(--transition-base);
-	}
-
-	.bar-support {
-		background: var(--color-support);
-	}
-
-	.bar-reject {
-		background: var(--color-reject);
 	}
 
 	.budget-count {
