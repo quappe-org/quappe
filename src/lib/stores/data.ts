@@ -1,89 +1,111 @@
-// In-memory data store for MVP
-// Will be replaced by a proper database in later phases
+// Data-access façade for Quappe. Reads/writes go through better-sqlite3
+// (src/lib/server/db/*); the in-memory derived caches (heat, arg-counts,
+// activity) live here and are invalidated on every write via bumpVersion().
 
-import type { Thesis, Argument, Vote, VoteSummary, Meta, LifecycleState } from '../models/types.ts';
+import type { Thesis, Argument, Vote, VoteSummary, LifecycleState } from '../models/types.ts';
 import { computeLifecycle } from '../models/lifecycle.ts';
 import { logger } from './logger.ts';
 
-// ---- Storage tiers ----
-// hot:  active theses (seedling / discussed / contested / crystallized) - fully loaded
-// warm: faded theses - kept in memory but without recomputed lifecycle each request
-// cold: dormant theses - only ID + title + categories + meta, votes/args pruned
-//
-// A thesis is stored in exactly one map. On mutation, it can be promoted / demoted.
-const theses_hot: Map<string, Thesis> = new Map();
-const theses_warm: Map<string, Thesis> = new Map();
-const theses_cold: Map<string, Thesis> = new Map();
+import { withTransaction } from '../server/db/index.ts';
+import {
+	dbDeleteThesis,
+	dbGetAllTheses,
+	dbGetHotTheses,
+	dbGetThesesByAuthor,
+	dbGetThesesMissingLang,
+	dbGetThesisById,
+	dbHasThesis,
+	dbInsertThesesBulk,
+	dbInsertThesis,
+	dbSetThesisRelated,
+	dbTierStats,
+	dbUpdateThesisFields,
+	dbUpdateThesisLifecycle
+} from '../server/db/theses.ts';
+import {
+	dbCountArgumentsPerHotThesis,
+	dbDeleteArgument,
+	dbGetAllArguments,
+	dbGetArgumentById,
+	dbGetArgumentIdsForThesis,
+	dbGetArgumentsByAuthor,
+	dbGetArgumentsForThesis,
+	dbGetForksOf,
+	dbInsertArgument,
+	dbInsertArgumentsBulk,
+	dbSetArgumentCategories,
+	dbUpdateArgumentFields
+} from '../server/db/arguments.ts';
+import {
+	dbDeleteVote,
+	dbGetThesisIdsVotedByUser,
+	dbGetUserVoteOn,
+	dbGetVotesByUserSince,
+	dbUpsertVote
+} from '../server/db/votes.ts';
+import { dbGetAllEmbeddings, dbUpsertEmbedding } from '../server/db/embeddings.ts';
 
-// Combined view: helper only, do NOT iterate this in hot paths - it recreates the array.
-function findThesis(id: string): { thesis: Thesis; tier: 'hot' | 'warm' | 'cold' } | undefined {
-	let t = theses_hot.get(id);
-	if (t) return { thesis: t, tier: 'hot' };
-	t = theses_warm.get(id);
-	if (t) return { thesis: t, tier: 'warm' };
-	t = theses_cold.get(id);
-	if (t) return { thesis: t, tier: 'cold' };
-	return undefined;
+// ---- Embedding warm-cache ----
+// Loaded on first access from DB, kept in-memory for fast semantic search.
+// Writes are write-through (Map + DB).
+
+let _thesis_embeddings: Map<string, Float32Array> | null = null;
+let _argument_embeddings: Map<string, Float32Array> | null = null;
+
+function thesisEmbeddings(): Map<string, Float32Array> {
+	if (!_thesis_embeddings) _thesis_embeddings = dbGetAllEmbeddings('thesis');
+	return _thesis_embeddings;
 }
 
-// Reverse index: thesis_id -> Set of argument_ids (for O(1) argument lookup by thesis)
-const args_by_thesis: Map<string, Set<string>> = new Map();
-const arguments_store: Map<string, Argument> = new Map();
-
-// Embedding index: separate maps so Float32Arrays are never accidentally serialized to JSON
-const thesis_embeddings: Map<string, Float32Array> = new Map();
-const argument_embeddings: Map<string, Float32Array> = new Map();
+function argumentEmbeddings(): Map<string, Float32Array> {
+	if (!_argument_embeddings) _argument_embeddings = dbGetAllEmbeddings('argument');
+	return _argument_embeddings;
+}
 
 export function hasThesisEmbedding(id: string): boolean {
-	return thesis_embeddings.has(id);
+	return thesisEmbeddings().has(id);
 }
 
 export function setThesisEmbedding(id: string, vec: Float32Array): void {
-	thesis_embeddings.set(id, vec);
+	thesisEmbeddings().set(id, vec);
+	dbUpsertEmbedding('thesis', id, vec);
 }
 
 export function setArgumentEmbedding(id: string, vec: Float32Array): void {
-	argument_embeddings.set(id, vec);
+	argumentEmbeddings().set(id, vec);
+	dbUpsertEmbedding('argument', id, vec);
 }
 
 export function getThesesWithEmbeddings(): { thesis: Thesis; embedding: Float32Array }[] {
 	const result: { thesis: Thesis; embedding: Float32Array }[] = [];
-	for (const [id, embedding] of thesis_embeddings) {
-		const found = findThesis(id);
-		if (found && !found.thesis.archived) result.push({ thesis: found.thesis, embedding });
+	for (const [id, embedding] of thesisEmbeddings()) {
+		const t = dbGetThesisById(id);
+		if (t && !t.archived) result.push({ thesis: t, embedding });
 	}
 	return result;
 }
 
 export function getArgumentsWithEmbeddings(): { argument: Argument; embedding: Float32Array }[] {
 	const result: { argument: Argument; embedding: Float32Array }[] = [];
-	for (const [id, embedding] of argument_embeddings) {
-		const arg = arguments_store.get(id);
-		if (arg) result.push({ argument: arg, embedding });
+	for (const [id, embedding] of argumentEmbeddings()) {
+		const a = dbGetArgumentById(id);
+		if (a) result.push({ argument: a, embedding });
 	}
 	return result;
 }
 
-// When true, lifecycle transitions won't log (used during bulk seed)
+// ---- Helpers ----
+
 let suppressLifecycleLogs = false;
 
-// Helper: generate UUID
 function generateId(): string {
 	return crypto.randomUUID();
 }
 
-// Helper: create meta
-function createMeta(author_id: string, location?: string): Meta {
-	const now = new Date().toISOString();
-	return {
-		created_at: now,
-		updated_at: now,
-		author_id,
-		location
-	};
+function nowIso(): string {
+	return new Date().toISOString();
 }
 
-// Helper: compute vote summary (weighted)
 export function computeVoteSummary(votes: Vote[]): VoteSummary {
 	const summary: VoteSummary = { support: 0, reject: 0, neutral: 0, total: 0, voters: 0 };
 	for (const vote of votes) {
@@ -95,7 +117,6 @@ export function computeVoteSummary(votes: Vote[]): VoteSummary {
 	return summary;
 }
 
-// ---- Lifecycle re-evaluation + tier placement ----
 function tierForState(state: LifecycleState): 'hot' | 'warm' | 'cold' {
 	if (state === 'dormant') return 'cold';
 	if (state === 'faded') return 'warm';
@@ -103,60 +124,29 @@ function tierForState(state: LifecycleState): 'hot' | 'warm' | 'cold' {
 }
 
 /**
- * Re-evaluate lifecycle for a thesis and (re-)place it into the correct tier.
- * Used on writes and by the background sweep.
+ * Re-evaluate lifecycle for a thesis and persist the new state.
+ * Called on every write path and by the background sweep.
  */
 export function reevaluateLifecycle(thesis_id: string, nowMs = Date.now()): void {
-	const found = findThesis(thesis_id);
-	if (!found) return;
-	const { thesis, tier } = found;
-
-	const argIds = args_by_thesis.get(thesis_id);
-	const args: Argument[] = [];
-	if (argIds) {
-		for (const argId of argIds) {
-			const a = arguments_store.get(argId);
-			if (a) args.push(a);
-		}
-	}
-
+	const thesis = dbGetThesisById(thesis_id);
+	if (!thesis) return;
+	const args = dbGetArgumentsForThesis(thesis_id);
 	const { state, quality_score } = computeLifecycle(thesis, args, nowMs);
-	const previousState = thesis.lifecycle?.state;
-	if (previousState !== state) {
-		thesis.lifecycle = {
-			state,
-			state_since: new Date(nowMs).toISOString(),
-			quality_score
-		};
-	} else {
-		thesis.lifecycle = {
-			state,
-			state_since: thesis.lifecycle?.state_since ?? new Date(nowMs).toISOString(),
-			quality_score
-		};
-	}
+	const previousState = thesis.lifecycle.state;
+	const state_since =
+		previousState !== state ? new Date(nowMs).toISOString() : thesis.lifecycle.state_since;
+	dbUpdateThesisLifecycle(thesis_id, state, state_since, quality_score);
 
-	const targetTier = tierForState(state);
-	if (targetTier !== tier) {
-		// Move between maps
-		if (tier === 'hot') theses_hot.delete(thesis_id);
-		else if (tier === 'warm') theses_warm.delete(thesis_id);
-		else theses_cold.delete(thesis_id);
-
-		if (targetTier === 'hot') theses_hot.set(thesis_id, thesis);
-		else if (targetTier === 'warm') theses_warm.set(thesis_id, thesis);
-		else theses_cold.set(thesis_id, thesis);
-
-		if (!suppressLifecycleLogs) {
-			logger.info('lifecycle', `tier change: ${tier} → ${targetTier}`, {
+	if (previousState !== state && !suppressLifecycleLogs) {
+		const oldTier = tierForState(previousState);
+		const newTier = tierForState(state);
+		if (oldTier !== newTier) {
+			logger.info('lifecycle', `tier change: ${oldTier} → ${newTier}`, {
 				thesis_id,
-				state: previousState ?? '(none)',
+				state: previousState,
 				new_state: state
 			});
 		}
-	}
-
-	if (previousState && previousState !== state && !suppressLifecycleLogs) {
 		logger.info('lifecycle', `state transition: ${previousState} → ${state}`, {
 			thesis_id,
 			quality: Number(quality_score.toFixed(3))
@@ -164,97 +154,23 @@ export function reevaluateLifecycle(thesis_id: string, nowMs = Date.now()): void
 	}
 }
 
-// --- Thesis operations ---
+// ---- Thesis operations ----
 
-/** All theses across all tiers. AVOID in hot paths at scale. */
 export function getAllTheses(): Thesis[] {
-	const out: Thesis[] = new Array(theses_hot.size + theses_warm.size + theses_cold.size);
-	let i = 0;
-	for (const t of theses_hot.values()) out[i++] = t;
-	for (const t of theses_warm.values()) out[i++] = t;
-	for (const t of theses_cold.values()) out[i++] = t;
-	return out;
+	return dbGetAllTheses();
 }
 
-/** Only hot-tier theses (active discussion). Prefer this for user-facing lists. */
 export function getHotTheses(): Thesis[] {
-	return Array.from(theses_hot.values());
+	return dbGetHotTheses();
 }
 
 export function getThesisById(id: string): Thesis | undefined {
-	return findThesis(id)?.thesis;
+	return dbGetThesisById(id);
 }
 
 export function tierStats(): { hot: number; warm: number; cold: number; total: number } {
-	return {
-		hot: theses_hot.size,
-		warm: theses_warm.size,
-		cold: theses_cold.size,
-		total: theses_hot.size + theses_warm.size + theses_cold.size
-	};
+	return dbTierStats();
 }
-
-// ---- Internal helpers to keep the reverse index in sync ----
-function indexArgument(arg: Argument): void {
-	let set = args_by_thesis.get(arg.thesis_id);
-	if (!set) {
-		set = new Set();
-		args_by_thesis.set(arg.thesis_id, set);
-	}
-	set.add(arg.id);
-}
-
-function unindexArgument(arg: Argument): void {
-	const set = args_by_thesis.get(arg.thesis_id);
-	if (!set) return;
-	set.delete(arg.id);
-	if (set.size === 0) args_by_thesis.delete(arg.thesis_id);
-}
-
-// ---- Legacy compatibility shim ----
-// Older code paths use a single `theses` Map. We provide a proxy-like helper
-// with just the surface we actually need. Prefer the tier-aware helpers above.
-const theses = {
-	get size() {
-		return theses_hot.size + theses_warm.size + theses_cold.size;
-	},
-	get(id: string): Thesis | undefined {
-		return findThesis(id)?.thesis;
-	},
-	set(id: string, thesis: Thesis): void {
-		// Default new theses to hot; lifecycle re-eval will re-tier later.
-		const existing = findThesis(id);
-		if (existing) {
-			// Update in place - keep current tier; caller may call reevaluateLifecycle
-			existing.thesis.title = thesis.title;
-			existing.thesis.description = thesis.description;
-			existing.thesis.categories = thesis.categories;
-			existing.thesis.votes = thesis.votes;
-			existing.thesis.related_thesis_ids = thesis.related_thesis_ids;
-			existing.thesis.archived = thesis.archived;
-			existing.thesis.lifecycle = thesis.lifecycle;
-			existing.thesis.meta = thesis.meta;
-			return;
-		}
-		theses_hot.set(id, thesis);
-	},
-	delete(id: string): boolean {
-		return theses_hot.delete(id) || theses_warm.delete(id) || theses_cold.delete(id);
-	},
-	has(id: string): boolean {
-		return theses_hot.has(id) || theses_warm.has(id) || theses_cold.has(id);
-	},
-	*values(): IterableIterator<Thesis> {
-		for (const t of theses_hot.values()) yield t;
-		for (const t of theses_warm.values()) yield t;
-		for (const t of theses_cold.values()) yield t;
-	},
-	*entries(): IterableIterator<[string, Thesis]> {
-		for (const e of theses_hot.entries()) yield e;
-		for (const e of theses_warm.entries()) yield e;
-		for (const e of theses_cold.entries()) yield e;
-	}
-};
 
 export function createThesis(
 	title: string,
@@ -263,7 +179,7 @@ export function createThesis(
 	author_id: string,
 	location?: string
 ): Thesis {
-	const nowIso = new Date().toISOString();
+	const created = nowIso();
 	const thesis: Thesis = {
 		id: generateId(),
 		title,
@@ -274,12 +190,17 @@ export function createThesis(
 		archived: false,
 		lifecycle: {
 			state: 'seedling',
-			state_since: nowIso,
+			state_since: created,
 			quality_score: 0
 		},
-		meta: createMeta(author_id, location)
+		meta: {
+			created_at: created,
+			updated_at: created,
+			author_id,
+			location
+		}
 	};
-	theses_hot.set(thesis.id, thesis);
+	dbInsertThesis(thesis);
 	bumpVersion();
 	logger.info('store', 'thesis created', {
 		thesis_id: thesis.id,
@@ -294,61 +215,57 @@ export function updateThesis(
 	updates: Partial<Pick<Thesis, 'title' | 'description' | 'categories'>>,
 	user_id?: string
 ): Thesis | { error: string } {
-	const thesis = theses.get(id);
+	const thesis = dbGetThesisById(id);
 	if (!thesis) return { error: 'Thesis not found' };
-	// Only author can edit
 	if (user_id && thesis.meta.author_id !== user_id) {
 		return { error: 'Only the author can edit this thesis' };
 	}
-
-	if (updates.title !== undefined) thesis.title = updates.title;
-	if (updates.description !== undefined) thesis.description = updates.description;
-	if (updates.categories !== undefined) thesis.categories = updates.categories;
-	thesis.meta.updated_at = new Date().toISOString();
-
-	theses.set(id, thesis);
+	const updated_at = nowIso();
+	dbUpdateThesisFields(id, {
+		title: updates.title,
+		description: updates.description,
+		categories: updates.categories,
+		updated_at
+	});
 	bumpVersion();
-	return thesis;
+	return dbGetThesisById(id)!;
 }
 
 export function archiveThesis(id: string, archived: boolean = true): Thesis | undefined {
-	const thesis = theses.get(id);
+	const thesis = dbGetThesisById(id);
 	if (!thesis) return undefined;
-	thesis.archived = archived;
-	thesis.meta.updated_at = new Date().toISOString();
-	theses.set(id, thesis);
+	dbUpdateThesisFields(id, { archived, updated_at: nowIso() });
 	bumpVersion();
 	logger.info('store', archived ? 'thesis archived' : 'thesis unarchived', { thesis_id: id });
-	return thesis;
+	return dbGetThesisById(id);
 }
 
 export function setThesisLang(id: string, lang: string): boolean {
-	const thesis = theses.get(id);
-	if (!thesis) return false;
-	thesis.lang = lang;
+	if (!dbHasThesis(id)) return false;
+	dbUpdateThesisFields(id, { lang, updated_at: nowIso() });
 	return true;
 }
 
 export function getThesesMissingLang(): Thesis[] {
-	const out: Thesis[] = [];
-	for (const t of theses.values()) {
-		if (!t.lang) out.push(t);
-	}
-	return out;
+	return dbGetThesesMissingLang();
+}
+
+export function setThesisRelated(id: string, related_ids: string[]): boolean {
+	if (!dbHasThesis(id)) return false;
+	dbSetThesisRelated(id, related_ids);
+	bumpVersion();
+	return true;
 }
 
 export function deleteThesis(id: string): boolean {
-	// Also delete all arguments for this thesis - use reverse index
-	const argIds = args_by_thesis.get(id);
-	const removedArgs = argIds?.size ?? 0;
-	if (argIds) {
-		for (const argId of argIds) arguments_store.delete(argId);
-		args_by_thesis.delete(id);
-	}
-	const ok = theses.delete(id);
+	const argIds = dbGetArgumentIdsForThesis(id);
+	const ok = dbDeleteThesis(id);
 	if (ok) {
+		// Cascade for arguments is ON DELETE CASCADE at DB level; drop embeddings too.
+		for (const argId of argIds) argumentEmbeddings().delete(argId);
+		thesisEmbeddings().delete(id);
 		bumpVersion();
-		logger.warn('store', 'thesis deleted', { thesis_id: id, cascaded_arguments: removedArgs });
+		logger.warn('store', 'thesis deleted', { thesis_id: id, cascaded_arguments: argIds.length });
 	}
 	return ok;
 }
@@ -359,39 +276,23 @@ export function voteOnThesis(
 	type: Vote['type'],
 	weight: number = 1
 ): Thesis | undefined {
-	const thesis = theses.get(thesis_id);
-	if (!thesis) return undefined;
+	if (!dbHasThesis(thesis_id)) return undefined;
 
-	// Sanitise weight - always at least 1, cap at 5 for safety.
 	const w = Math.max(1, Math.min(5, Math.floor(weight)));
-
-	// Check if user already has a vote on this thesis.
-	const existingVote = thesis.votes.find((v) => v.user_id === user_id);
+	const existingVote = dbGetUserVoteOn('thesis', thesis_id, user_id);
 	let action: 'retracted' | 'changed' | 'added' | 'reweighted';
 	if (existingVote && existingVote.type === type && (existingVote.weight ?? 1) === w) {
-		// Same type + same weight => retract completely.
-		thesis.votes = thesis.votes.filter((v) => v.user_id !== user_id);
+		dbDeleteVote('thesis', thesis_id, user_id);
 		action = 'retracted';
 	} else if (existingVote) {
-		thesis.votes = thesis.votes.filter((v) => v.user_id !== user_id);
-		thesis.votes.push({
-			user_id,
-			type,
-			weight: w,
-			cast_at: new Date().toISOString()
-		});
+		dbUpsertVote('thesis', thesis_id, user_id, type, w, nowIso());
 		action = existingVote.type === type ? 'reweighted' : 'changed';
 	} else {
-		thesis.votes.push({
-			user_id,
-			type,
-			weight: w,
-			cast_at: new Date().toISOString()
-		});
+		dbUpsertVote('thesis', thesis_id, user_id, type, w, nowIso());
 		action = 'added';
 	}
 
-	thesis.meta.updated_at = new Date().toISOString();
+	dbUpdateThesisFields(thesis_id, { updated_at: nowIso() });
 	reevaluateLifecycle(thesis_id);
 	bumpVersion();
 	logger.debug('store', `vote ${action} on thesis`, {
@@ -400,28 +301,23 @@ export function voteOnThesis(
 		weight: w,
 		action
 	});
-	return thesis;
+	return dbGetThesisById(thesis_id);
 }
 
 export function getTrendingTheses(limit: number = 10): Thesis[] {
-	// Trending = hot tier only, sorted by vote count.
-	// Filters out archived and everything that isn't currently active.
-	const arr: Thesis[] = [];
-	for (const t of theses_hot.values()) {
-		if (!t.archived) arr.push(t);
-	}
+	const arr = dbGetHotTheses().filter((t) => !t.archived);
 	arr.sort((a, b) => b.votes.length - a.votes.length);
 	return arr.slice(0, limit);
 }
 
-// ---- Simple TTL cache for expensive derived queries ----
-// Invalidated on mutations; also stale after CACHE_TTL_MS.
-const CACHE_TTL_MS = 30_000; // 30s
+// ---- Derived caches (in-memory, invalidated on writes) ----
+
+const CACHE_TTL_MS = 30_000;
 
 let _heatCache: { at: number; data: Map<string, number> } | null = null;
 let _argCountsCache: { at: number; data: Map<string, number> } | null = null;
 let _activityCache = new Map<string, { at: number; data: ActivityDay[] }>();
-let _dataVersion = 0; // bumped on every write; cache entries store the version they were built from
+let _dataVersion = 0;
 
 function bumpVersion() {
 	_dataVersion++;
@@ -430,8 +326,6 @@ function bumpVersion() {
 	_activityCache.clear();
 }
 
-// Heat calculation: relative 24h activity
-// O(N + M) - single pass over theses + arguments, timestamps parsed once
 export function getHeatMap(): Map<string, number> {
 	if (_heatCache && Date.now() - _heatCache.at < CACHE_TTL_MS) {
 		logger.debug('cache', 'heatMap hit', { age_ms: Date.now() - _heatCache.at, size: _heatCache.data.size });
@@ -442,9 +336,8 @@ export function getHeatMap(): Map<string, number> {
 	const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
 	const heatMap = new Map<string, number>();
 
-	// Heat only makes sense for the hot tier. Warm/cold theses had no recent activity
-	// by definition (that's why they're in warm/cold). Skip them - saves 50-80% of work.
-	for (const thesis of theses_hot.values()) {
+	const hot = dbGetHotTheses();
+	for (const thesis of hot) {
 		let count = 0;
 		for (const v of thesis.votes) {
 			if (Date.parse(v.cast_at) > oneDayAgo) count++;
@@ -452,14 +345,15 @@ export function getHeatMap(): Map<string, number> {
 		heatMap.set(thesis.id, count);
 	}
 
-	// Only iterate arguments belonging to hot theses.
-	// Use the reverse index for O(1) filtering.
-	for (const [thesisId] of theses_hot) {
-		const argIds = args_by_thesis.get(thesisId);
-		if (!argIds) continue;
+	// Load all arguments for hot theses in one pass — this keeps parity with the
+	// old in-memory implementation. At the current seed size (~500 args) this is
+	// cheap; at scale we'd move to a SQL GROUP BY WHERE cast_at > ...
+	for (const thesis of hot) {
+		const argIds = dbGetArgumentIdsForThesis(thesis.id);
+		if (argIds.length === 0) continue;
 		let localCount = 0;
 		for (const argId of argIds) {
-			const arg = arguments_store.get(argId);
+			const arg = dbGetArgumentById(argId);
 			if (!arg) continue;
 			if (Date.parse(arg.meta.created_at) > oneDayAgo) localCount++;
 			for (const v of arg.votes) {
@@ -467,11 +361,10 @@ export function getHeatMap(): Map<string, number> {
 			}
 		}
 		if (localCount > 0) {
-			heatMap.set(thesisId, (heatMap.get(thesisId) ?? 0) + localCount);
+			heatMap.set(thesis.id, (heatMap.get(thesis.id) ?? 0) + localCount);
 		}
 	}
 
-	// Compute average activity
 	let totalActivity = 0;
 	let activeThesesCount = 0;
 	for (const activity of heatMap.values()) {
@@ -482,7 +375,6 @@ export function getHeatMap(): Map<string, number> {
 	}
 	const avgActivity = activeThesesCount > 0 ? totalActivity / activeThesesCount : 1;
 
-	// Normalise
 	for (const [id, activity] of heatMap) {
 		heatMap.set(id, avgActivity > 0 ? activity / avgActivity : 0);
 	}
@@ -495,18 +387,16 @@ export function getHeatMap(): Map<string, number> {
 	return heatMap;
 }
 
-// Get argument count per thesis (cached, hot tier only)
 export function getArgumentCounts(): Map<string, number> {
 	if (_argCountsCache && Date.now() - _argCountsCache.at < CACHE_TTL_MS) {
 		logger.debug('cache', 'argumentCounts hit', { size: _argCountsCache.data.size });
 		return _argCountsCache.data;
 	}
 	const start = Date.now();
-	const counts = new Map<string, number>();
-	// Only count for hot theses - warm/cold aren't shown in default lists anyway.
-	for (const thesisId of theses_hot.keys()) {
-		const argIds = args_by_thesis.get(thesisId);
-		counts.set(thesisId, argIds ? argIds.size : 0);
+	const counts = dbCountArgumentsPerHotThesis();
+	// Include zero-count hot theses so callers get a stable size.
+	for (const t of dbGetHotTheses()) {
+		if (!counts.has(t.id)) counts.set(t.id, 0);
 	}
 	_argCountsCache = { at: Date.now(), data: counts };
 	logger.debug('cache', 'argumentCounts miss (recomputed)', {
@@ -516,14 +406,13 @@ export function getArgumentCounts(): Map<string, number> {
 	return counts;
 }
 
-// Activity calendar: GitHub-style per-day counts for last N days
 export interface ActivityDay {
 	date: string;
 	support: number;
 	reject: number;
 	neutral: number;
-	creates: number; // new theses + new arguments
-	count: number; // total
+	creates: number;
+	count: number;
 }
 
 export function getActivityCalendar(thesis_id: string | null, days: number = 84): ActivityDay[] {
@@ -546,8 +435,6 @@ export function getActivityCalendar(thesis_id: string | null, days: number = 84)
 		buckets.set(date, { date, support: 0, reject: 0, neutral: 0, creates: 0, count: 0 });
 	}
 
-	// ISO 8601 strings are lexicographically sortable, so slice(0, 10) gives YYYY-MM-DD.
-	// Faster than split('T')[0] because no regex/array allocation.
 	function addCreate(iso: string) {
 		const b = buckets.get(iso.slice(0, 10));
 		if (b) {
@@ -565,30 +452,23 @@ export function getActivityCalendar(thesis_id: string | null, days: number = 84)
 	}
 
 	if (thesis_id) {
-		const thesis = theses.get(thesis_id);
+		const thesis = dbGetThesisById(thesis_id);
 		if (thesis) {
 			addCreate(thesis.meta.created_at);
 			for (const v of thesis.votes) addVote(v.cast_at, v.type);
-			for (const arg of arguments_store.values()) {
-				if (arg.thesis_id !== thesis_id) continue;
+			for (const arg of dbGetArgumentsForThesis(thesis_id)) {
 				addCreate(arg.meta.created_at);
 				for (const v of arg.votes) addVote(v.cast_at, v.type);
 			}
 		}
 	} else {
-		// Platform-wide activity: only iterate hot tier. Warm/cold events are
-		// definitionally outside the last 84 days for the recent buckets anyway.
-		for (const thesis of theses_hot.values()) {
+		const hot = dbGetHotTheses();
+		for (const thesis of hot) {
 			addCreate(thesis.meta.created_at);
 			for (const v of thesis.votes) addVote(v.cast_at, v.type);
 		}
-		// Iterate only args of hot theses via reverse index.
-		for (const [thesisId] of theses_hot) {
-			const argIds = args_by_thesis.get(thesisId);
-			if (!argIds) continue;
-			for (const argId of argIds) {
-				const arg = arguments_store.get(argId);
-				if (!arg) continue;
+		for (const thesis of hot) {
+			for (const arg of dbGetArgumentsForThesis(thesis.id)) {
 				addCreate(arg.meta.created_at);
 				for (const v of arg.votes) addVote(v.cast_at, v.type);
 			}
@@ -605,15 +485,12 @@ export function getActivityCalendar(thesis_id: string | null, days: number = 84)
 }
 
 export function getTopTheses(limit: number = 10): Thesis[] {
-	// Top = crystallized + canonical (highest quality) from hot tier.
-	// Compute support count once per thesis instead of inside the comparator.
 	const withCount: { thesis: Thesis; score: number }[] = [];
-	for (const t of theses_hot.values()) {
+	for (const t of dbGetHotTheses()) {
 		if (t.archived) continue;
 		if (t.lifecycle.state !== 'crystallized' && t.lifecycle.state !== 'discussed') continue;
 		let support = 0;
 		for (const v of t.votes) if (v.type === 'support') support++;
-		// Combine quality score with raw support - quality first
 		const score = t.lifecycle.quality_score * 1000 + support;
 		withCount.push({ thesis: t, score });
 	}
@@ -621,57 +498,40 @@ export function getTopTheses(limit: number = 10): Thesis[] {
 	return withCount.slice(0, limit).map((x) => x.thesis);
 }
 
-// --- Argument operations ---
+// ---- Argument operations ----
 
 export function getArgumentsForThesis(thesis_id: string): Argument[] {
-	return Array.from(arguments_store.values()).filter((a) => a.thesis_id === thesis_id);
+	return dbGetArgumentsForThesis(thesis_id);
 }
 
 export function getArgumentById(id: string): Argument | undefined {
-	return arguments_store.get(id);
+	return dbGetArgumentById(id);
 }
 
 export function getForksOf(argument_id: string): Argument[] {
-	const out: Argument[] = [];
-	for (const a of arguments_store.values()) {
-		if (a.forked_from_id === argument_id) out.push(a);
-	}
-	return out;
+	return dbGetForksOf(argument_id);
 }
 
-// ---- User-scoped aggregators (used by report generation) ----
-
 export function getThesesByAuthor(user_id: string): Thesis[] {
-	const out: Thesis[] = [];
-	for (const t of getAllTheses()) {
-		if (t.meta.author_id === user_id) out.push(t);
-	}
-	return out;
+	return dbGetThesesByAuthor(user_id);
 }
 
 export function getArgumentsByAuthor(user_id: string): Argument[] {
-	const out: Argument[] = [];
-	for (const a of arguments_store.values()) {
-		if (a.meta.author_id === user_id) out.push(a);
-	}
-	return out;
+	return dbGetArgumentsByAuthor(user_id);
 }
 
-/** All theses the user has voted on (any vote type). */
-export function getThesesVotedByUser(user_id: string): { thesis: Thesis; voteType: string }[] {
+export function getThesesVotedByUser(
+	user_id: string
+): { thesis: Thesis; voteType: string }[] {
+	const rows = dbGetThesisIdsVotedByUser(user_id);
 	const out: { thesis: Thesis; voteType: string }[] = [];
-	for (const t of getAllTheses()) {
-		const v = t.votes.find((x) => x.user_id === user_id);
-		if (v) out.push({ thesis: t, voteType: v.type });
+	for (const r of rows) {
+		const t = dbGetThesisById(r.thesis_id);
+		if (t) out.push({ thesis: t, voteType: r.vote_type });
 	}
 	return out;
 }
 
-/**
- * All votes (thesis + argument) cast by user with cast_at >= sinceIso.
- * Used for budget/activity reconstruction — includes weight so callers can
- * separate free votes (weight=1) from weighted votes (weight>1).
- */
 export function getVotesByUserSince(
 	user_id: string,
 	sinceIso: string
@@ -684,47 +544,7 @@ export function getVotesByUserSince(
 	weight: number;
 	cast_at: string;
 }[] {
-	const out: {
-		target: 'thesis' | 'argument';
-		target_id: string;
-		thesis_id: string;
-		thesis_title: string;
-		vote_type: string;
-		weight: number;
-		cast_at: string;
-	}[] = [];
-	for (const t of getAllTheses()) {
-		for (const v of t.votes) {
-			if (v.user_id === user_id && v.cast_at >= sinceIso) {
-				out.push({
-					target: 'thesis',
-					target_id: t.id,
-					thesis_id: t.id,
-					thesis_title: t.title,
-					vote_type: v.type,
-					weight: v.weight,
-					cast_at: v.cast_at
-				});
-			}
-		}
-	}
-	for (const a of arguments_store.values()) {
-		for (const v of a.votes) {
-			if (v.user_id === user_id && v.cast_at >= sinceIso) {
-				const parent = theses.get(a.thesis_id);
-				out.push({
-					target: 'argument',
-					target_id: a.id,
-					thesis_id: a.thesis_id,
-					thesis_title: parent?.title ?? '(unknown thesis)',
-					vote_type: v.type,
-					weight: v.weight,
-					cast_at: v.cast_at
-				});
-			}
-		}
-	}
-	return out;
+	return dbGetVotesByUserSince(user_id, sinceIso);
 }
 
 export function createArgument(
@@ -735,18 +555,18 @@ export function createArgument(
 	stance: Argument['stance'] = 'support',
 	forked_from_id?: string
 ): Argument | { error: string } {
-	if (!theses.has(thesis_id)) {
+	if (!dbHasThesis(thesis_id)) {
 		return { error: 'Thesis not found' };
 	}
 
-	// Validate fork source exists (and is from same thesis + same stance)
 	if (forked_from_id) {
-		const source = arguments_store.get(forked_from_id);
+		const source = dbGetArgumentById(forked_from_id);
 		if (!source) return { error: 'Source argument not found' };
 		if (source.thesis_id !== thesis_id) return { error: 'Fork source must be from same thesis' };
 		if (source.stance !== stance) return { error: 'Fork must keep same stance' };
 	}
 
+	const created = nowIso();
 	const argument: Argument = {
 		id: generateId(),
 		thesis_id,
@@ -755,11 +575,14 @@ export function createArgument(
 		attributes,
 		votes: [],
 		forked_from_id,
-		meta: createMeta(author_id)
+		meta: {
+			created_at: created,
+			updated_at: created,
+			author_id
+		}
 	};
 
-	arguments_store.set(argument.id, argument);
-	indexArgument(argument);
+	dbInsertArgument(argument);
 	reevaluateLifecycle(thesis_id);
 	bumpVersion();
 	logger.info('store', forked_from_id ? 'argument forked' : 'argument created', {
@@ -776,35 +599,28 @@ export function updateArgument(
 	updates: Partial<Pick<Argument, 'content' | 'attributes'>>,
 	user_id?: string
 ): Argument | { error: string } {
-	const argument = arguments_store.get(id);
+	const argument = dbGetArgumentById(id);
 	if (!argument) return { error: 'Argument not found' };
 	if (user_id && argument.meta.author_id !== user_id) {
 		return { error: 'Only the author can edit this argument' };
 	}
-	if (updates.content !== undefined) argument.content = updates.content;
-	if (updates.attributes !== undefined) argument.attributes = updates.attributes;
-	argument.meta.updated_at = new Date().toISOString();
-	arguments_store.set(id, argument);
+	dbUpdateArgumentFields(id, {
+		content: updates.content,
+		attributes: updates.attributes,
+		updated_at: nowIso()
+	});
 	bumpVersion();
-	return argument;
+	return dbGetArgumentById(id)!;
 }
 
-/**
- * Backend-only: assign categories to an argument. Called by the nightly LLM
- * batch categorizer. Does NOT touch `meta.updated_at` — categorisation is a
- * machine annotation, not a user edit.
- */
 export function setArgumentCategories(id: string, categories: string[]): boolean {
-	const argument = arguments_store.get(id);
-	if (!argument) return false;
-	argument.categories = categories;
-	arguments_store.set(id, argument);
-	bumpVersion();
-	return true;
+	const ok = dbSetArgumentCategories(id, categories);
+	if (ok) bumpVersion();
+	return ok;
 }
 
 export function getAllArguments(): Argument[] {
-	return Array.from(arguments_store.values());
+	return dbGetAllArguments();
 }
 
 export function voteOnArgument(
@@ -813,25 +629,18 @@ export function voteOnArgument(
 	type: Vote['type'],
 	weight: number = 1
 ): Argument | undefined {
-	const argument = arguments_store.get(argument_id);
+	const argument = dbGetArgumentById(argument_id);
 	if (!argument) return undefined;
 
 	const w = Math.max(1, Math.min(5, Math.floor(weight)));
-	const existingVote = argument.votes.find((v) => v.user_id === user_id);
+	const existingVote = dbGetUserVoteOn('argument', argument_id, user_id);
 	if (existingVote && existingVote.type === type && (existingVote.weight ?? 1) === w) {
-		argument.votes = argument.votes.filter((v) => v.user_id !== user_id);
+		dbDeleteVote('argument', argument_id, user_id);
 	} else {
-		argument.votes = argument.votes.filter((v) => v.user_id !== user_id);
-		argument.votes.push({
-			user_id,
-			type,
-			weight: w,
-			cast_at: new Date().toISOString()
-		});
+		dbUpsertVote('argument', argument_id, user_id, type, w, nowIso());
 	}
 
-	argument.meta.updated_at = new Date().toISOString();
-	arguments_store.set(argument_id, argument);
+	dbUpdateArgumentFields(argument_id, { updated_at: nowIso() });
 	reevaluateLifecycle(argument.thesis_id);
 	bumpVersion();
 	logger.debug('store', 'vote on argument', {
@@ -840,22 +649,22 @@ export function voteOnArgument(
 		type,
 		weight: w
 	});
-	return argument;
+	return dbGetArgumentById(argument_id);
 }
 
 export function deleteArgument(id: string): boolean {
-	const arg = arguments_store.get(id);
+	const arg = dbGetArgumentById(id);
 	if (!arg) return false;
-	const ok = arguments_store.delete(id);
+	const ok = dbDeleteArgument(id);
 	if (ok) {
-		unindexArgument(arg);
+		argumentEmbeddings().delete(id);
 		reevaluateLifecycle(arg.thesis_id);
 		bumpVersion();
 	}
 	return ok;
 }
 
-// --- Seed data for development ---
+// ---- Seed data for development ----
 
 interface ThesisSeed {
 	title: string;
@@ -982,14 +791,14 @@ const THESIS_SEEDS: ThesisSeed[] = [
 ];
 
 export function seedData(devUserId?: string): void {
-	if (theses_hot.size > 0 || theses_warm.size > 0 || theses_cold.size > 0) return;
+	// Gate on empty DB — replaces the old "any-map-non-empty" check.
+	// The seed writes to SQLite in a single transaction; a second run would violate PKs.
+	const stats = dbTierStats();
+	if (stats.total > 0) return;
 
-	// Default seed: 200 examples (dev-friendly).
-	// Override with QUAPPE_SEED_COUNT env var for stress-testing.
 	const targetCount = Number(process.env.QUAPPE_SEED_COUNT ?? '200');
 	const t0 = Date.now();
 
-	// Argument templates - shared across cohorts
 	const argTemplates: { support: string[]; reject: string[] } = {
 		support: [
 			'Studien aus mehreren Ländern stützen diese Position.',
@@ -1011,16 +820,13 @@ export function seedData(devUserId?: string): void {
 		]
 	};
 
-	// Generate a pool of pseudo-users - scale with target count (rough: 1 user per 4 theses, min 25)
 	const userCount = Math.max(25, Math.min(50000, Math.floor(targetCount / 4)));
 	const users: string[] = [];
 	if (devUserId) users.push(devUserId);
 	for (let i = 0; i < userCount; i++) users.push(generateId());
 
-	// Helper: random index
 	const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 	const pickN = <T>(arr: T[], n: number): T[] => {
-		// Fisher-Yates partial shuffle - O(n) instead of O(n log n)
 		if (n >= arr.length) return [...arr];
 		const result: T[] = new Array(n);
 		const indices = new Set<number>();
@@ -1038,25 +844,17 @@ export function seedData(devUserId?: string): void {
 		return new Date(NOW - offset).toISOString();
 	};
 
-	// Distribution model - reflects the "crystallisation over time" reality:
-	//   - 5%: fresh seedlings (age 0-7d, low vote count)
-	//   - 15%: actively discussed / contested (age 7-30d, medium activity)
-	//   - 15%: crystallised (age 30-90d, high activity, biased votes)
-	//   - 45%: faded (age > 60d, low recent activity)
-	//   -	20%: dormant (age > 90d, no recent activity)
-	//
-	// For small seeds (< 500) fall back to a lighter distribution so demo data stays lively.
 	interface CohortConfig {
 		fraction: number;
 		ageDaysMin: number;
 		ageDaysMax: number;
-		activityDaysMin: number; // most recent activity within this range
+		activityDaysMin: number;
 		activityDaysMax: number;
 		voteMin: number;
 		voteMax: number;
 		argMin: number;
 		argMax: number;
-		supportBias: number; // 0.5 = balanced, 0.85 = strong support consensus
+		supportBias: number;
 	}
 
 	const cohorts: CohortConfig[] =
@@ -1076,31 +874,36 @@ export function seedData(devUserId?: string): void {
 					}
 				]
 			: [
-					// seedling
 					{ fraction: 0.05, ageDaysMin: 0, ageDaysMax: 7, activityDaysMin: 0, activityDaysMax: 2, voteMin: 0, voteMax: 3, argMin: 0, argMax: 1, supportBias: 0.55 },
-					// discussed / contested
 					{ fraction: 0.15, ageDaysMin: 7, ageDaysMax: 30, activityDaysMin: 0, activityDaysMax: 5, voteMin: 5, voteMax: 25, argMin: 1, argMax: 5, supportBias: 0.55 },
-					// crystallised - highest quality
 					{ fraction: 0.15, ageDaysMin: 30, ageDaysMax: 90, activityDaysMin: 0, activityDaysMax: 10, voteMin: 20, voteMax: 60, argMin: 3, argMax: 8, supportBias: 0.75 },
-					// faded
 					{ fraction: 0.45, ageDaysMin: 30, ageDaysMax: 120, activityDaysMin: 30, activityDaysMax: 85, voteMin: 0, voteMax: 10, argMin: 0, argMax: 2, supportBias: 0.5 },
-					// dormant
 					{ fraction: 0.2, ageDaysMin: 90, ageDaysMax: 365, activityDaysMin: 91, activityDaysMax: 360, voteMin: 0, voteMax: 5, argMin: 0, argMax: 1, supportBias: 0.5 }
 				];
 
 	const variationPrefixes = ['', 'Vorschlag: ', 'Debatte: ', 'These: ', 'Zur Diskussion: ', 'Frage: ', 'Position: '];
 	const regionSuffixes = ['', ' (regional)', ' (überregional)', ' (bundesweit)', ' (europaweit)', ' (kommunal)'];
 
-	// Distribute target count across cohorts by fraction
 	const perCohortCount: number[] = cohorts.map((c) => Math.floor(c.fraction * targetCount));
-	// Assign remainder to the largest cohort
 	const assigned = perCohortCount.reduce((s, n) => s + n, 0);
 	if (assigned < targetCount) {
 		const largest = perCohortCount.reduce((maxIdx, n, i, arr) => (n > arr[maxIdx] ? i : maxIdx), 0);
 		perCohortCount[largest] += targetCount - assigned;
 	}
 
-	const createdTheses: Thesis[] = new Array(targetCount);
+	// Build everything in memory first, flush in a single transaction at the end.
+	const seededTheses: Thesis[] = [];
+	const seededArguments: Argument[] = [];
+	// Votes are stored as flat rows keyed by (target_type, target_id, user_id)
+	const seededVotes: {
+		target_type: 'thesis' | 'argument';
+		target_id: string;
+		user_id: string;
+		vote_type: 'support' | 'reject' | 'neutral';
+		weight: number;
+		cast_at: string;
+	}[] = [];
+
 	let idx = 0;
 	let totalVotes = 0;
 	let totalArgs = 0;
@@ -1133,7 +936,7 @@ export function seedData(devUserId?: string): void {
 				related_thesis_ids: [],
 				archived: false,
 				lifecycle: {
-					state: 'seedling', // will be re-evaluated after data is seeded
+					state: 'seedling',
 					state_since: created,
 					quality_score: 0
 				},
@@ -1145,7 +948,6 @@ export function seedData(devUserId?: string): void {
 				}
 			};
 
-			// Add votes matching cohort profile
 			const voteCount = cfg.voteMin + Math.floor(Math.random() * (cfg.voteMax - cfg.voteMin + 1));
 			const voters = pickN(users, Math.min(voteCount, users.length));
 			for (const voter of voters) {
@@ -1153,18 +955,25 @@ export function seedData(devUserId?: string): void {
 				let type: 'support' | 'reject' | 'neutral' = 'neutral';
 				if (r < cfg.supportBias) type = 'support';
 				else if (r < cfg.supportBias + (1 - cfg.supportBias) * 0.7) type = 'reject';
-				// ~10% of votes have extra weight (2-3)
 				const w = Math.random() < 0.1 ? 2 + Math.floor(Math.random() * 2) : 1;
-				thesis.votes.push({
+				const vote: Vote = {
 					user_id: voter,
 					type,
 					weight: w,
 					cast_at: pastDate(cfg.activityDaysMax, cfg.activityDaysMin)
+				};
+				thesis.votes.push(vote);
+				seededVotes.push({
+					target_type: 'thesis',
+					target_id: thesis.id,
+					user_id: vote.user_id,
+					vote_type: vote.type,
+					weight: vote.weight,
+					cast_at: vote.cast_at
 				});
 				totalVotes++;
 			}
 
-			// Add arguments matching cohort profile
 			const argCount = cfg.argMin + Math.floor(Math.random() * (cfg.argMax - cfg.argMin + 1));
 			for (let ai = 0; ai < argCount; ai++) {
 				const stance: 'support' | 'reject' = Math.random() < cfg.supportBias ? 'support' : 'reject';
@@ -1185,31 +994,33 @@ export function seedData(devUserId?: string): void {
 				const argVoteCount = Math.floor(Math.random() * 8);
 				const argVoters = pickN(users, Math.min(argVoteCount, users.length));
 				for (const v of argVoters) {
-					arg.votes.push({
+					const vote: Vote = {
 						user_id: v,
 						type: pick(['support', 'reject', 'neutral'] as const),
 						weight: 1,
 						cast_at: pastDate(cfg.activityDaysMax, cfg.activityDaysMin)
+					};
+					arg.votes.push(vote);
+					seededVotes.push({
+						target_type: 'argument',
+						target_id: arg.id,
+						user_id: vote.user_id,
+						vote_type: vote.type,
+						weight: vote.weight,
+						cast_at: vote.cast_at
 					});
 					totalArgVotes++;
 				}
-				arguments_store.set(arg.id, arg);
-				indexArgument(arg);
+				seededArguments.push(arg);
 				totalArgs++;
 			}
 
-			// Place initially in hot; lifecycle sweep below will move it to the correct tier.
-			theses_hot.set(thesis.id, thesis);
-			createdTheses[idx] = thesis;
+			seededTheses.push(thesis);
 			idx++;
 		}
 	}
 
-	const t1 = Date.now();
-
-	// "My theses" cohort — three extra theses authored by the dev user in mixed
-	// lifecycle states, so /my has realistic content to exercise the UI.
-	// Also seeds fork relationships in both directions to feed notification triggers.
+	// "My theses" cohort — three extra theses authored by the dev user.
 	if (devUserId) {
 		const myConfigs: Array<{ state: 'seedling' | 'discussed' | 'crystallized'; ageDays: number; voters: number; args: number; supportBias: number }> = [
 			{ state: 'seedling', ageDays: 3, voters: 2, args: 1, supportBias: 0.55 },
@@ -1217,13 +1028,8 @@ export function seedData(devUserId?: string): void {
 			{ state: 'crystallized', ageDays: 60, voters: 150, args: 40, supportBias: 0.75 }
 		];
 
-		// Collect a few "other" arguments to use as fork sources (from freshly-seeded pool).
-		const otherArgs: Argument[] = [];
-		for (const a of arguments_store.values()) {
-			if (a.meta.author_id !== devUserId) otherArgs.push(a);
-			if (otherArgs.length >= 50) break;
-		}
-		const myArgIds: string[] = []; // Track for fork-back seeding
+		const otherArgsPool = seededArguments.filter((a) => a.meta.author_id !== devUserId).slice(0, 50);
+		const myArgIds: string[] = [];
 
 		for (let mi = 0; mi < myConfigs.length; mi++) {
 			const cfg = myConfigs[mi];
@@ -1257,11 +1063,20 @@ export function seedData(devUserId?: string): void {
 				if (r < cfg.supportBias) type = 'support';
 				else if (r < cfg.supportBias + (1 - cfg.supportBias) * 0.7) type = 'reject';
 				const w = Math.random() < 0.1 ? 2 + Math.floor(Math.random() * 2) : 1;
-				thesis.votes.push({
+				const vote: Vote = {
 					user_id: voter,
 					type,
 					weight: w,
 					cast_at: pastDate(Math.min(cfg.ageDays, 10))
+				};
+				thesis.votes.push(vote);
+				seededVotes.push({
+					target_type: 'thesis',
+					target_id: thesis.id,
+					user_id: vote.user_id,
+					vote_type: vote.type,
+					weight: vote.weight,
+					cast_at: vote.cast_at
 				});
 				totalVotes++;
 			}
@@ -1269,8 +1084,7 @@ export function seedData(devUserId?: string): void {
 			for (let ai = 0; ai < cfg.args; ai++) {
 				const stance: 'support' | 'reject' = Math.random() < cfg.supportBias ? 'support' : 'reject';
 				const argAuthor: string = ai % 7 === 0 ? devUserId : pick(users.filter((u) => u !== devUserId));
-				// ~20% of args on my theses are forks of others' arguments
-				const forkSource = Math.random() < 0.2 && otherArgs.length > 0 ? pick(otherArgs) : null;
+				const forkSource = Math.random() < 0.2 && otherArgsPool.length > 0 ? pick(otherArgsPool) : null;
 				const arg: Argument = {
 					id: generateId(),
 					thesis_id: thesis.id,
@@ -1288,29 +1102,34 @@ export function seedData(devUserId?: string): void {
 				const argVoteCount = Math.floor(Math.random() * 8);
 				const argVoters = pickN(users, Math.min(argVoteCount, users.length));
 				for (const v of argVoters) {
-					arg.votes.push({
+					const vote: Vote = {
 						user_id: v,
 						type: pick(['support', 'reject', 'neutral'] as const),
 						weight: 1,
 						cast_at: pastDate(Math.min(cfg.ageDays, 10))
+					};
+					arg.votes.push(vote);
+					seededVotes.push({
+						target_type: 'argument',
+						target_id: arg.id,
+						user_id: vote.user_id,
+						vote_type: vote.type,
+						weight: vote.weight,
+						cast_at: vote.cast_at
 					});
 					totalArgVotes++;
 				}
-				arguments_store.set(arg.id, arg);
-				indexArgument(arg);
+				seededArguments.push(arg);
 				totalArgs++;
 				if (argAuthor === devUserId) myArgIds.push(arg.id);
 			}
 
-			theses_hot.set(thesis.id, thesis);
-			createdTheses.push(thesis);
+			seededTheses.push(thesis);
 		}
 
-		// Fork-back: create a handful of other-authored arguments that fork the
-		// dev user's arguments, so the "your argument was forked" notification
-		// has real data to draw from.
+		// Fork-back: other-authored arguments that fork the dev user's arguments.
 		if (myArgIds.length > 0) {
-			const otherTheses = getAllTheses().filter((t) => t.meta.author_id !== devUserId);
+			const otherTheses = seededTheses.filter((t) => t.meta.author_id !== devUserId);
 			const forkTargets = pickN(otherTheses, Math.min(6, otherTheses.length));
 			for (const t of forkTargets) {
 				const sourceId = pick(myArgIds);
@@ -1330,42 +1149,56 @@ export function seedData(devUserId?: string): void {
 						author_id: forkAuthor
 					}
 				};
-				arguments_store.set(arg.id, arg);
-				indexArgument(arg);
+				seededArguments.push(arg);
 				totalArgs++;
 			}
 		}
 	}
 
-	// Now that all votes / args are in place, run the lifecycle transition for every thesis
-	// once so tiers are populated correctly.
-	suppressLifecycleLogs = true;
-	for (const thesis of createdTheses) {
-		reevaluateLifecycle(thesis.id, NOW);
-	}
-	suppressLifecycleLogs = false;
-
+	// Flush everything in a single transaction. Order matters:
+	// theses first (FK target for arguments), then arguments (FK target for fork sources),
+	// then votes.
+	const t1 = Date.now();
+	withTransaction(() => {
+		dbInsertThesesBulk(seededTheses);
+		// Sort so fork sources are inserted before their forks (self-FK on arguments).
+		const sortedArgs = [...seededArguments].sort((a, b) => {
+			if (!a.forked_from_id && b.forked_from_id) return -1;
+			if (a.forked_from_id && !b.forked_from_id) return 1;
+			return 0;
+		});
+		dbInsertArgumentsBulk(sortedArgs);
+		for (const v of seededVotes) {
+			dbUpsertVote(v.target_type, v.target_id, v.user_id, v.vote_type, v.weight, v.cast_at);
+		}
+	});
 	const t2 = Date.now();
 
+	// Now run lifecycle re-evaluation for each thesis (one UPDATE each, wrapped in a tx).
+	suppressLifecycleLogs = true;
+	withTransaction(() => {
+		for (const thesis of seededTheses) {
+			reevaluateLifecycle(thesis.id, NOW);
+		}
+	});
+	suppressLifecycleLogs = false;
+	const t3 = Date.now();
+
 	const memMB = (process.memoryUsage?.().heapUsed ?? 0) / (1024 * 1024);
-	const stats = tierStats();
-	logger.info('seed', `seeded ${createdTheses.length} theses`, {
-		theses: createdTheses.length,
+	const stats2 = tierStats();
+	logger.info('seed', `seeded ${seededTheses.length} theses`, {
+		theses: seededTheses.length,
 		arguments: totalArgs,
 		thesis_votes: totalVotes,
 		arg_votes: totalArgVotes,
 		users: userCount
 	});
-	logger.info('seed', `tier distribution`, stats);
+	logger.info('seed', `tier distribution`, stats2);
 	logger.info('seed', `timing`, {
-		seed_ms: t1 - t0,
-		lifecycle_sweep_ms: t2 - t1,
-		total_ms: t2 - t0,
+		build_ms: t1 - t0,
+		insert_ms: t2 - t1,
+		lifecycle_sweep_ms: t3 - t2,
+		total_ms: t3 - t0,
 		heap_mb: Number(memMB.toFixed(1))
 	});
 }
-
-function daysAgo(iso: string): number {
-	return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000)));
-}
-
