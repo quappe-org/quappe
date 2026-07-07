@@ -10,6 +10,11 @@ import { detectLanguage } from '$lib/server/language-detect';
 import { ensureUserId } from '$lib/server/identity';
 import { seedOnce, isSeeded } from '$lib/server/dev-seed';
 import { paraglideMiddleware } from '$lib/paraglide/server';
+import { getDb } from '$lib/server/db';
+
+// Open the SQLite database eagerly at startup so schema migrations run
+// before any request handler tries to read/write.
+getDb();
 
 // Start warming the embedding model in the background at server startup.
 // First requests will still work via lazy load — this just speeds up the first real embed() call.

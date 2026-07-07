@@ -25,3 +25,6 @@ vite.config.ts.timestamp-*
 # Local caches / tool state
 .cache
 .claude
+
+# SQLite database (dev-seeded on first run)
+.data
