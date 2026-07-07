@@ -3,6 +3,7 @@
 	import { categoriesStore } from '$lib/stores/categories.svelte';
 	import { complexityBoundsStore } from '$lib/stores/complexity-bounds.svelte';
 	import { themeStore, type Theme } from '$lib/stores/theme.svelte';
+	import { invertStore } from '$lib/stores/invert.svelte';
 	import { getLocale, setLocale, locales, type Locale } from '$lib/paraglide/runtime';
 	import { localeStore } from '$lib/stores/locale.svelte';
 	import { onMount } from 'svelte';
@@ -112,6 +113,32 @@
 					{t.label()}
 				</button>
 			{/each}
+		</div>
+	</div>
+
+	<div class="card stack">
+		<div class="setting-group">
+			<h3 class="setting-label">{m.panel_invert_title()}</h3>
+		</div>
+		<div class="pill-group" role="group" aria-label={m.panel_invert_title()}>
+			<button
+				type="button"
+				class="pill-btn"
+				class:active={mounted && !invertStore.on}
+				aria-pressed={mounted && !invertStore.on}
+				onclick={() => invertStore.set(false)}
+			>
+				{m.panel_invert_off()}
+			</button>
+			<button
+				type="button"
+				class="pill-btn"
+				class:active={mounted && invertStore.on}
+				aria-pressed={mounted && invertStore.on}
+				onclick={() => invertStore.set(true)}
+			>
+				{m.panel_invert_on()}
+			</button>
 		</div>
 	</div>
 

@@ -1,5 +1,19 @@
 /* Quappe - Global Styles */
 
+/* Inverse color mode. Toggled by invertStore via <html data-invert="true">.
+   Orthogonal to `data-theme` — flips every rendered pixel via filter,
+   then re-inverts raster media so photos still look normal. */
+html[data-invert='true'] {
+	filter: invert(1) hue-rotate(180deg);
+	background: #fff;
+}
+html[data-invert='true'] img,
+html[data-invert='true'] video,
+html[data-invert='true'] svg image,
+html[data-invert='true'] iframe {
+	filter: invert(1) hue-rotate(180deg);
+}
+
 :root {
 	/* Colors */
 	--color-bg: #fafafa;

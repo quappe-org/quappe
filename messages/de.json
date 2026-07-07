@@ -403,5 +403,8 @@
 	"panel_theme_title": "Farbschema",
 	"panel_theme_rainbow": "Rainbow",
 	"panel_theme_pastel": "Pastell",
-	"panel_theme_grayscale": "Grau"
+	"panel_theme_grayscale": "Grau",
+	"panel_invert_title": "Farben invertieren",
+	"panel_invert_on": "An",
+	"panel_invert_off": "Aus"
 }

@@ -8,6 +8,7 @@
 	import { updatesStore } from '$lib/stores/updates.svelte';
 	import { updatesSeen } from '$lib/stores/updates-seen.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import { invertStore } from '$lib/stores/invert.svelte';
 	import { localeStore } from '$lib/stores/locale.svelte';
 	import { bootstrapUserId } from '$lib/stores/user';
 	import ComplexitySlider from '$lib/components/ComplexitySlider.svelte';
@@ -86,6 +87,7 @@
 	onMount(() => {
 		mounted = true;
 		themeStore.init();
+		invertStore.init();
 		localeStore.refresh();
 		bootstrapUserId().then(() => {
 			ensureBudgetLoaded();
