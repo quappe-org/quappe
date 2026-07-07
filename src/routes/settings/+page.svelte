@@ -4,6 +4,7 @@
 	import { complexityBoundsStore } from '$lib/stores/complexity-bounds.svelte';
 	import { themeStore, type Theme } from '$lib/stores/theme.svelte';
 	import { getLocale, setLocale, locales, type Locale } from '$lib/paraglide/runtime';
+	import { localeStore } from '$lib/stores/locale.svelte';
 	import { onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 
@@ -26,6 +27,7 @@
 	function switchLocale(locale: Locale) {
 		if (locale === activeLocale) return;
 		setLocale(locale);
+		localeStore.refresh();
 	}
 
 	const themes: { id: Theme; label: () => string }[] = [

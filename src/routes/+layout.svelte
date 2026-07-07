@@ -8,6 +8,7 @@
 	import { updatesStore } from '$lib/stores/updates.svelte';
 	import { updatesSeen } from '$lib/stores/updates-seen.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import { localeStore } from '$lib/stores/locale.svelte';
 	import { bootstrapUserId } from '$lib/stores/user';
 	import ComplexitySlider from '$lib/components/ComplexitySlider.svelte';
 	import Logo from '$lib/components/Logo.svelte';
@@ -26,6 +27,13 @@
 	}
 
 	let currentPath = $derived(page.url.pathname);
+
+	// Keep the reactive locale mirror in sync with Paraglide on every
+	// navigation (URL-prefix strategy changes the locale via pathname).
+	$effect(() => {
+		currentPath;
+		localeStore.refresh();
+	});
 
 	function isActive(path: string): boolean {
 		if (path === '/') return currentPath === '/';
@@ -78,6 +86,7 @@
 	onMount(() => {
 		mounted = true;
 		themeStore.init();
+		localeStore.refresh();
 		bootstrapUserId().then(() => {
 			ensureBudgetLoaded();
 			updatesStore.refresh();

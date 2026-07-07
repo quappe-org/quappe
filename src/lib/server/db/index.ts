@@ -27,12 +27,12 @@ export function getDb(): Database.Database {
 	return db;
 }
 
-export function prepare<T = unknown>(sql: string): Database.Statement<T[]> {
+export function prepare<T = unknown>(sql: string): Database.Statement<unknown[], T> {
 	const cached = _stmtCache.get(sql);
-	if (cached) return cached as Database.Statement<T[]>;
+	if (cached) return cached as Database.Statement<unknown[], T>;
 	const stmt = getDb().prepare(sql);
 	_stmtCache.set(sql, stmt);
-	return stmt as Database.Statement<T[]>;
+	return stmt as Database.Statement<unknown[], T>;
 }
 
 export function withTransaction<T>(fn: () => T): T {

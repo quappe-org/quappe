@@ -15,6 +15,7 @@
 	import type { ActivityDay } from '$lib/stores/data';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
+	import { localeStore } from '$lib/stores/locale.svelte';
 
 	let { data } = $props();
 
@@ -304,8 +305,8 @@
 	let translating = $state(false);
 	let translateNeeded = $derived.by(() => {
 		if (!thesis?.lang) return false;
-		if (typeof window === 'undefined') return false;
-		return thesis.lang !== getLocale();
+		if (!localeStore.current) return false;
+		return thesis.lang !== localeStore.current;
 	});
 	let displayTitle = $derived(translated?.title ?? thesis?.title ?? '');
 	let displayDescription = $derived(translated?.description ?? thesis?.description ?? '');
@@ -319,7 +320,7 @@
 		if (translating) return;
 		translating = true;
 		try {
-			const target = getLocale();
+			const target = localeStore.current ?? getLocale();
 			const res = await fetch(`/api/theses/${thesis.id}/translate?to=${target}`);
 			if (!res.ok) return;
 			const data = (await res.json()) as { title: string; description: string; target: string };
@@ -455,13 +456,19 @@
 							class="translate-btn"
 							onclick={toggleTranslate}
 							disabled={translating}
+							title={translated ? m.translate_show_original() : m.translate_to({ locale: (localeStore.current ?? '').toUpperCase() })}
 						>
+							<svg class="translate-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+								<circle cx="12" cy="12" r="10"></circle>
+								<path d="M2 12h20"></path>
+								<path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+							</svg>
 							{#if translating}
 								{m.translate_pending()}
 							{:else if translated}
 								{m.translate_show_original()}
 							{:else}
-								{m.translate_to({ locale: getLocale().toUpperCase() })}
+								{m.translate_to({ locale: (localeStore.current ?? '').toUpperCase() })}
 							{/if}
 						</button>
 					{/if}
@@ -879,25 +886,31 @@
 	.translate-btn {
 		display: inline-flex;
 		align-items: center;
-		padding: 0.125rem 0.6rem;
+		gap: 0.3rem;
+		padding: 0.2rem 0.6rem;
 		font-size: var(--text-xs);
-		font-weight: 500;
+		font-weight: 600;
 		border-radius: var(--radius-sm);
-		background: var(--color-primary-bg);
-		color: var(--color-primary);
-		border: 1px solid var(--color-primary-bg);
+		background: var(--color-primary);
+		color: #fff;
+		border: 1px solid var(--color-primary);
 		font-family: inherit;
 		cursor: pointer;
-		transition: filter var(--transition-fast);
+		transition: filter var(--transition-fast), transform var(--transition-fast);
 	}
 
 	.translate-btn:hover:not(:disabled) {
-		filter: brightness(0.95);
+		filter: brightness(1.08);
+		transform: translateY(-1px);
 	}
 
 	.translate-btn:disabled {
 		opacity: 0.6;
 		cursor: not-allowed;
+	}
+
+	.translate-icon {
+		flex-shrink: 0;
 	}
 
 	/* Footer row: vote buttons + admin actions */
