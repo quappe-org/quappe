@@ -67,11 +67,11 @@ export function dbInsertThesis(t: Thesis): void {
 	const p = thesisInsertParams(t);
 	prepare(
 		`INSERT INTO theses
-		   (id, title, description, categories_json, related_ids_json, archived,
+		   (id, title, description, categories_json, hashtags_json, related_ids_json, archived,
 		    lifecycle_state, lifecycle_since, lifecycle_quality, lang,
 		    created_at, updated_at, author_id, location)
 		 VALUES
-		   (@id, @title, @description, @categories_json, @related_ids_json, @archived,
+		   (@id, @title, @description, @categories_json, @hashtags_json, @related_ids_json, @archived,
 		    @lifecycle_state, @lifecycle_since, @lifecycle_quality, @lang,
 		    @created_at, @updated_at, @author_id, @location)`
 	).run(p);
@@ -83,6 +83,7 @@ export function dbUpdateThesisFields(
 		title?: string;
 		description?: string;
 		categories?: string[];
+		hashtags?: string[];
 		archived?: boolean;
 		lang?: string | null;
 		updated_at: string;
@@ -101,6 +102,10 @@ export function dbUpdateThesisFields(
 	if (fields.categories !== undefined) {
 		sets.push('categories_json = @categories_json');
 		params.categories_json = JSON.stringify(fields.categories);
+	}
+	if (fields.hashtags !== undefined) {
+		sets.push('hashtags_json = @hashtags_json');
+		params.hashtags_json = JSON.stringify(fields.hashtags);
 	}
 	if (fields.archived !== undefined) {
 		sets.push('archived = @archived');
@@ -154,13 +159,31 @@ export function dbHasThesis(id: string): boolean {
 export function dbInsertThesesBulk(theses: Thesis[]): void {
 	const stmt = prepare(
 		`INSERT INTO theses
-		   (id, title, description, categories_json, related_ids_json, archived,
+		   (id, title, description, categories_json, hashtags_json, related_ids_json, archived,
 		    lifecycle_state, lifecycle_since, lifecycle_quality, lang,
 		    created_at, updated_at, author_id, location)
 		 VALUES
-		   (@id, @title, @description, @categories_json, @related_ids_json, @archived,
+		   (@id, @title, @description, @categories_json, @hashtags_json, @related_ids_json, @archived,
 		    @lifecycle_state, @lifecycle_since, @lifecycle_quality, @lang,
 		    @created_at, @updated_at, @author_id, @location)`
 	);
 	for (const t of theses) stmt.run(thesisInsertParams(t));
+}
+
+// Machine annotation — does NOT touch updated_at (matches dbSetArgumentCategories).
+export function dbSetThesisHashtags(id: string, hashtags: string[]): boolean {
+	const info = prepare(`UPDATE theses SET hashtags_json = ? WHERE id = ?`).run(
+		JSON.stringify(hashtags),
+		id
+	);
+	return info.changes > 0;
+}
+
+// For the backfill loop. Considers "empty" as missing so a text change that
+// added a #tag can still be picked up.
+export function dbGetThesesMissingHashtags(): Thesis[] {
+	const rows = prepare<ThesisRow>(
+		`SELECT * FROM theses WHERE hashtags_json IS NULL OR hashtags_json = '[]'`
+	).all() as ThesisRow[];
+	return assembleTheses(rows);
 }

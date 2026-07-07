@@ -7,6 +7,7 @@ export interface ThesisRow {
 	title: string;
 	description: string;
 	categories_json: string;
+	hashtags_json: string;
 	related_ids_json: string;
 	archived: number;
 	lifecycle_state: string;
@@ -26,6 +27,7 @@ export interface ArgumentRow {
 	content: string;
 	attributes_json: string;
 	categories_json: string | null;
+	hashtags_json: string | null;
 	forked_from_id: string | null;
 	created_at: string;
 	updated_at: string;
@@ -59,6 +61,7 @@ export function rowToThesis(row: ThesisRow, votes: Vote[]): Thesis {
 		title: row.title,
 		description: row.description,
 		categories: JSON.parse(row.categories_json),
+		hashtags: row.hashtags_json ? JSON.parse(row.hashtags_json) : [],
 		votes,
 		related_thesis_ids: JSON.parse(row.related_ids_json),
 		archived: row.archived === 1,
@@ -87,6 +90,7 @@ export function rowToArgument(row: ArgumentRow, votes: Vote[]): Argument {
 		votes,
 		forked_from_id: row.forked_from_id ?? undefined,
 		categories: row.categories_json ? JSON.parse(row.categories_json) : undefined,
+		hashtags: row.hashtags_json ? JSON.parse(row.hashtags_json) : undefined,
 		meta: {
 			created_at: row.created_at,
 			updated_at: row.updated_at,
@@ -104,6 +108,7 @@ export function thesisInsertParams(t: Thesis): ThesisRow {
 		title: t.title,
 		description: t.description,
 		categories_json: JSON.stringify(t.categories),
+		hashtags_json: JSON.stringify(t.hashtags ?? []),
 		related_ids_json: JSON.stringify(t.related_thesis_ids),
 		archived: t.archived ? 1 : 0,
 		lifecycle_state: t.lifecycle.state,
@@ -125,6 +130,7 @@ export function argumentInsertParams(a: Argument): ArgumentRow {
 		content: a.content,
 		attributes_json: JSON.stringify(a.attributes),
 		categories_json: a.categories ? JSON.stringify(a.categories) : null,
+		hashtags_json: a.hashtags ? JSON.stringify(a.hashtags) : null,
 		forked_from_id: a.forked_from_id ?? null,
 		created_at: a.meta.created_at,
 		updated_at: a.meta.updated_at,

@@ -70,10 +70,10 @@ export function dbCountArgumentsPerHotThesis(): Map<string, number> {
 export function dbInsertArgument(a: Argument): void {
 	prepare(
 		`INSERT INTO arguments
-		   (id, thesis_id, stance, content, attributes_json, categories_json, forked_from_id,
+		   (id, thesis_id, stance, content, attributes_json, categories_json, hashtags_json, forked_from_id,
 		    created_at, updated_at, author_id, location)
 		 VALUES
-		   (@id, @thesis_id, @stance, @content, @attributes_json, @categories_json, @forked_from_id,
+		   (@id, @thesis_id, @stance, @content, @attributes_json, @categories_json, @hashtags_json, @forked_from_id,
 		    @created_at, @updated_at, @author_id, @location)`
 	).run(argumentInsertParams(a));
 }
@@ -83,6 +83,7 @@ export function dbUpdateArgumentFields(
 	fields: {
 		content?: string;
 		attributes?: Argument['attributes'];
+		hashtags?: string[];
 		updated_at: string;
 	}
 ): void {
@@ -96,6 +97,10 @@ export function dbUpdateArgumentFields(
 		sets.push('attributes_json = @attributes_json');
 		params.attributes_json = JSON.stringify(fields.attributes);
 	}
+	if (fields.hashtags !== undefined) {
+		sets.push('hashtags_json = @hashtags_json');
+		params.hashtags_json = JSON.stringify(fields.hashtags);
+	}
 	prepare(`UPDATE arguments SET ${sets.join(', ')} WHERE id = @id`).run(params);
 }
 
@@ -108,6 +113,26 @@ export function dbSetArgumentCategories(id: string, categories: string[]): boole
 	return info.changes > 0;
 }
 
+export function dbSetArgumentHashtags(id: string, hashtags: string[]): boolean {
+	// Machine annotation — does NOT touch updated_at.
+	const info = prepare(`UPDATE arguments SET hashtags_json = ? WHERE id = ?`).run(
+		JSON.stringify(hashtags),
+		id
+	);
+	return info.changes > 0;
+}
+
+// Backfill target: rows with no hashtags yet, but whose content contains a '#'
+// candidate (skip empty texts so we don't retry them forever).
+export function dbGetArgumentsMissingHashtags(): Argument[] {
+	const rows = prepare<ArgumentRow>(
+		`SELECT * FROM arguments
+		 WHERE (hashtags_json IS NULL OR hashtags_json = '[]')
+		   AND content LIKE '%#%'`
+	).all() as ArgumentRow[];
+	return assembleArgs(rows);
+}
+
 export function dbDeleteArgument(id: string): boolean {
 	dbDeleteVotesForTarget('argument', id);
 	const info = prepare(`DELETE FROM arguments WHERE id = ?`).run(id);
@@ -118,10 +143,10 @@ export function dbDeleteArgument(id: string): boolean {
 export function dbInsertArgumentsBulk(args: Argument[]): void {
 	const stmt = prepare(
 		`INSERT INTO arguments
-		   (id, thesis_id, stance, content, attributes_json, categories_json, forked_from_id,
+		   (id, thesis_id, stance, content, attributes_json, categories_json, hashtags_json, forked_from_id,
 		    created_at, updated_at, author_id, location)
 		 VALUES
-		   (@id, @thesis_id, @stance, @content, @attributes_json, @categories_json, @forked_from_id,
+		   (@id, @thesis_id, @stance, @content, @attributes_json, @categories_json, @hashtags_json, @forked_from_id,
 		    @created_at, @updated_at, @author_id, @location)`
 	);
 	for (const a of args) stmt.run(argumentInsertParams(a));

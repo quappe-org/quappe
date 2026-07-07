@@ -5,6 +5,9 @@ export type VoteType = 'support' | 'reject' | 'neutral';
 // Categories are dynamic strings - managed by admin in settings
 export type Category = string;
 
+// User-typed hashtag (without leading '#', lowercased). Extracted from body text.
+export type Hashtag = string;
+
 export const DEFAULT_CATEGORIES: Category[] = [
 	'education',
 	'policy',
@@ -80,6 +83,7 @@ export interface Argument {
 	// from the parent thesis, so support/reject arguments can carry different
 	// topical labels than the thesis they attach to.
 	categories?: Category[];
+	hashtags?: Hashtag[]; // user-typed #tags extracted from content
 	meta: Meta;
 }
 
@@ -88,6 +92,7 @@ export interface Thesis {
 	title: string;
 	description: string;
 	categories: Category[];
+	hashtags: Hashtag[]; // user-typed #tags extracted from title+description
 	votes: Vote[];
 	related_thesis_ids: string[]; // graph edges to other Theses
 	archived: boolean; // archived by admin (still visible, but de-emphasized)

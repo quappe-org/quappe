@@ -72,11 +72,13 @@
 
 	// ---- Filter ----
 	let selectedFilter = $state<Category | null>(null);
+	let selectedHashtag = $state<string | null>(null);
 
 	let categoryCounts = $derived.by(() => {
 		const counts = new Map<Category, number>();
 		for (const cat of categoriesStore.list) counts.set(cat, 0);
 		for (const t of allTheses) {
+			if (selectedHashtag && !(t.hashtags ?? []).includes(selectedHashtag)) continue;
 			for (const cat of t.categories) {
 				counts.set(cat, (counts.get(cat) ?? 0) + 1);
 			}
@@ -104,17 +106,37 @@
 		return 'sm';
 	}
 
+	let hashtagCounts = $derived.by(() => {
+		const counts = new Map<string, number>();
+		for (const t of allTheses) {
+			if (selectedFilter && !t.categories.includes(selectedFilter)) continue;
+			for (const h of t.hashtags ?? []) {
+				counts.set(h, (counts.get(h) ?? 0) + 1);
+			}
+		}
+		return counts;
+	});
+
+	let hashtagTiles = $derived.by(() =>
+		[...hashtagCounts.entries()]
+			.map(([name, count]) => ({ name, count }))
+			.filter((t) => t.count > 0)
+			.sort((a, b) => b.count - a.count)
+			.slice(0, 30)
+	);
+
 	let visibleTheses = $derived.by(() => {
 		let filtered = allTheses;
-		if (selectedFilter) {
-			filtered = filtered.filter((t) => t.categories.includes(selectedFilter!));
-		}
+		if (selectedFilter) filtered = filtered.filter((t) => t.categories.includes(selectedFilter!));
+		if (selectedHashtag) filtered = filtered.filter((t) => (t.hashtags ?? []).includes(selectedHashtag!));
 		return filtered.slice(0, complexityStore.settings.max_theses);
 	});
 
 	let filteredTotal = $derived.by(() => {
-		if (!selectedFilter) return allTheses.length;
-		return allTheses.filter((t) => t.categories.includes(selectedFilter!)).length;
+		let filtered = allTheses;
+		if (selectedFilter) filtered = filtered.filter((t) => t.categories.includes(selectedFilter!));
+		if (selectedHashtag) filtered = filtered.filter((t) => (t.hashtags ?? []).includes(selectedHashtag!));
+		return filtered.length;
 	});
 
 	// ---- Thesis form ----
@@ -333,8 +355,8 @@
 		<div class="section">
 			<div class="section-head">
 				<h2 class="section-title">{m.home_filter_title()}</h2>
-				{#if selectedFilter}
-					<button class="clear-filter" onclick={() => (selectedFilter = null)}>
+				{#if selectedFilter || selectedHashtag}
+					<button class="clear-filter" onclick={() => { selectedFilter = null; selectedHashtag = null; }}>
 						&times; {m.home_filter_clear()}
 					</button>
 				{/if}
@@ -352,6 +374,20 @@
 					</button>
 				{/each}
 			</div>
+			{#if hashtagTiles.length > 0}
+				<div class="hashtag-tiles">
+					{#each hashtagTiles as tag}
+						<button
+							class="hashtag-chip"
+							class:active={selectedHashtag === tag.name}
+							onclick={() => (selectedHashtag = selectedHashtag === tag.name ? null : tag.name)}
+						>
+							<span class="hashtag-name">#{tag.name}</span>
+							<span class="hashtag-count">{tag.count}</span>
+						</button>
+					{/each}
+				</div>
+			{/if}
 		</div>
 
 		{#if showForm}
@@ -441,8 +477,10 @@
 		<!-- Theses list -->
 		<div class="section">
 			<div class="section-head">
-				{#if selectedFilter}
-					<span class="section-filter-active">{selectedFilter}</span>
+				{#if selectedFilter || selectedHashtag}
+					<span class="section-filter-active">
+						{#if selectedFilter}{selectedFilter}{/if}{#if selectedFilter && selectedHashtag} · {/if}{#if selectedHashtag}#{selectedHashtag}{/if}
+					</span>
 				{/if}
 				<span class="section-meta">
 					{m.home_list_count({ visible: visibleTheses.length, total: filteredTotal })}
@@ -457,8 +495,8 @@
 
 			{#if visibleTheses.length === 0}
 				<p class="empty-state">
-					{#if selectedFilter}
-						{m.home_list_empty_filtered({ category: selectedFilter })}
+					{#if selectedFilter || selectedHashtag}
+						{m.home_list_empty_filtered({ category: selectedFilter ?? `#${selectedHashtag}` })}
 					{:else}
 						{m.home_list_empty()}
 					{/if}
@@ -588,6 +626,57 @@
 		font-size: 0.75em;
 		font-family: var(--font-mono);
 		color: var(--color-text-light);
+	}
+
+	/* Hashtag chips - second filter row below categories */
+	.hashtag-tiles {
+		display: flex;
+		gap: 0.375rem;
+		overflow-x: auto;
+		padding: 0.125rem 0.125rem 0.5rem;
+		scrollbar-width: thin;
+		scrollbar-color: var(--color-border) transparent;
+		-webkit-overflow-scrolling: touch;
+	}
+	.hashtag-tiles::-webkit-scrollbar { height: 4px; }
+	.hashtag-tiles::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
+
+	.hashtag-chip {
+		display: inline-flex;
+		align-items: baseline;
+		gap: 0.3rem;
+		background: #ecfeff;
+		border: 1px solid #a5f3fc;
+		color: #0e7490;
+		border-radius: 9999px;
+		padding: 0.15rem 0.6rem;
+		font-family: inherit;
+		font-size: var(--text-xs);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+		white-space: nowrap;
+		flex-shrink: 0;
+	}
+
+	.hashtag-chip:hover:not(.active) {
+		background: #cffafe;
+		border-color: #22d3ee;
+	}
+
+	.hashtag-chip.active {
+		background: #0e7490;
+		border-color: #0e7490;
+		color: white;
+	}
+
+	.hashtag-chip.active .hashtag-count {
+		color: rgba(255, 255, 255, 0.85);
+	}
+
+	.hashtag-count {
+		font-size: 0.85em;
+		font-family: var(--font-mono);
+		color: rgba(14, 116, 144, 0.6);
 	}
 
 	.create-form {

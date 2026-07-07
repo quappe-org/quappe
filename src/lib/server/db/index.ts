@@ -23,8 +23,27 @@ export function getDb(): Database.Database {
 	const schema = readFileSync(SCHEMA_PATH, 'utf-8');
 	db.exec(schema);
 
+	migrate(db);
+
 	_db = db;
 	return db;
+}
+
+// Idempotent ALTERs for existing DBs. Fresh installs get these columns via
+// CREATE TABLE in schema.sql; older DBs picked up the columns here.
+function migrate(db: Database.Database): void {
+	const alters = [
+		`ALTER TABLE theses    ADD COLUMN hashtags_json TEXT NOT NULL DEFAULT '[]'`,
+		`ALTER TABLE arguments ADD COLUMN hashtags_json TEXT`
+	];
+	for (const sql of alters) {
+		try {
+			db.exec(sql);
+		} catch (e) {
+			const msg = (e as Error).message ?? '';
+			if (!/duplicate column/i.test(msg)) throw e;
+		}
+	}
 }
 
 export function prepare<T = unknown>(sql: string): Database.Statement<unknown[], T> {

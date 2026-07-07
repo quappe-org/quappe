@@ -5,6 +5,7 @@
 import type { Thesis, Argument, Vote, VoteSummary, LifecycleState } from '../models/types.ts';
 import { computeLifecycle } from '../models/lifecycle.ts';
 import { logger } from './logger.ts';
+import { extractHashtags, extractHashtagsFrom } from '../hashtags.ts';
 
 import { withTransaction } from '../server/db/index.ts';
 import {
@@ -13,10 +14,12 @@ import {
 	dbGetHotTheses,
 	dbGetThesesByAuthor,
 	dbGetThesesMissingLang,
+	dbGetThesesMissingHashtags,
 	dbGetThesisById,
 	dbHasThesis,
 	dbInsertThesesBulk,
 	dbInsertThesis,
+	dbSetThesisHashtags,
 	dbSetThesisRelated,
 	dbTierStats,
 	dbUpdateThesisFields,
@@ -30,10 +33,12 @@ import {
 	dbGetArgumentIdsForThesis,
 	dbGetArgumentsByAuthor,
 	dbGetArgumentsForThesis,
+	dbGetArgumentsMissingHashtags,
 	dbGetForksOf,
 	dbInsertArgument,
 	dbInsertArgumentsBulk,
 	dbSetArgumentCategories,
+	dbSetArgumentHashtags,
 	dbUpdateArgumentFields
 } from '../server/db/arguments.ts';
 import {
@@ -185,6 +190,7 @@ export function createThesis(
 		title,
 		description,
 		categories,
+		hashtags: extractHashtagsFrom(title, description),
 		votes: [],
 		related_thesis_ids: [],
 		archived: false,
@@ -221,10 +227,14 @@ export function updateThesis(
 		return { error: 'Only the author can edit this thesis' };
 	}
 	const updated_at = nowIso();
+	const textChanged = updates.title !== undefined || updates.description !== undefined;
+	const nextTitle = updates.title ?? thesis.title;
+	const nextDesc = updates.description ?? thesis.description;
 	dbUpdateThesisFields(id, {
 		title: updates.title,
 		description: updates.description,
 		categories: updates.categories,
+		hashtags: textChanged ? extractHashtagsFrom(nextTitle, nextDesc) : undefined,
 		updated_at
 	});
 	bumpVersion();
@@ -244,6 +254,26 @@ export function setThesisLang(id: string, lang: string): boolean {
 	if (!dbHasThesis(id)) return false;
 	dbUpdateThesisFields(id, { lang, updated_at: nowIso() });
 	return true;
+}
+
+export function setThesisHashtags(id: string, hashtags: string[]): boolean {
+	const ok = dbSetThesisHashtags(id, hashtags);
+	if (ok) bumpVersion();
+	return ok;
+}
+
+export function getThesesMissingHashtags(): Thesis[] {
+	return dbGetThesesMissingHashtags();
+}
+
+export function setArgumentHashtags(id: string, hashtags: string[]): boolean {
+	const ok = dbSetArgumentHashtags(id, hashtags);
+	if (ok) bumpVersion();
+	return ok;
+}
+
+export function getArgumentsMissingHashtags(): Argument[] {
+	return dbGetArgumentsMissingHashtags();
 }
 
 export function getThesesMissingLang(): Thesis[] {
@@ -575,6 +605,7 @@ export function createArgument(
 		attributes,
 		votes: [],
 		forked_from_id,
+		hashtags: extractHashtags(content),
 		meta: {
 			created_at: created,
 			updated_at: created,
@@ -604,9 +635,11 @@ export function updateArgument(
 	if (user_id && argument.meta.author_id !== user_id) {
 		return { error: 'Only the author can edit this argument' };
 	}
+	const nextContent = updates.content ?? argument.content;
 	dbUpdateArgumentFields(id, {
 		content: updates.content,
 		attributes: updates.attributes,
+		hashtags: updates.content !== undefined ? extractHashtags(nextContent) : undefined,
 		updated_at: nowIso()
 	});
 	bumpVersion();
@@ -932,6 +965,7 @@ export function seedData(devUserId?: string): void {
 				title,
 				description,
 				categories: seed.categories,
+				hashtags: [],
 				votes: [],
 				related_thesis_ids: [],
 				archived: false,
@@ -1040,6 +1074,7 @@ export function seedData(devUserId?: string): void {
 				title: `[Meine These] ${seed.title}`,
 				description: seed.description,
 				categories: seed.categories,
+				hashtags: [],
 				votes: [],
 				related_thesis_ids: [],
 				archived: false,

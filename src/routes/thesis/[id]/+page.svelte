@@ -474,6 +474,14 @@
 					{/if}
 				</div>
 
+				{#if thesis.hashtags && thesis.hashtags.length > 0}
+					<div class="thesis-hashtags">
+						{#each thesis.hashtags as tag}
+							<span class="hashtag-tag">#{tag}</span>
+						{/each}
+					</div>
+				{/if}
+
 				<div class="thesis-tile-footer">
 					{#if voteSummary}
 						<VoteRow
@@ -881,6 +889,24 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.375rem;
+	}
+
+	.thesis-hashtags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.3rem;
+		margin-top: 0.35rem;
+	}
+
+	.hashtag-tag {
+		display: inline-flex;
+		align-items: center;
+		font-size: 0.75rem;
+		background: #ecfeff;
+		color: #0e7490;
+		border: 1px solid #a5f3fc;
+		border-radius: 9999px;
+		padding: 0.1rem 0.55rem;
 	}
 
 	.translate-btn {

@@ -2,11 +2,12 @@ import type { Handle } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import { logger } from '$lib/stores/logger';
 import { warmupModel, embed, isModelWarm } from '$lib/server/embeddings';
-import { getAllTheses, setThesisEmbedding, hasThesisEmbedding, getThesesMissingLang, setThesisLang } from '$lib/stores/data';
+import { getAllTheses, setThesisEmbedding, hasThesisEmbedding, getThesesMissingLang, setThesisLang, getThesesMissingHashtags, setThesisHashtags, getArgumentsMissingHashtags, setArgumentHashtags } from '$lib/stores/data';
 import { refreshPulseCache } from '$lib/server/pulse';
 import { categorizeUncategorizedArguments } from '$lib/server/argument-categorization';
 import { isLlmAvailable } from '$lib/server/llm';
 import { detectLanguage } from '$lib/server/language-detect';
+import { extractHashtags, extractHashtagsFrom } from '$lib/hashtags';
 import { ensureUserId } from '$lib/server/identity';
 import { seedOnce, isSeeded } from '$lib/server/dev-seed';
 import { paraglideMiddleware } from '$lib/paraglide/server';
@@ -141,6 +142,37 @@ async function languageBackfillLoop() {
 	}
 }
 languageBackfillLoop().catch(() => {});
+
+// Hashtag backfill: populate existing rows (pre-migration) once, then a daily
+// safety-net for anything that slipped through. New theses/arguments already
+// extract hashtags on create via the data façade — this is just for legacy
+// rows and for edge cases (bulk seed inserts, external tooling).
+async function hashtagBackfillLoop() {
+	while (!isSeeded()) {
+		await new Promise((r) => setTimeout(r, 500));
+	}
+	// Slight delay so we don't compete with the other startup loops
+	await new Promise((r) => setTimeout(r, 25_000));
+	const day = 24 * 60 * 60 * 1000;
+	while (true) {
+		try {
+			let annotated = 0;
+			for (const t of getThesesMissingHashtags()) {
+				const tags = extractHashtagsFrom(t.title, t.description);
+				if (tags.length > 0 && setThesisHashtags(t.id, tags)) annotated++;
+			}
+			for (const a of getArgumentsMissingHashtags()) {
+				const tags = extractHashtags(a.content);
+				if (tags.length > 0 && setArgumentHashtags(a.id, tags)) annotated++;
+			}
+			if (annotated > 0) logger.info('system', `hashtag backfill: annotated ${annotated}`);
+		} catch (err) {
+			logger.warn('system', 'hashtag backfill threw', { error: (err as Error)?.message });
+		}
+		await new Promise((r) => setTimeout(r, day));
+	}
+}
+hashtagBackfillLoop().catch(() => {});
 
 /**
  * Log every request that hits the server.

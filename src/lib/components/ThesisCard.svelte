@@ -199,6 +199,17 @@
 		{/if}
 	</div>
 
+	{#if thesis.hashtags && thesis.hashtags.length > 0}
+		<div class="thesis-hashtags">
+			{#each thesis.hashtags.slice(0, 5) as tag}
+				<span class="hashtag-tag">#{tag}</span>
+			{/each}
+			{#if thesis.hashtags.length > 5}
+				<span class="hashtag-more">+{thesis.hashtags.length - 5}</span>
+			{/if}
+		</div>
+	{/if}
+
 	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 	<div class="thesis-footer" onclick={(e) => e.preventDefault()} onkeydown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}>
 		{#if voteSummary.total > 0}
@@ -324,6 +335,30 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.375rem;
+	}
+
+	.thesis-hashtags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.3rem;
+	}
+
+	.hashtag-tag {
+		display: inline-flex;
+		align-items: center;
+		font-size: 0.7rem;
+		background: #ecfeff;
+		color: #0e7490;
+		border: 1px solid #a5f3fc;
+		border-radius: 9999px;
+		padding: 0.05rem 0.5rem;
+	}
+
+	.hashtag-more {
+		font-size: 0.7rem;
+		color: var(--color-text-light);
+		font-family: var(--font-mono);
+		align-self: center;
 	}
 
 	.translate-pill {

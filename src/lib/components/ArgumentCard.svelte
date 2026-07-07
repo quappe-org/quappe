@@ -137,6 +137,11 @@
 				<span class="arg-cat" title="Topic (auto-categorised)">{cat}</span>
 			{/each}
 		{/if}
+		{#if argument.hashtags && argument.hashtags.length > 0}
+			{#each argument.hashtags as tag}
+				<span class="arg-hashtag">#{tag}</span>
+			{/each}
+		{/if}
 		{#if sourceUrls.length > 0}
 			<ul class="sources">
 				{#each sourceUrls as s}
@@ -267,6 +272,17 @@
 		background: var(--color-bg);
 		color: var(--color-text-muted);
 		border: 1px solid var(--color-border);
+	}
+
+	.arg-hashtag {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.05rem 0.5rem;
+		font-size: 0.7rem;
+		border-radius: 9999px;
+		background: #ecfeff;
+		color: #0e7490;
+		border: 1px solid #a5f3fc;
 	}
 
 	.sources {
