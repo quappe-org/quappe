@@ -52,17 +52,23 @@ function snip(s: string, n = 140): string {
 	return s.length > n ? s.slice(0, n - 1) + '…' : s;
 }
 
-const LIFECYCLE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+const WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 function aggregate(user_id: string): UpdatesBody {
 	const myTheses = getThesesByAuthor(user_id);
 	const myArgs = getArgumentsByAuthor(user_id);
 	const events: UpdateEvent[] = [];
+	const now = Date.now();
+	const withinWindow = (iso: string): boolean => {
+		const t = new Date(iso).getTime();
+		return Number.isFinite(t) && now - t <= WINDOW_MS;
+	};
 
 	// 1. Forks of my arguments
 	for (const a of myArgs) {
 		for (const fork of getForksOf(a.id)) {
 			if (fork.meta.author_id === user_id) continue;
+			if (!withinWindow(fork.meta.created_at)) continue;
 			const parent = getThesisById(fork.thesis_id);
 			events.push({
 				kind: 'fork',
@@ -81,6 +87,7 @@ function aggregate(user_id: string): UpdatesBody {
 	for (const t of myTheses) {
 		for (const a of getArgumentsForThesis(t.id)) {
 			if (a.meta.author_id === user_id) continue;
+			if (!withinWindow(a.meta.created_at)) continue;
 			events.push({
 				kind: 'new_argument',
 				at: a.meta.created_at,
@@ -93,19 +100,15 @@ function aggregate(user_id: string): UpdatesBody {
 		}
 	}
 
-	// 3. Lifecycle transitions on theses I supported (within the last 14 days).
-	// One entry per thesis, dated at `state_since`. Skips theses I authored
-	// (those are already covered by 1 and 2).
-	const now = Date.now();
+	// 3. Lifecycle transitions on theses I supported. One entry per thesis,
+	// dated at `state_since`. Skips theses I authored (already covered by 1+2).
 	for (const t of getAllTheses()) {
 		if (t.meta.author_id === user_id) continue;
 		const myVote = t.votes.find((v) => v.user_id === user_id && v.type === 'support');
 		if (!myVote) continue;
 		const stateSince = t.lifecycle.state_since;
 		if (!stateSince) continue;
-		const since = new Date(stateSince).getTime();
-		if (!Number.isFinite(since)) continue;
-		if (now - since > LIFECYCLE_WINDOW_MS) continue;
+		if (!withinWindow(stateSince)) continue;
 		events.push({
 			kind: 'lifecycle',
 			at: stateSince,

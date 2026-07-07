@@ -319,6 +319,9 @@
 	"updates_stance_pro": "pro",
 	"updates_stance_con": "contra",
 	"updates_lifecycle_now": "Jetzt: {state}",
+	"updates_type_fork": "Fork",
+	"updates_type_newarg": "Argument",
+	"updates_type_lifecycle": "Lifecycle",
 
 	"translate_to": "Übersetzen → {locale}",
 	"translate_show_original": "Original zeigen",
