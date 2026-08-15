@@ -11,6 +11,7 @@
 		voting?: boolean;
 		compact?: boolean;
 		showButtons?: boolean;
+		simple?: boolean; // reduced UI: support/reject only, no neutral, no weight
 		oncast?: (type: VoteType, weight: number) => void;
 	}
 
@@ -21,12 +22,19 @@
 		voting = false,
 		compact = false,
 		showButtons = true,
+		simple = false,
 		oncast
 	}: Props = $props();
 
 	function handle(type: VoteType, e: MouseEvent) {
 		e.preventDefault();
 		e.stopPropagation();
+
+		// In simple mode weight never grows — one tap = weight 1, tap again = retract.
+		if (simple) {
+			oncast?.(type, 1);
+			return;
+		}
 
 		// Weight cycles along the Fibonacci ladder (1 → 2 → 3 → 5 → 8 → reset).
 		// A fresh vote on a new stance starts at the first step.
@@ -43,7 +51,9 @@
 	<div class="vote-counts">
 		<span class="vc support" title="{summary.support} weighted support"><span class="sign">+</span>{abbreviateNumber(summary.support)}</span>
 		<span class="vc reject" title="{summary.reject} weighted reject"><span class="sign">−</span>{abbreviateNumber(summary.reject)}</span>
-		<span class="vc neutral" title="{summary.neutral} weighted neutral"><span class="sign">~</span>{abbreviateNumber(summary.neutral)}</span>
+		{#if !simple}
+			<span class="vc neutral" title="{summary.neutral} weighted neutral"><span class="sign">~</span>{abbreviateNumber(summary.neutral)}</span>
+		{/if}
 	</div>
 
 	{#if showButtons}
@@ -58,7 +68,7 @@
 		>
 			<span class="glyph">+</span>
 			{#if !compact}<span class="vb-label">{m.vote_support()}</span>{/if}
-			{#if currentVote === 'support' && currentWeight > 1}
+			{#if !simple && currentVote === 'support' && currentWeight > 1}
 				<span class="weight-badge">×{currentWeight}</span>
 			{/if}
 		</button>
@@ -72,20 +82,22 @@
 		>
 			<span class="glyph">−</span>
 			{#if !compact}<span class="vb-label">{m.vote_reject()}</span>{/if}
-			{#if currentVote === 'reject' && currentWeight > 1}
+			{#if !simple && currentVote === 'reject' && currentWeight > 1}
 				<span class="weight-badge">×{currentWeight}</span>
 			{/if}
 		</button>
-		<button
-			class="vb vb-neutral"
-			class:active={currentVote === 'neutral'}
-			onclick={(e) => handle('neutral', e)}
-			disabled={voting}
-			title={m.vote_neutral_hint()}
-		>
-			<span class="glyph">~</span>
-			{#if !compact}<span class="vb-label">{m.vote_neutral()}</span>{/if}
-		</button>
+		{#if !simple}
+			<button
+				class="vb vb-neutral"
+				class:active={currentVote === 'neutral'}
+				onclick={(e) => handle('neutral', e)}
+				disabled={voting}
+				title={m.vote_neutral_hint()}
+			>
+				<span class="glyph">~</span>
+				{#if !compact}<span class="vb-label">{m.vote_neutral()}</span>{/if}
+			</button>
+		{/if}
 	</div>
 	{/if}
 </div>

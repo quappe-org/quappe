@@ -16,6 +16,7 @@
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { localeStore } from '$lib/stores/locale.svelte';
 	import { registerForComplexity, pickDescription } from '$lib/models/variants';
+	import { onMount } from 'svelte';
 
 	let { data } = $props();
 
@@ -129,35 +130,98 @@
 		return [...groups.values()];
 	});
 
+	// Frozen display order: we compute a ranking snapshot (root.id → rank) and
+	// sort by it, so live vote updates change the NUMBERS in place but do NOT
+	// make tiles jump around. Recomputed only on navigation (new `data`) or when
+	// the SET of groups changes (a new argument appears) — never on score change.
+	let frozenRank = $state<Map<string, number>>(new Map());
+
+	function recomputeOrder() {
+		const ranked = [...argGroups].sort((a, b) => b.groupScore - a.groupScore);
+		const map = new Map<string, number>();
+		ranked.forEach((g, i) => map.set(g.root.id, i));
+		frozenRank = map;
+	}
+
+	// Recompute the frozen order when the set of group roots changes (navigation
+	// or a newly created argument), but not when only scores move.
+	let groupRootKey = $derived(
+		argGroups.map((g) => g.root.id).sort().join('|')
+	);
+	$effect(() => {
+		groupRootKey; // track membership, not scores
+		recomputeOrder();
+	});
+
+	function byFrozen(a: ArgGroup, b: ArgGroup): number {
+		const ra = frozenRank.get(a.root.id) ?? Number.MAX_SAFE_INTEGER;
+		const rb = frozenRank.get(b.root.id) ?? Number.MAX_SAFE_INTEGER;
+		return ra - rb;
+	}
+
+	// Live vote counts without reload: poll the arguments for this thesis and
+	// merge their vote arrays in place (by id). This updates the NUMBERS while
+	// the frozen order keeps tiles from jumping. New arguments are appended and
+	// picked up by the membership-based order recompute above. We skip merging
+	// while the user is mid-vote to avoid clobbering the optimistic update.
+	async function pollVotes() {
+		if (typeof window === 'undefined' || !thesis) return;
+		if (voting) return;
+		try {
+			const res = await fetch(`/api/arguments?thesis_id=${thesis.id}`);
+			if (!res.ok) return;
+			const fresh = (await res.json()) as Argument[];
+			const byId = new Map(fresh.map((a) => [a.id, a]));
+			const userId = getUserId();
+			// Update existing args' votes in place; keep array order/identity.
+			let appended = false;
+			for (const a of args) {
+				const f = byId.get(a.id);
+				if (f) {
+					// Don't overwrite an argument the user is actively voting on locally.
+					const mineLocal = a.votes.some((v) => v.user_id === userId);
+					const mineFresh = f.votes.some((v) => v.user_id === userId);
+					if (!(mineLocal && !mineFresh)) a.votes = f.votes;
+					byId.delete(a.id);
+				}
+			}
+			// Any remaining in byId are new arguments → append.
+			for (const f of byId.values()) {
+				args.push(f);
+				appended = true;
+			}
+			if (appended) args = [...args];
+		} catch {
+			// silent — next tick tries again
+		}
+	}
+
+	onMount(() => {
+		const id = setInterval(pollVotes, 15_000);
+		return () => clearInterval(id);
+	});
+
 	let supportGroups = $derived.by(() =>
 		argGroups
 			.filter((g) => g.stance === 'support')
-			.sort((a, b) => b.groupScore - a.groupScore)
+			.sort(byFrozen)
 			.slice(0, complexityStore.settings.max_arguments)
 	);
 
 	let rejectGroups = $derived.by(() =>
 		argGroups
 			.filter((g) => g.stance === 'reject')
-			.sort((a, b) => b.groupScore - a.groupScore)
+			.sort(byFrozen)
 			.slice(0, complexityStore.settings.max_arguments)
 	);
 
-	// "Weitere Argumente": groups below the top-column cap, HN-style hot score.
+	// "Weitere Argumente": groups below the top-column cap, in frozen order.
 	let poolGroups = $derived.by(() => {
 		const topIds = new Set<string>([
 			...supportGroups.map((g) => g.root.id),
 			...rejectGroups.map((g) => g.root.id)
 		]);
-		const now = Date.now();
-		return argGroups
-			.filter((g) => !topIds.has(g.root.id))
-			.map((g) => {
-				const ageDays = Math.max(0, (now - new Date(g.root.meta.created_at).getTime()) / (24 * 60 * 60 * 1000));
-				return { group: g, hot: g.groupScore / Math.pow(ageDays + 2, 1.5) };
-			})
-			.sort((a, b) => b.hot - a.hot)
-			.map((x) => x.group);
+		return argGroups.filter((g) => !topIds.has(g.root.id)).sort(byFrozen);
 	});
 
 	let totalSupport = $derived(argGroups.filter((g) => g.stance === 'support').length);
@@ -559,6 +623,7 @@
 							currentVote={currentVote}
 							currentWeight={currentWeight}
 							voting={voting}
+							simple={register === 'simple'}
 							oncast={castThesisVote}
 						/>
 					{/if}

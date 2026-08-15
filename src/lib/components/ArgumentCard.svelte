@@ -3,6 +3,7 @@
 	import { getUserId, markVotedArg } from '$lib/stores/user';
 	import { primaryEvidenceType } from '$lib/utils/evidence';
 	import { complexityStore } from '$lib/stores/complexity.svelte';
+	import { registerForComplexity } from '$lib/models/variants';
 	import VoteRow from '$lib/components/VoteRow.svelte';
 	import SwipeVote from '$lib/components/SwipeVote.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
@@ -71,6 +72,7 @@
 	});
 
 	let maxVariants = $derived(complexityStore.settings.max_arguments);
+	let simpleMode = $derived(registerForComplexity(complexityStore.settings.max_arguments) === 'simple');
 	let visibleVariants = $derived(sortedFamily.slice(0, maxVariants));
 	let hiddenCount = $derived(Math.max(0, sortedFamily.length - visibleVariants.length));
 
@@ -194,7 +196,7 @@
 
 <SwipeVote oncast={castVote}>
 	<article class="argument-card" class:argument-leading={leading} data-arg-id={active.id}>
-	{#if hasVariants}
+	{#if hasVariants && !simpleMode}
 		<button class="variant-toggle" onclick={() => expanded = !expanded} aria-expanded={expanded}>
 			<svg class="variant-fork-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 				<circle cx="6" cy="3" r="2"></circle><circle cx="6" cy="21" r="2"></circle><circle cx="18" cy="12" r="2"></circle><path d="M18 10V8a2 2 0 0 0-2-2H8M6 5v14"></path>
@@ -204,7 +206,7 @@
 		</button>
 	{/if}
 
-	{#if expanded}
+	{#if expanded && !simpleMode}
 		<div class="variant-picker">
 			<div class="variant-picker-head">
 				<span class="variant-picker-title">{m.variant_pick_title()}</span>
@@ -283,6 +285,7 @@
 			currentWeight={currentWeight}
 			voting={voting}
 			compact
+			simple={simpleMode}
 			oncast={castVote}
 		/>
 		<div class="argument-actions">

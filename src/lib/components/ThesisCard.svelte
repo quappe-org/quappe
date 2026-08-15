@@ -244,6 +244,7 @@
 				currentWeight={currentWeight}
 				voting={voting}
 				compact
+				simple={register === 'simple'}
 				showButtons={showVoteButtons}
 				oncast={castVote}
 			/>

@@ -1,0 +1,46 @@
+name: Bug report
+description: Something isn't working as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to file a bug. Please be concise and specific.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: |
+        1. Set language to German
+        2. Navigate to /top
+        3. Expected: stays German — Actual: reverts to English
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Page / URL
+      placeholder: /thesis/... or /my/updates
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Theses / feed
+        - Arguments / voting
+        - Search / filter
+        - Budget / limits
+        - i18n / translation
+        - Theme / accessibility
+        - Other
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, OS, screen size (desktop/mobile). Self-hosted? Note the commit.
+  - type: textarea
+    id: console
+    attributes:
+      label: Console / server logs
+      description: Any errors from the browser console or the dev server.
+      render: shell

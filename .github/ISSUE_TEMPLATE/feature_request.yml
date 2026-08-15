@@ -1,0 +1,31 @@
+name: Feature idea
+description: Suggest an improvement — keep the mission in view
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Quappe is a calm space for structured discourse, not a comment section.
+        Features should serve consensus, clarity, and respect. Ideas that add
+        noise or complexity are less likely to land.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the underlying need, not just the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: How might it work? UI, data, and interaction if relevant.
+  - type: textarea
+    id: mission-fit
+    attributes:
+      label: How does it fit the mission?
+      description: How does it help defined positions, consensus, or respectful disagreement?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
