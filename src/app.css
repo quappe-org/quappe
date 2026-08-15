@@ -425,7 +425,7 @@ label {
 /* Grid */
 .grid {
 	display: grid;
-	gap: var(--space-md);
+	gap: var(--space-lg);
 }
 
 @media (min-width: 640px) {

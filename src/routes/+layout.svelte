@@ -325,12 +325,12 @@
 	.shell {
 		flex: 1;
 		display: grid;
-		grid-template-columns: 220px 1fr;
-		gap: 1.5rem;
+		grid-template-columns: 240px 1fr;
+		gap: 2.5rem;
 		max-width: 1400px;
 		width: 100%;
 		margin: 0 auto;
-		padding: 1rem 1.25rem;
+		padding: 2rem 2rem;
 	}
 
 	.sidebar {
@@ -516,7 +516,8 @@
 	@media (max-width: 1024px) {
 		.shell {
 			grid-template-columns: 200px 1fr;
-			padding: 0.75rem 1rem;
+			gap: 1.75rem;
+			padding: 1.25rem 1.25rem;
 		}
 	}
 
@@ -526,7 +527,8 @@
 		}
 		.shell {
 			grid-template-columns: 1fr;
-			padding: 0.75rem;
+			gap: 1.25rem;
+			padding: 1rem;
 		}
 		.sidebar-left {
 			display: none;

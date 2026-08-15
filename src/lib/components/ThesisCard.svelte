@@ -245,9 +245,9 @@
 	.thesis-card {
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
+		gap: 0.85rem;
 		position: relative;
-		padding: 0.9rem 1rem 0.9rem calc(1rem + 16px);
+		padding: 1.15rem 1.25rem 1.15rem calc(1.25rem + 16px);
 		transition: box-shadow var(--transition-base), transform var(--transition-fast);
 		text-decoration: none;
 		color: inherit;
@@ -316,7 +316,8 @@
 	.thesis-title {
 		font-size: var(--text-lg);
 		font-weight: 600;
-		line-height: 1.3;
+		line-height: 1.35;
+		letter-spacing: -0.01em;
 		transition: color var(--transition-fast);
 	}
 
