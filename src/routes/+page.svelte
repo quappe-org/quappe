@@ -354,7 +354,7 @@
 	<!-- Search -->
 	<div class="search-wrap">
 		<div class="search-box">
-			<svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+			<svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
 			<input
 				type="search"
 				class="search-input"
@@ -968,16 +968,18 @@
 	.search-box {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 0.65rem;
 		background: var(--color-surface);
 		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		padding: 0.5rem 0.75rem;
-		transition: border-color var(--transition-fast);
+		border-radius: var(--radius-lg);
+		padding: 0.85rem 1.1rem;
+		box-shadow: var(--shadow-sm);
+		transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 	}
 
 	.search-box:focus-within {
 		border-color: var(--color-primary);
+		box-shadow: 0 0 0 3px var(--color-primary-bg);
 	}
 
 	.search-icon {
@@ -989,7 +991,7 @@
 		flex: 1;
 		border: none;
 		background: transparent;
-		font-size: var(--text-sm);
+		font-size: var(--text-lg);
 		color: var(--color-text);
 		outline: none;
 		min-width: 0;
