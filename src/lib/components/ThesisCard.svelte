@@ -92,12 +92,12 @@
 
 	async function castVote(type: VoteType, weight: number) {
 		if (voting) return;
-		// Cycle-reset (retraction) and neutral casts are free. Every other support/reject costs 1.
-		const isCycleReset = currentVote === type && weight === 1 && currentWeight >= 3;
-		const chargeable = (type === 'support' || type === 'reject') && !isCycleReset;
+		// Base weight-1 votes are free; only extra weight draws from the pool.
+		const isRetract = currentVote === type && currentWeight === weight;
+		const chargeable = !isRetract && (type === 'support' || type === 'reject') && weight > 1;
 		if (chargeable) {
-			if (!budgetStore.canAffordVotes(1)) return;
-			budgetStore.spendVotes(1);
+			if (!budgetStore.canAffordWeight(weight)) return;
+			budgetStore.spendWeight(weight);
 		}
 		voting = true;
 		try {
@@ -108,7 +108,7 @@
 				body: JSON.stringify({ type, weight, user_id: userId })
 			});
 			if (!res.ok) {
-				if (chargeable) budgetStore.refundVotes(1);
+				if (chargeable) budgetStore.refundWeight(weight);
 				return;
 			}
 			const data = await res.json();

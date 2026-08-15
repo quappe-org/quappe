@@ -28,9 +28,10 @@ Fields:
 - `meta`: Meta
 
 Notes:
-- No parent-child reply chains. **Fork = create a new argument based on an existing one**. Both coexist; users vote which they support.
-- Forks are visually connected to their source by a red dashed thread in the UI.
-- Arguments per Thesis are limited by the complexity slider (1 to 7 per stance).
+- No parent-child reply chains. **Fork = create a new argument variant based on an existing one**. Both coexist as one *argument group* (root + variants).
+- An argument group renders as ONE card: the leading variant (most support) is shown; the card expands into a radio-list picker (sorted Top / Latest, capped by the complexity slider, "+N more" hint for the rest). A user has ONE vote per group — voting a variant retracts their vote on siblings (enforced server-side in `voteOnArgument` via the fork-family walk).
+- Forking migrates the author's vote to the new variant automatically.
+- Arguments per Thesis are limited by the complexity slider (Fibonacci: 1 to 8 per stance).
 - Arguments inherit their thesis's lifecycle state implicitly.
 
 
@@ -94,30 +95,42 @@ Canonical (long-term crystallised) is planned for a later phase.
 
 ## Quality Score
 
-`quality = 0.4·consensus_strength + 0.3·argument_depth + 0.2·peer_engagement + 0.1·evidence_density`
+`quality = 0.15·consensus_strength + 0.35·argument_depth + 0.25·peer_engagement + 0.25·evidence_density`
 
-- `consensus_strength`: how far the support ratio is from 0.5, scaled 0..1
-- `argument_depth`: `min(1, arg_count/7)`
-- `peer_engagement`: `min(1, unique_voters/20)`
+Philosophy: quality is the DEPTH and GROUNDEDNESS of the debate, not agreement.
+A controversial-but-well-argued thesis scores high; consensus is only a weak
+signal so we neither reward echo chambers nor punish honest disagreement.
+
+- `consensus_strength`: how far the support ratio is from 0.5, scaled 0..1 (weak weight)
+- `argument_depth`: `min(1, arg_count/8)` (Fibonacci saturation)
+- `peer_engagement`: `min(1, unique_voters/21)` (Fibonacci; counts people, Sybil-resistant)
 - `evidence_density`: fraction of arguments carrying "study" or "authority" evidence
 
-Steers ranking on `/top` and, later, similarity matching.
+Steers ranking on `/top` (which now INCLUDES `contested` theses) and, later,
+similarity matching. A decaying **germination boost** (peak 8, ~1.5-day
+half-life) is added to `/top` and trending ranking so fresh, well-argued
+positions can surface beside established ones — the structural nudge that lets
+a good minority position sprout. Vote direction is treated neutrally
+(support == reject for visibility); we trust the majority to sort meaning.
 
 
 # Storage tiers
 
-The in-memory store is split into three maps to keep hot paths small.
+State lives in SQLite (`.data/quappe.db`, better-sqlite3, WAL). Tier is
+**derived, not stored** — every "tier" query filters by `lifecycle_state`.
+There are no separate hot/warm/cold tables.
 
-- **hot** (`theses_hot`): seedling / discussed / contested / crystallized. Full data.
-- **warm** (`theses_warm`): faded. Full data still, but excluded from listings.
-- **cold** (`theses_cold`): dormant. Full data now (MVP), later pruned to summary only.
+- **hot**: seedling / discussed / contested / crystallized. Surfaced in listings.
+- **warm**: faded. Reachable by link, excluded from listings.
+- **cold**: dormant. Reachable by link, quiet by default.
 
-A reverse index `args_by_thesis: Map<thesisId, Set<argId>>` enables O(1) argument lookup by thesis (used by heat map, activity calendar, argument counts, delete cascade).
+Argument lookup by thesis is a direct indexed query (`arguments.thesis_id`),
+used by heat map, activity calendar, argument counts and delete cascade.
 
 On every mutation:
-1. The mutation is applied.
-2. `reevaluateLifecycle(thesis_id)` recomputes state + quality_score.
-3. If the tier changed, the thesis is moved between maps.
+1. The mutation is applied (via the `data.ts` façade → `src/lib/server/db/*`).
+2. `reevaluateLifecycle(thesis_id)` recomputes state + quality_score, written back.
+3. Tier follows automatically because it is derived from `lifecycle_state`.
 4. The derived-query cache is invalidated (`bumpVersion()`).
 
 

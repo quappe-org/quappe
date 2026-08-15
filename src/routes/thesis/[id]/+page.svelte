@@ -8,7 +8,6 @@
 	import { forkFeedStore } from '$lib/stores/fork-feed.svelte';
 	import { abbreviateNumber } from '$lib/utils/format';
 	import ArgumentCard from '$lib/components/ArgumentCard.svelte';
-	import ForkLines from '$lib/components/ForkLines.svelte';
 	import VoteRow from '$lib/components/VoteRow.svelte';
 	import SwipeVote from '$lib/components/SwipeVote.svelte';
 	import ActivityGraph from '$lib/components/ActivityGraph.svelte';
@@ -63,16 +62,32 @@
 		return getUserId() === thesis.meta.author_id;
 	});
 
-	// Fork lookup
+	// --- Argument groups (fork families) ---
+	// Every argument belongs to a group identified by its root (the argument
+	// with no forked_from_id at the top of the chain). We render ONE tile per
+	// group; the root is the anchor and its forks are shown as variants.
+	interface ArgGroup {
+		root: Argument;
+		variants: Argument[]; // forks (descendants), excluding the root
+		all: Argument[]; // root + variants
+		stance: ArgumentStance;
+		groupScore: number; // combined weighted support-reject across all variants
+	}
+
 	let argIndex = $derived.by(() => {
 		const map = new Map<string, Argument>();
 		for (const a of args) map.set(a.id, a);
 		return map;
 	});
 
-	function forkSourceContent(arg: Argument): string | undefined {
-		if (!arg.forked_from_id) return undefined;
-		return argIndex.get(arg.forked_from_id)?.content;
+	function rootOf(arg: Argument): Argument {
+		let root = arg;
+		const guard = new Set<string>();
+		while (root.forked_from_id && argIndex.has(root.forked_from_id) && !guard.has(root.id)) {
+			guard.add(root.id);
+			root = argIndex.get(root.forked_from_id)!;
+		}
+		return root;
 	}
 
 	// Sort helper by weighted support-reject
@@ -86,54 +101,72 @@
 		return s;
 	}
 
-	let supportArgs = $derived.by(() => {
-		return args
-			.filter((a) => a.stance === 'support')
-			.sort((a, b) => scoreOf(b) - scoreOf(a))
-			.slice(0, complexityStore.settings.max_arguments);
+	let argGroups = $derived.by(() => {
+		const groups = new Map<string, ArgGroup>();
+		// Seed groups by root
+		for (const a of args) {
+			const root = rootOf(a);
+			let g = groups.get(root.id);
+			if (!g) {
+				g = { root, variants: [], all: [], stance: root.stance, groupScore: 0 };
+				groups.set(root.id, g);
+			}
+		}
+		// Fill members
+		for (const a of args) {
+			const root = rootOf(a);
+			const g = groups.get(root.id)!;
+			g.all.push(a);
+			if (a.id !== root.id) g.variants.push(a);
+		}
+		// Compute group score (sum across all variants)
+		for (const g of groups.values()) {
+			g.groupScore = g.all.reduce((s, a) => s + scoreOf(a), 0);
+			// Order variants by their own score (strongest first)
+			g.variants.sort((a, b) => scoreOf(b) - scoreOf(a));
+		}
+		return [...groups.values()];
 	});
 
-	let rejectArgs = $derived.by(() => {
-		return args
-			.filter((a) => a.stance === 'reject')
-			.sort((a, b) => scoreOf(b) - scoreOf(a))
-			.slice(0, complexityStore.settings.max_arguments);
-	});
+	let supportGroups = $derived.by(() =>
+		argGroups
+			.filter((g) => g.stance === 'support')
+			.sort((a, b) => b.groupScore - a.groupScore)
+			.slice(0, complexityStore.settings.max_arguments)
+	);
 
-	// "Weitere Argumente": everything below the top-column cap, sorted by
-	// time-weighted hot score (HN-style). Fresh but well-received arguments
-	// bubble upward; stale ones sink. Once the community backs them enough,
-	// they will overtake something in the top-columns naturally.
-	let poolArgs = $derived.by(() => {
+	let rejectGroups = $derived.by(() =>
+		argGroups
+			.filter((g) => g.stance === 'reject')
+			.sort((a, b) => b.groupScore - a.groupScore)
+			.slice(0, complexityStore.settings.max_arguments)
+	);
+
+	// "Weitere Argumente": groups below the top-column cap, HN-style hot score.
+	let poolGroups = $derived.by(() => {
 		const topIds = new Set<string>([
-			...supportArgs.map((a) => a.id),
-			...rejectArgs.map((a) => a.id)
+			...supportGroups.map((g) => g.root.id),
+			...rejectGroups.map((g) => g.root.id)
 		]);
 		const now = Date.now();
-		return args
-			.filter((a) => !topIds.has(a.id))
-			.map((a) => {
-				const ageDays = Math.max(0, (now - new Date(a.meta.created_at).getTime()) / (24 * 60 * 60 * 1000));
-				const score = scoreOf(a);
-				// HN-style: score / (age + 2)^1.5. +2 to prevent divide-by-zero and to soften brand-new items.
-				return { arg: a, hot: score / Math.pow(ageDays + 2, 1.5) };
+		return argGroups
+			.filter((g) => !topIds.has(g.root.id))
+			.map((g) => {
+				const ageDays = Math.max(0, (now - new Date(g.root.meta.created_at).getTime()) / (24 * 60 * 60 * 1000));
+				return { group: g, hot: g.groupScore / Math.pow(ageDays + 2, 1.5) };
 			})
 			.sort((a, b) => b.hot - a.hot)
-			.map((x) => x.arg);
+			.map((x) => x.group);
 	});
 
-	let totalSupport = $derived(args.filter((a) => a.stance === 'support').length);
-	let totalReject = $derived(args.filter((a) => a.stance === 'reject').length);
+	let totalSupport = $derived(argGroups.filter((g) => g.stance === 'support').length);
+	let totalReject = $derived(argGroups.filter((g) => g.stance === 'reject').length);
 
 	// --- Thesis voting ---
 	let voting = $state(false);
 	let currentVote = $state<VoteType | null>(null);
 	let currentWeight = $state(1);
 	let hasVotedLocally = $state(false);
-
-	// Fork-line refs
-	let supportColRef = $state<HTMLElement | null>(null);
-	let rejectColRef = $state<HTMLElement | null>(null);
 
 	$effect(() => {
 		if (typeof window === 'undefined' || !thesis || hasVotedLocally) return;
@@ -145,11 +178,12 @@
 
 	async function castThesisVote(type: VoteType, weight: number) {
 		if (voting || !thesis) return;
-		const isCycleReset = currentVote === type && weight === 1 && currentWeight >= 3;
-		const chargeable = (type === 'support' || type === 'reject') && !isCycleReset;
+		// Base weight-1 votes are free; only extra weight draws from the pool.
+		const isRetract = currentVote === type && currentWeight === weight;
+		const chargeable = !isRetract && (type === 'support' || type === 'reject') && weight > 1;
 		if (chargeable) {
-			if (!budgetStore.canAffordVotes(1)) return;
-			budgetStore.spendVotes(1);
+			if (!budgetStore.canAffordWeight(weight)) return;
+			budgetStore.spendWeight(weight);
 		}
 		voting = true;
 		try {
@@ -160,7 +194,7 @@
 				body: JSON.stringify({ type, weight, user_id: userId })
 			});
 			if (!res.ok) {
-				if (chargeable) budgetStore.refundVotes(1);
+				if (chargeable) budgetStore.refundWeight(weight);
 				return;
 			}
 			const responseData = await res.json();
@@ -268,6 +302,15 @@
 		}
 
 		argSubmitting = true;
+		// Creating (or forking) an argument spends the per-stance daily bucket.
+		if (!budgetStore.canCreateArgument(argStance)) {
+			argError = argStance === 'support'
+				? m.argcol_add_disabled_support()
+				: m.argcol_add_disabled_reject();
+			argSubmitting = false;
+			return;
+		}
+		budgetStore.spendArgument(argStance);
 		try {
 			const res = await fetch('/api/arguments', {
 				method: 'POST',
@@ -282,6 +325,7 @@
 				})
 			});
 			if (!res.ok) {
+				budgetStore.refundArgument(argStance);
 				argError = await extractError(res);
 				return;
 			}
@@ -574,18 +618,17 @@
 							onclick={() => openNewArg('support')}
 						>{m.argcol_add_arg()}</button>
 					</div>
-					<div class="arguments-list" bind:this={supportColRef}>
-						<ForkLines arguments={supportArgs} container={supportColRef} />
-						{#each supportArgs as arg, idx (arg.id)}
-							<ArgumentCard
-								argument={arg}
-								leading={idx === 0}
-								forkedFromContent={forkSourceContent(arg)}
-								onFork={openFork}
-								onEdit={openEdit}
-							/>
-						{/each}
-						{#if supportArgs.length === 0}
+				<div class="arguments-list">
+						{#each supportGroups as g, idx (g.root.id)}
+						<ArgumentCard
+							argument={g.root}
+							leading={idx === 0}
+							variants={g.variants}
+							onFork={openFork}
+							onEdit={openEdit}
+						/>
+					{/each}
+					{#if supportGroups.length === 0}
 							<p class="col-empty">{m.argcol_empty_support()}</p>
 						{/if}
 					</div>
@@ -603,18 +646,17 @@
 							onclick={() => openNewArg('reject')}
 						>{m.argcol_add_arg()}</button>
 					</div>
-					<div class="arguments-list" bind:this={rejectColRef}>
-						<ForkLines arguments={rejectArgs} container={rejectColRef} />
-						{#each rejectArgs as arg, idx (arg.id)}
-							<ArgumentCard
-								argument={arg}
-								leading={idx === 0}
-								forkedFromContent={forkSourceContent(arg)}
-								onFork={openFork}
-								onEdit={openEdit}
-							/>
-						{/each}
-						{#if rejectArgs.length === 0}
+				<div class="arguments-list">
+					{#each rejectGroups as g, idx (g.root.id)}
+						<ArgumentCard
+							argument={g.root}
+							leading={idx === 0}
+							variants={g.variants}
+							onFork={openFork}
+							onEdit={openEdit}
+						/>
+					{/each}
+					{#if rejectGroups.length === 0}
 							<p class="col-empty">{m.argcol_empty_reject()}</p>
 						{/if}
 					</div>
@@ -626,26 +668,26 @@
 					<h3 class="argument-pool-title">{m.argpool_title()}</h3>
 					<p class="argument-pool-hint">{m.argpool_hint()}</p>
 				</header>
-				{#if poolArgs.length === 0}
+				{#if poolGroups.length === 0}
 					<p class="argument-pool-empty">{m.argpool_empty()}</p>
 				{:else}
 					<ul class="argument-pool-list">
-						{#each poolArgs as arg (arg.id)}
-							<li class="argument-pool-item" class:is-support={arg.stance === 'support'} class:is-reject={arg.stance === 'reject'}>
-								<span class="argument-pool-stance argument-pool-stance-{arg.stance}">
-									{arg.stance === 'support' ? m.argpool_stance_support() : m.argpool_stance_reject()}
+						{#each poolGroups as g (g.root.id)}
+							<li class="argument-pool-item" class:is-support={g.stance === 'support'} class:is-reject={g.stance === 'reject'}>
+								<span class="argument-pool-stance argument-pool-stance-{g.stance}">
+									{g.stance === 'support' ? m.argpool_stance_support() : m.argpool_stance_reject()}
 								</span>
-								<ArgumentCard
-									argument={arg}
-									forkedFromContent={forkSourceContent(arg)}
-									onFork={openFork}
-									onEdit={openEdit}
-								/>
+							<ArgumentCard
+								argument={g.root}
+								variants={g.variants}
+								onFork={openFork}
+								onEdit={openEdit}
+							/>
 							</li>
 						{/each}
 					</ul>
 				{/if}
-				{#if args.length > supportArgs.length + rejectArgs.length + poolArgs.length}
+				{#if argGroups.length > supportGroups.length + rejectGroups.length + poolGroups.length}
 					<p class="complexity-note">{m.complexity_slider_hint()}</p>
 				{/if}
 			</section>

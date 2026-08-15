@@ -4,6 +4,7 @@
 
 import type { Thesis, Argument, Vote, VoteSummary, LifecycleState } from '../models/types.ts';
 import { computeLifecycle } from '../models/lifecycle.ts';
+import { normalizeVoteWeight } from '../models/fibonacci.ts';
 import { logger } from './logger.ts';
 import { extractHashtags, extractHashtagsFrom } from '../hashtags.ts';
 
@@ -207,13 +208,16 @@ export function createThesis(
 		}
 	};
 	dbInsertThesis(thesis);
+	// Auto-upvote: author implicitly supports their own thesis
+	dbUpsertVote('thesis', thesis.id, author_id, 'support', 1, created);
 	bumpVersion();
 	logger.info('store', 'thesis created', {
 		thesis_id: thesis.id,
 		title: title.length > 60 ? title.slice(0, 57) + '…' : title,
 		categories
 	});
-	return thesis;
+	// Return with the auto-vote included
+	return dbGetThesisById(thesis.id) ?? thesis;
 }
 
 export function updateThesis(
@@ -308,7 +312,7 @@ export function voteOnThesis(
 ): Thesis | undefined {
 	if (!dbHasThesis(thesis_id)) return undefined;
 
-	const w = Math.max(1, Math.min(5, Math.floor(weight)));
+	const w = normalizeVoteWeight(weight);
 	const existingVote = dbGetUserVoteOn('thesis', thesis_id, user_id);
 	let action: 'retracted' | 'changed' | 'added' | 'reweighted';
 	if (existingVote && existingVote.type === type && (existingVote.weight ?? 1) === w) {
@@ -334,9 +338,34 @@ export function voteOnThesis(
 	return dbGetThesisById(thesis_id);
 }
 
+// Germination boost: young theses/arguments get a decaying visibility bonus so
+// a good NEW position has a fair chance to sprout against an established
+// majority. This is the structural nudge toward "the good can keim" — it does
+// NOT interpret vote direction (support/reject are treated equally; we trust
+// the majority to sort meaning). It only levels the playing field for freshness.
+//
+// The bonus starts at GERMINATION_PEAK and decays exponentially with a ~1.5-day
+// half-life, reaching ~0 after roughly 5 days.
+const GERMINATION_PEAK = 8; // Fibonacci
+const GERMINATION_HALFLIFE_MS = 1.5 * 24 * 60 * 60 * 1000;
+
+export function germinationBoost(createdAtIso: string, now: number = Date.now()): number {
+	const created = Date.parse(createdAtIso);
+	if (!Number.isFinite(created)) return 0;
+	const ageMs = Math.max(0, now - created);
+	return GERMINATION_PEAK * Math.pow(0.5, ageMs / GERMINATION_HALFLIFE_MS);
+}
+
 export function getTrendingTheses(limit: number = 10): Thesis[] {
 	const arr = dbGetHotTheses().filter((t) => !t.archived);
-	arr.sort((a, b) => b.votes.length - a.votes.length);
+	const now = Date.now();
+	// Rank by engagement (direction-neutral vote volume) PLUS a germination
+	// boost so fresh positions can surface next to established ones.
+	arr.sort(
+		(a, b) =>
+			b.votes.length + germinationBoost(b.meta.created_at, now) -
+			(a.votes.length + germinationBoost(a.meta.created_at, now))
+	);
 	return arr.slice(0, limit);
 }
 
@@ -516,12 +545,24 @@ export function getActivityCalendar(thesis_id: string | null, days: number = 84)
 
 export function getTopTheses(limit: number = 10): Thesis[] {
 	const withCount: { thesis: Thesis; score: number }[] = [];
+	const now = Date.now();
 	for (const t of dbGetHotTheses()) {
 		if (t.archived) continue;
-		if (t.lifecycle.state !== 'crystallized' && t.lifecycle.state !== 'discussed') continue;
+		// Include contested theses: honest controversy is not a defect. Quality
+		// (depth + evidence + engagement) drives ranking, not agreement. Only the
+		// quiet tiers (faded/dormant) are excluded via dbGetHotTheses().
+		if (
+			t.lifecycle.state !== 'crystallized' &&
+			t.lifecycle.state !== 'discussed' &&
+			t.lifecycle.state !== 'contested'
+		)
+			continue;
 		let support = 0;
 		for (const v of t.votes) if (v.type === 'support') support++;
-		const score = t.lifecycle.quality_score * 1000 + support;
+		// Quality dominates; support and a decaying germination boost break ties
+		// so fresh, well-argued positions can rise beside established ones.
+		const score =
+			t.lifecycle.quality_score * 1000 + support + germinationBoost(t.meta.created_at, now);
 		withCount.push({ thesis: t, score });
 	}
 	withCount.sort((a, b) => b.score - a.score);
@@ -614,6 +655,19 @@ export function createArgument(
 	};
 
 	dbInsertArgument(argument);
+	// Auto-upvote: author implicitly supports their own argument
+	dbUpsertVote('argument', argument.id, author_id, 'support', 1, created);
+
+	// Vote migration: if this is a fork and the author had voted on the original,
+	// move that vote to the new fork (the author prefers the new version).
+	if (forked_from_id) {
+		const existingVote = dbGetUserVoteOn('argument', forked_from_id, author_id);
+		if (existingVote) {
+			dbDeleteVote('argument', forked_from_id, author_id);
+			dbUpsertVote('argument', argument.id, author_id, existingVote.type, existingVote.weight ?? 1, created);
+		}
+	}
+
 	reevaluateLifecycle(thesis_id);
 	bumpVersion();
 	logger.info('store', forked_from_id ? 'argument forked' : 'argument created', {
@@ -622,7 +676,8 @@ export function createArgument(
 		stance,
 		forked_from: forked_from_id ?? undefined
 	});
-	return argument;
+	// Return with the auto-vote included
+	return dbGetArgumentById(argument.id) ?? argument;
 }
 
 export function updateArgument(
@@ -665,11 +720,19 @@ export function voteOnArgument(
 	const argument = dbGetArgumentById(argument_id);
 	if (!argument) return undefined;
 
-	const w = Math.max(1, Math.min(5, Math.floor(weight)));
+	const w = normalizeVoteWeight(weight);
 	const existingVote = dbGetUserVoteOn('argument', argument_id, user_id);
 	if (existingVote && existingVote.type === type && (existingVote.weight ?? 1) === w) {
 		dbDeleteVote('argument', argument_id, user_id);
 	} else {
+		// One vote per argument group: casting a vote on one variant retracts
+		// this user's vote on all sibling variants (same fork family).
+		const groupIds = getArgumentGroupIds(argument);
+		for (const siblingId of groupIds) {
+			if (siblingId === argument_id) continue;
+			const sv = dbGetUserVoteOn('argument', siblingId, user_id);
+			if (sv) dbDeleteVote('argument', siblingId, user_id);
+		}
 		dbUpsertVote('argument', argument_id, user_id, type, w, nowIso());
 	}
 
@@ -683,6 +746,35 @@ export function voteOnArgument(
 		weight: w
 	});
 	return dbGetArgumentById(argument_id);
+}
+
+// Resolve every argument id belonging to the same fork family as `argument`.
+// The family = the root argument (no forked_from_id) plus all its descendants.
+function getArgumentGroupIds(argument: Argument): string[] {
+	const all = dbGetArgumentsForThesis(argument.thesis_id);
+	const byId = new Map<string, Argument>(all.map((a) => [a.id, a]));
+
+	// Walk up to the root
+	let root = argument;
+	const guard = new Set<string>();
+	while (root.forked_from_id && byId.has(root.forked_from_id) && !guard.has(root.id)) {
+		guard.add(root.id);
+		root = byId.get(root.forked_from_id)!;
+	}
+
+	// Collect all descendants of root (BFS)
+	const groupIds = new Set<string>([root.id]);
+	let added = true;
+	while (added) {
+		added = false;
+		for (const a of all) {
+			if (a.forked_from_id && groupIds.has(a.forked_from_id) && !groupIds.has(a.id)) {
+				groupIds.add(a.id);
+				added = true;
+			}
+		}
+	}
+	return [...groupIds];
 }
 
 export function deleteArgument(id: string): boolean {

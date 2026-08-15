@@ -39,34 +39,43 @@ We search commonalities (can be several) to a specific Thesis.
 - Arguments support or reject a Thesis (**stance** field, mandatory: `support` | `reject`).
 - Arguments are votable (support | reject | neutral).
 - Arguments carry evidence attributes (evidence_type + optional source_url).
-- Arguments per Thesis: max 7 (adjustable down to 1 via complexity slider).
-- **No reply chains.** Instead of replying to an argument, users **fork** it: copy the content, adapt it, and submit as new argument in the same stance. Both versions coexist; the crowd decides via votes which version they support.
-- A fork is visually connected to its parent by a **red dashed thread** in the UI.
+- Arguments per Thesis: Fibonacci-capped, up to 8 per stance (adjustable down to 1 via complexity slider).
+- **No reply chains.** Instead of replying to an argument, users **fork** it: copy the content, adapt it, and submit as a new *variant* in the same stance. Root + variants form one *argument group*.
+- A group renders as ONE card: leading variant shown, expandable into a radio-list picker. One vote per group; picking a variant moves your vote there.
 - Same principle will later apply to Thesis (fork instead of edit-war).
 
 ## Voting
 - Support | Reject | Neutral, for both Theses and Arguments.
 - Each anonymous user votes once. Casting the same vote again retracts it (toggle).
-- Reading and voting are always free (no budget cost).
+- For an argument GROUP (a fork family), a user has ONE vote across all variants — voting a variant moves the vote off its siblings.
+- Reading and base voting (weight 1) are always free. Only extra vote *weight* costs budget.
+- Vote direction is treated neutrally for visibility (support == reject). We do not assume reject = "bad"; a contra-argument can be up-voted for quality. The majority sorts meaning.
 
 ## Weighting
-- Theses and arguments carry weight based on:
+- A vote's weight walks a Fibonacci ladder: **1 → 2 → 3 → 5 → 8** (then resets). A strong opinion costs disproportionately more, which dampens weight-stacking abuse.
+- Beyond raw votes, theses/arguments carry qualitative weight from:
   - Linked evidence (quality and quantity)
   - Chain of reasoning (logical coherence)
   - Peer endorsement (others vouch for structure, not conclusion)
 - Unqualified opinions are visible but carry less weight.
 
-## Input Budget
-- Participation is a currency. Users have **three separate daily buckets**, each 7 actions per day, resetting at midnight (local browser day):
-  - **Thesis**: 7 new theses per day
-  - **Support argument**: 7 support arguments per day
-  - **Reject argument**: 7 reject arguments per day
-- Reading, exploring, voting is free.
+## Input Budget (Fibonacci-flavoured)
+- Participation is a currency, enforced **server-side** (client store is only an optimistic mirror). Reset at UTC midnight:
+  - **Thesis**: 8 new theses / day
+  - **Support argument**: 8 / day
+  - **Reject argument**: 8 / day
+  - **Vote weight pool**: 21 extra weight-points / day (base weight-1 votes are free)
+- Reading, exploring and base voting are free.
 - Editing your own thesis/argument does **not** cost budget.
-- Forking an argument costs budget (it counts as a new argument in the respective stance bucket).
+- Forking an argument spends the respective stance bucket (it is a new variant).
+- A freshly-minted identity may cast base votes only for its first minute (Sybil dampener) — no weighted votes until the identity matures.
 - This forces thoughtfulness and naturally limits trolling.
 - Budget is generous - it's a nudge, not a gate.
 - The point: input must have value. This is not a comment section.
+
+## Germination (letting the good keim)
+- Young theses/arguments get a decaying visibility bonus (peak 8, ~1.5-day half-life) on trending / top ranking.
+- This is the structural nudge so a good NEW minority position can sprout beside an established majority — even if the current majority is "wrong", better ideas get a fair window to grow. Direction-neutral: it rewards freshness, not a side.
 
 ## Categories
 - Every Thesis has 1..n categories (e.g. education, policy, health, ...).
@@ -98,11 +107,15 @@ We search commonalities (can be several) to a specific Thesis.
   - **cold** (blue): no 24h activity
 
 ## Complexity Slider
-- Users can choose depth: top 3 arguments vs. full graph (up to 7 arguments / 62 Theses).
+- Discrete **Fibonacci** steps (not linear) so choices feel natural and help people focus instead of drowning in a continuum.
+  - Theses: 3 · 5 · 8 · 13 · 21 · 34 · 55
+  - Arguments (per stance): 1 · 2 · 3 · 5 · 8
+  - Related: 3 · 5 · 8 · 13
+- One slider index drives all three dimensions in lockstep.
 - Simplified language mode available (later).
 - TL;DR summaries generated from the argumentation structure (later).
 - Affects both the list view and the graph view.
-- Present in right sidebar on all views (except settings).
+- Present in left sidebar on all views (except settings).
 
 
 # What it is not
@@ -144,19 +157,19 @@ It needs a UID, but we want full anonymity (no visible username, only arguments 
 # Implementation
 
 ## MVP (Phase 1) - current
-- Single instance, no login, in-memory data store, seeded with ~100 example theses.
-- Core: Thesis CRUD (create, edit, archive), Arguments with stance + fork, Voting (with toggle), Category drill-down, Complexity Slider, Input Budget (3 buckets), Activity Streamgraph, Heat Indicator, About page.
-- **Lifecycle model**: theses transition through seedling → discussed → contested → crystallized → faded → dormant deterministically; storage tiers (hot/warm/cold) keep hot paths small.
-- **Realistic scale ceiling**: 1 M theses / ~17 M vote objects run in one Node process (~3.6 GB heap, ~85 ms trending list, ~2 s cold heat map, cached queries near-instant). Beyond that a real DB is required.
-- Anonymous UUID per browser (localStorage), used for vote uniqueness and author check on edit.
-- No auth, no rate limiting yet.
+- Single instance, **SQLite** (`.data/quappe.db`, better-sqlite3, WAL), seeded with ~200 example theses.
+- Core: Thesis CRUD (create, edit, archive), Arguments with stance + fork variants, Voting (toggle + Fibonacci weight), Category drill-down, Fibonacci Complexity Slider, server-enforced Input Budget (3 stance buckets + weight pool), Activity Streamgraph, Heat Indicator, About page.
+- **Lifecycle model**: theses transition through seedling → discussed → contested → crystallized → faded → dormant deterministically; tier is derived from `lifecycle_state`.
+- **Quality score** rewards discourse depth + evidence + engagement over mere agreement; `/top` includes contested theses; a germination boost lets fresh positions surface.
+- **Identity**: anonymous, server-minted **JWT** (HS256) in an httpOnly cookie. `iat`/`exp` claims enable Sybil heuristics (fresh identities can't cast weighted votes for the first minute). Body `user_id`/`author_id` fields are ignored — only the verified token counts.
+- **Abuse guards**: server-side daily budget enforcement, per-IP + per-user token-bucket rate limits, length caps, body-size cap.
 
 ## Phase 2
-- Persistent DB (Postgres or similar).
-- Auth (UUID + magic link), API keys, configurable rate limits.
+- Persistent DB → managed Postgres or similar (SQLite already covers single-instance).
+- Auth (magic link) on top of the existing JWT identity; API keys; configurable rate limits.
 - Multi-user with anonymous identity.
 - RBAC roles: user | qualified user | moderator | admin.
-- Similarity detection via local LLM.
+- Stronger Sybil resistance (proof-of-work / attestation), similarity detection via local LLM.
 
 ## Phase 3
 - Scale: API backbone for mobile apps.

@@ -1,50 +1,30 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getVotesByUserSince, getThesesByAuthor } from '$lib/stores/data';
+import { getVotesByUserSince, getThesesByAuthor, getArgumentsByAuthor } from '$lib/stores/data';
+import { getBudgetStatus, todayStartIso } from '$lib/server/budget';
 
-const VOTE_LIMIT = 62;
-const THESIS_LIMIT = 7;
-
+// Recent activity feed, decorated onto the authoritative budget status.
 interface BudgetEvent {
-	kind: 'vote' | 'thesis';
+	kind: 'vote' | 'thesis' | 'argument';
 	at: string;
 	thesis_id: string;
 	thesis_title: string;
 	vote_type?: string;
 	weight?: number;
 	target?: 'thesis' | 'argument';
+	stance?: 'support' | 'reject';
 }
 
-interface BudgetToday {
-	date: string;
-	votes_spent: number;
-	votes_limit: number;
-	votes_remaining: number;
-	theses_created: number;
-	theses_limit: number;
-	theses_remaining: number;
-	events: BudgetEvent[];
-}
+export const GET: RequestHandler = async ({ locals }) => {
+	const user_id = locals.user_id;
+	const status = getBudgetStatus(user_id);
+	const { iso: sinceIso } = todayStartIso();
 
-function todayStart(): { dateOnly: string; iso: string } {
-	const now = new Date();
-	const dateOnly = now.toISOString().split('T')[0];
-	return { dateOnly, iso: `${dateOnly}T00:00:00.000Z` };
-}
-
-function aggregateToday(user_id: string): BudgetToday {
-	const { dateOnly, iso: sinceIso } = todayStart();
-
-	// Each support/reject cast costs 1 point regardless of weight; each extra weight point costs 1 more.
-	// Neutral is free.
-	const votes = getVotesByUserSince(user_id, sinceIso).filter(
-		(v) => v.vote_type === 'support' || v.vote_type === 'reject'
-	);
-
-	let votes_spent = 0;
 	const events: BudgetEvent[] = [];
-	for (const v of votes) {
-		votes_spent += 1 + Math.max(0, v.weight - 1);
+
+	// Votes cast today (base votes free; extra weight is what costs).
+	for (const v of getVotesByUserSince(user_id, sinceIso)) {
+		if (v.vote_type !== 'support' && v.vote_type !== 'reject') continue;
 		events.push({
 			kind: 'vote',
 			at: v.cast_at,
@@ -56,31 +36,23 @@ function aggregateToday(user_id: string): BudgetToday {
 		});
 	}
 
-	// Theses created today by this user.
-	const authored = getThesesByAuthor(user_id).filter((t) => t.meta.created_at >= sinceIso);
-	for (const t of authored) {
+	// Theses created today.
+	for (const t of getThesesByAuthor(user_id).filter((t) => t.meta.created_at >= sinceIso)) {
+		events.push({ kind: 'thesis', at: t.meta.created_at, thesis_id: t.id, thesis_title: t.title });
+	}
+
+	// Arguments created today (support/reject buckets).
+	for (const a of getArgumentsByAuthor(user_id).filter((a) => a.meta.created_at >= sinceIso)) {
 		events.push({
-			kind: 'thesis',
-			at: t.meta.created_at,
-			thesis_id: t.id,
-			thesis_title: t.title
+			kind: 'argument',
+			at: a.meta.created_at,
+			thesis_id: a.thesis_id,
+			thesis_title: '',
+			stance: a.stance
 		});
 	}
 
 	events.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
 
-	return {
-		date: dateOnly,
-		votes_spent,
-		votes_limit: VOTE_LIMIT,
-		votes_remaining: Math.max(0, VOTE_LIMIT - votes_spent),
-		theses_created: authored.length,
-		theses_limit: THESIS_LIMIT,
-		theses_remaining: Math.max(0, THESIS_LIMIT - authored.length),
-		events
-	};
-}
-
-export const GET: RequestHandler = async ({ locals }) => {
-	return json(aggregateToday(locals.user_id));
+	return json({ ...status, events });
 };

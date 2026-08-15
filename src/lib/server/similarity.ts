@@ -75,7 +75,7 @@ export function findSimilarTheses(
 		scored.push({ thesis, score: cosineSimilarity(queryEmbedding, embedding) });
 	}
 	scored.sort((a, b) => b.score - a.score);
-	return scored.slice(0, topN).filter((s) => s.score > 0.4);
+	return scored.slice(0, topN).filter((s) => s.score > 0.6);
 }
 
 // ---- Similar arguments ----

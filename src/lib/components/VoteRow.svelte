@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { VoteSummary, VoteType } from '$lib/models/types';
 	import { abbreviateNumber } from '$lib/utils/format';
+	import { nextFibWeight, FIB_WEIGHTS } from '$lib/models/fibonacci';
 	import { m } from '$lib/paraglide/messages';
 
 	interface Props {
@@ -27,11 +28,11 @@
 		e.preventDefault();
 		e.stopPropagation();
 
-		let targetWeight = 1;
+		// Weight cycles along the Fibonacci ladder (1 → 2 → 3 → 5 → 8 → reset).
+		// A fresh vote on a new stance starts at the first step.
+		let targetWeight = FIB_WEIGHTS[0];
 		if (currentVote === type) {
-			if (currentWeight >= 3) targetWeight = 1;
-			else targetWeight = currentWeight + 1;
-			if (targetWeight === currentWeight) targetWeight = 1;
+			targetWeight = nextFibWeight(currentWeight);
 		}
 
 		oncast?.(type, targetWeight);

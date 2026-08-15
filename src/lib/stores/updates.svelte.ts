@@ -12,8 +12,10 @@ export interface UpdateEvent {
 	thesis_title: string;
 	original_argument_id?: string;
 	original_content?: string;
+	original_votes?: number;
 	fork_argument_id?: string;
 	fork_content?: string;
+	fork_votes?: number;
 	argument_id?: string;
 	argument_stance?: 'support' | 'reject';
 	argument_content?: string;

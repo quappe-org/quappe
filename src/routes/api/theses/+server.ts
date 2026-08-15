@@ -14,6 +14,7 @@ import { suggestCategories } from '$lib/server/similarity';
 import { detectLanguage } from '$lib/server/language-detect';
 import { DEFAULT_CATEGORIES } from '$lib/models/types';
 import { checkLength, checkCategories, checkRate, getClientIp } from '$lib/server/limits';
+import { checkThesisBudget } from '$lib/server/budget';
 
 export const GET: RequestHandler = async ({ url }) => {
 	seedData();
@@ -57,6 +58,10 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals }
 	if (descErr) return descErr;
 	const catErr = checkCategories(categories);
 	if (catErr) return catErr;
+
+	// Server-side daily budget enforcement (authority; client store is a mirror).
+	const budgetErr = checkThesisBudget(locals.user_id);
+	if (budgetErr) return budgetErr;
 
 	const thesis = createThesis(title, description, categories, locals.user_id, location);
 

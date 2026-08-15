@@ -42,7 +42,7 @@
 		return currentPath.startsWith(path);
 	}
 
-	let unreadCount = $derived(updatesSeen.unreadCount(updatesStore.events));
+	let unreadCount = $derived(updatesSeen.unreadCount(updatesStore.events) + forkFeedStore.pending.length);
 
 	async function newThesis() {
 		uiIntents.requestNewThesis();
@@ -51,17 +51,25 @@
 
 	// ---- Budget expand ----
 	interface BudgetEventLite {
-		kind: 'vote' | 'thesis';
+		kind: 'vote' | 'thesis' | 'argument';
 		at: string;
 		thesis_id: string;
 		thesis_title: string;
 		vote_type?: string;
 		weight?: number;
+		stance?: 'support' | 'reject';
+	}
+	interface BudgetBucketLite {
+		spent: number;
+		limit: number;
+		remaining: number;
 	}
 	interface BudgetLite {
 		date: string;
-		votes_spent: number;
-		theses_created: number;
+		theses: BudgetBucketLite;
+		support_args: BudgetBucketLite;
+		reject_args: BudgetBucketLite;
+		weight_points: BudgetBucketLite;
 		events: BudgetEventLite[];
 	}
 	let budgetExpanded = $state(false);
@@ -77,7 +85,7 @@
 			if (res.ok) {
 				budgetData = await res.json();
 				budgetFetchedAt = Date.now();
-				if (budgetData) budgetStore.syncFromServer(budgetData.votes_spent, budgetData.theses_created);
+				if (budgetData) budgetStore.syncFromServer(budgetData);
 			}
 		} catch {
 			// silent — the /my page has full details anyway
@@ -112,6 +120,7 @@
 
 	function eventLabel(e: BudgetEventLite): string {
 		if (e.kind === 'thesis') return `+ ${e.thesis_title}`;
+		if (e.kind === 'argument') return `${e.stance === 'support' ? '+' : '−'} arg`;
 		return `×${e.weight ?? 1} ${e.vote_type} · ${e.thesis_title}`;
 	}
 </script>
@@ -169,49 +178,9 @@
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
 					{m.nav_new_thesis()}
 				</button>
-			</nav>
+		</nav>
 
-			{#if mounted && forkFeedStore.pending.length > 0}
-				<div class="panel fork-feed-panel">
-					<h3 class="panel-title">
-						<span class="fork-feed-bell">
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-						</span>
-						{m.panel_fork_updates_title()}
-						<span class="fork-feed-badge">{forkFeedStore.pending.length}</span>
-					</h3>
-					<p class="panel-hint">{m.panel_fork_updates_hint()}</p>
-					<div class="fork-feed-list">
-						{#each forkFeedStore.pending as item (item.original_id + item.fork_id)}
-							<div class="fork-feed-item">
-								<p class="fork-feed-thesis">{item.thesis_title}</p>
-								<div class="fork-feed-versions">
-									<div class="fork-version fork-version-old">
-										<span class="fork-version-label">{m.panel_fork_updates_old_label()}</span>
-										<p class="fork-version-text">{item.original_content.slice(0, 80)}{item.original_content.length > 80 ? '…' : ''}</p>
-									</div>
-									<div class="fork-version fork-version-new">
-										<span class="fork-version-label fork-version-label-new">{m.panel_fork_updates_new_label()}</span>
-										<p class="fork-version-text">{item.fork_content.slice(0, 80)}{item.fork_content.length > 80 ? '…' : ''}</p>
-									</div>
-								</div>
-								<div class="fork-feed-actions">
-									<button
-										class="btn btn-sm fork-action-btn"
-										onclick={() => forkFeedStore.resolve(item.original_id, item.fork_id)}
-									>{m.panel_fork_updates_keep_old()}</button>
-									<button
-										class="btn btn-sm fork-action-btn fork-action-new"
-										onclick={() => forkFeedStore.resolve(item.original_id, item.fork_id)}
-									>{m.panel_fork_updates_switch_new()}</button>
-								</div>
-							</div>
-						{/each}
-					</div>
-				</div>
-			{/if}
-
-			<div class="panel budget-panel">
+		<div class="panel budget-panel">
 				<button class="budget-header" onclick={toggleBudget} aria-expanded={budgetExpanded}>
 					<h3 class="panel-title">{m.panel_budget_title()}</h3>
 					<svg class="budget-chevron" class:budget-chevron-open={budgetExpanded} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -219,18 +188,32 @@
 				<p class="panel-hint">{m.panel_budget_hint()}</p>
 				<div class="budget-list">
 					<div class="budget-row">
-						<span class="budget-label">{m.panel_budget_votes()}</span>
-						<span class="budget-bar">
-							<span class="budget-bar-fill" style="width: {(budgetStore.votesRemaining / budgetStore.votesLimit) * 100}%"></span>
-						</span>
-						<span class="budget-count" class:low={budgetStore.votesRemaining === 0}>{budgetStore.votesRemaining}/{budgetStore.votesLimit}</span>
-					</div>
-					<div class="budget-row">
 						<span class="budget-label">{m.panel_budget_theses()}</span>
 						<span class="budget-bar">
 							<span class="budget-bar-fill" style="width: {(budgetStore.thesesRemaining / budgetStore.thesesLimit) * 100}%"></span>
 						</span>
 						<span class="budget-count" class:low={budgetStore.thesesRemaining === 0}>{budgetStore.thesesRemaining}/{budgetStore.thesesLimit}</span>
+					</div>
+					<div class="budget-row">
+						<span class="budget-label">{m.panel_budget_support_args()}</span>
+						<span class="budget-bar">
+							<span class="budget-bar-fill" style="width: {(budgetStore.supportArgsRemaining / budgetStore.argsLimit) * 100}%"></span>
+						</span>
+						<span class="budget-count" class:low={budgetStore.supportArgsRemaining === 0}>{budgetStore.supportArgsRemaining}/{budgetStore.argsLimit}</span>
+					</div>
+					<div class="budget-row">
+						<span class="budget-label">{m.panel_budget_reject_args()}</span>
+						<span class="budget-bar">
+							<span class="budget-bar-fill" style="width: {(budgetStore.rejectArgsRemaining / budgetStore.argsLimit) * 100}%"></span>
+						</span>
+						<span class="budget-count" class:low={budgetStore.rejectArgsRemaining === 0}>{budgetStore.rejectArgsRemaining}/{budgetStore.argsLimit}</span>
+					</div>
+					<div class="budget-row">
+						<span class="budget-label">{m.panel_budget_weight()}</span>
+						<span class="budget-bar">
+							<span class="budget-bar-fill" style="width: {(budgetStore.weightRemaining / budgetStore.weightLimit) * 100}%"></span>
+						</span>
+						<span class="budget-count" class:low={budgetStore.weightRemaining === 0}>{budgetStore.weightRemaining}/{budgetStore.weightLimit}</span>
 					</div>
 				</div>
 
@@ -408,6 +391,12 @@
 		font-weight: 700;
 		border-radius: 999px;
 		line-height: 1;
+		animation: badge-pulse 2s ease-in-out infinite;
+	}
+
+	@keyframes badge-pulse {
+		0%, 100% { transform: scale(1); }
+		50% { transform: scale(1.15); }
 	}
 
 	.nav-item.active .nav-badge {
@@ -555,132 +544,6 @@
 			z-index: 90;
 			overflow-y: auto;
 		}
-	}
-
-	/* Fork Feed Panel */
-	.fork-feed-panel {
-		border-color: #f97316;
-		background: #fff7ed;
-	}
-
-	.fork-feed-bell {
-		display: inline-flex;
-		align-items: center;
-		color: #ea580c;
-	}
-
-	.fork-feed-badge {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 1.25rem;
-		height: 1.25rem;
-		padding: 0 0.3rem;
-		background: #ea580c;
-		color: white;
-		font-size: 0.65rem;
-		font-weight: 700;
-		border-radius: 999px;
-		margin-left: auto;
-	}
-
-	.fork-feed-panel .panel-title {
-		display: flex;
-		align-items: center;
-		gap: 0.375rem;
-	}
-
-	.fork-feed-list {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-	}
-
-	.fork-feed-item {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		padding: 0.625rem;
-		background: var(--color-bg);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-	}
-
-	.fork-feed-thesis {
-		font-size: var(--text-xs);
-		font-weight: 600;
-		color: var(--color-text-muted);
-		margin: 0;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.fork-feed-versions {
-		display: flex;
-		flex-direction: column;
-		gap: 0.375rem;
-	}
-
-	.fork-version {
-		display: flex;
-		flex-direction: column;
-		gap: 0.2rem;
-		padding: 0.375rem 0.5rem;
-		border-radius: var(--radius-sm);
-		border: 1px solid var(--color-border);
-	}
-
-	.fork-version-old {
-		background: var(--color-surface);
-		opacity: 0.75;
-	}
-
-	.fork-version-new {
-		background: #ecfdf5;
-		border-color: #6ee7b7;
-	}
-
-	.fork-version-label {
-		font-size: 0.6rem;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: var(--color-text-light);
-	}
-
-	.fork-version-label-new {
-		color: #059669;
-	}
-
-	.fork-version-text {
-		font-size: var(--text-xs);
-		color: var(--color-text);
-		margin: 0;
-		line-height: 1.4;
-	}
-
-	.fork-feed-actions {
-		display: flex;
-		gap: 0.375rem;
-	}
-
-	.fork-action-btn {
-		flex: 1;
-		justify-content: center;
-		font-size: var(--text-xs);
-		padding: 0.25rem 0.375rem;
-	}
-
-	.fork-action-new {
-		background: #059669;
-		color: white;
-		border-color: #059669;
-	}
-
-	.fork-action-new:hover:not(:disabled) {
-		background: #047857;
-		border-color: #047857;
 	}
 
 	/* Budget expand */

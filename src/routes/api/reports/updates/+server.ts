@@ -26,8 +26,10 @@ interface UpdateEvent {
 	// fork
 	original_argument_id?: string;
 	original_content?: string;
+	original_votes?: number;
 	fork_argument_id?: string;
 	fork_content?: string;
+	fork_votes?: number;
 	// new_argument
 	argument_id?: string;
 	argument_stance?: 'support' | 'reject';
@@ -70,6 +72,8 @@ function aggregate(user_id: string): UpdatesBody {
 			if (fork.meta.author_id === user_id) continue;
 			if (!withinWindow(fork.meta.created_at)) continue;
 			const parent = getThesisById(fork.thesis_id);
+			const originalVotes = a.votes.reduce((s, v) => s + (v.type === 'support' ? v.weight : 0), 0);
+			const forkVotes = fork.votes.reduce((s, v) => s + (v.type === 'support' ? v.weight : 0), 0);
 			events.push({
 				kind: 'fork',
 				at: fork.meta.created_at,
@@ -77,8 +81,10 @@ function aggregate(user_id: string): UpdatesBody {
 				thesis_title: parent?.title ?? '(unknown)',
 				original_argument_id: a.id,
 				original_content: snip(a.content),
+				original_votes: originalVotes,
 				fork_argument_id: fork.id,
-				fork_content: snip(fork.content)
+				fork_content: snip(fork.content),
+				fork_votes: forkVotes
 			});
 		}
 	}

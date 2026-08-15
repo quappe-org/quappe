@@ -123,41 +123,41 @@ export interface CastVoteRequest {
 	type: VoteType;
 }
 
-// Complexity slider settings
+// Complexity slider settings — values are Fibonacci steps (see models/fibonacci.ts).
 export interface ComplexitySettings {
-	max_theses: number; // 3 to 62
-	max_arguments: number; // 1 to 7
-	max_related: number; // 3 to 7
+	max_theses: number; // Fib: 3..55
+	max_arguments: number; // Fib: 1..8
+	max_related: number; // Fib: 3..13
 }
 
 export const COMPLEXITY_DEFAULTS: ComplexitySettings = {
-	max_theses: 10,
-	max_arguments: 5,
-	max_related: 5
+	max_theses: 8,
+	max_arguments: 3,
+	max_related: 8
 };
 
 export const COMPLEXITY_MIN: ComplexitySettings = {
 	max_theses: 3,
-	max_arguments: 3,
+	max_arguments: 1,
 	max_related: 3
 };
 
 export const COMPLEXITY_MAX: ComplexitySettings = {
-	max_theses: 62,
-	max_arguments: 7,
-	max_related: 7
+	max_theses: 55,
+	max_arguments: 8,
+	max_related: 13
 };
 
 // Absolute floor/ceiling that the admin can NOT go below/above
 // (protects against nonsense configuration)
 export const COMPLEXITY_HARD_MIN: ComplexitySettings = {
 	max_theses: 3,
-	max_arguments: 3,
+	max_arguments: 1,
 	max_related: 3
 };
 
 export const COMPLEXITY_HARD_MAX: ComplexitySettings = {
-	max_theses: 200,
-	max_arguments: 20,
-	max_related: 20
+	max_theses: 233,
+	max_arguments: 21,
+	max_related: 21
 };

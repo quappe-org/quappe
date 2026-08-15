@@ -36,7 +36,7 @@ Non-obvious decisions to preserve:
 
 - `Thesis` has `lifecycle: LifecycleInfo` (state + `state_since` + `quality_score`) and `lang?` (2-letter ISO, filled by a nightly LLM backfill).
 - `Argument` has `stance: 'support' | 'reject'`, `attributes: ArgumentAttribute[]` (evidence type + optional URL), optional `forked_from_id`, and `categories?` filled asynchronously by an LLM job — arguments start uncategorised on purpose.
-- `Vote` has `weight: 1..5`. Weight 1 is free; extra weight comes from the daily budget (see `src/lib/server/limits.ts`).
+- `Vote` has `weight` on a Fibonacci ladder (1, 2, 3, 5, 8). Weight 1 is free; extra weight is drawn from a daily weight pool. Daily budgets (3 stance buckets à 8 + a weight pool of 21) are enforced **server-side** in `src/lib/server/budget.ts`; `src/lib/server/limits.ts` holds length caps + rate limits. Identity is an anonymous server-minted **JWT** (`src/lib/server/identity.ts`).
 
 Lifecycle recomputation lives in `data.ts::reevaluateLifecycle(id)` (uses `models/lifecycle.ts`). It reads via DB, computes the new state, writes back with `dbUpdateThesisLifecycle`. Every mutating endpoint that could change activity calls it.
 

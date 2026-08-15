@@ -2,8 +2,10 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { voteOnArgument, computeVoteSummary } from '$lib/stores/data';
 import { checkRate, getClientIp } from '$lib/server/limits';
+import { normalizeVoteWeight } from '$lib/models/fibonacci';
+import { checkWeightBudget, checkIdentityMaturityForWeight } from '$lib/server/budget';
 
-export const POST: RequestHandler = async ({ params, request, getClientAddress, locals }) => {
+export const POST: RequestHandler = async ({ params, request, getClientAddress, locals, cookies }) => {
 	const body = await request.json();
 	const { type, weight } = body;
 	const user_id = locals.user_id;
@@ -16,7 +18,14 @@ export const POST: RequestHandler = async ({ params, request, getClientAddress, 
 		return json({ error: 'Invalid vote type. Must be support, reject, or neutral.' }, { status: 400 });
 	}
 
-	const w = typeof weight === 'number' ? Math.max(1, Math.min(5, Math.floor(weight))) : 1;
+	const w = normalizeVoteWeight(weight);
+	// Base weight-1 votes are free; extra weight draws from the daily weight pool.
+	if (type === 'support' || type === 'reject') {
+		const maturityErr = checkIdentityMaturityForWeight(cookies, w);
+		if (maturityErr) return maturityErr;
+		const budgetErr = checkWeightBudget(user_id, w);
+		if (budgetErr) return budgetErr;
+	}
 	const argument = voteOnArgument(params.id, user_id, type, w);
 
 	if (!argument) {

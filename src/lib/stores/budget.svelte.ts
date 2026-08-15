@@ -1,18 +1,24 @@
-// Daily budgets, client-side.
+// Daily budgets — client-side optimistic mirror. The SERVER is the authority
+// (src/lib/server/budget.ts enforces every write); this store just gives the
+// UI instant feedback and is reconciled via syncFromServer() on load + writes.
 //
-//  - Vote budget: 62 units. Each support/reject cast costs 1 (regardless of
-//    weight); pushing weight up by 1 also costs 1. Neutral votes are free.
-//  - Thesis budget: 7 new theses/day.
-//
-// Both reset at local midnight. Reconciled from the server on demand.
+// Model (Fibonacci-flavoured), reset at local midnight:
+//   - theses:        8/day
+//   - support args:  8/day
+//   - reject args:   8/day
+//   - weight points: 21/day  (base weight-1 votes are FREE; only extra weight costs)
 
-const VOTE_LIMIT = 62;
-const THESIS_LIMIT = 7;
+const THESIS_LIMIT = 8;
+const SUPPORT_ARG_LIMIT = 8;
+const REJECT_ARG_LIMIT = 8;
+const WEIGHT_LIMIT = 21;
 const STORAGE_KEY = 'quappe_budget';
 
 interface BudgetState {
-	votes_remaining: number;
+	weight_remaining: number;
 	theses_remaining: number;
+	support_args_remaining: number;
+	reject_args_remaining: number;
 	lastReset: string; // ISO date (YYYY-MM-DD)
 }
 
@@ -22,8 +28,10 @@ function getToday(): string {
 
 function emptyState(): BudgetState {
 	return {
-		votes_remaining: VOTE_LIMIT,
+		weight_remaining: WEIGHT_LIMIT,
 		theses_remaining: THESIS_LIMIT,
+		support_args_remaining: SUPPORT_ARG_LIMIT,
+		reject_args_remaining: REJECT_ARG_LIMIT,
 		lastReset: getToday()
 	};
 }
@@ -33,23 +41,23 @@ function loadBudget(): BudgetState {
 	const stored = localStorage.getItem(STORAGE_KEY);
 	if (!stored) return emptyState();
 	try {
-		const parsed = JSON.parse(stored) as Partial<BudgetState> & Record<string, unknown>;
-		if (
-			typeof parsed.votes_remaining !== 'number' ||
-			typeof parsed.theses_remaining !== 'number' ||
-			typeof parsed.lastReset !== 'string'
-		) {
-			return emptyState();
-		}
-		if (parsed.lastReset !== getToday()) return emptyState();
+		const p = JSON.parse(stored) as Partial<BudgetState>;
+		if (typeof p.lastReset !== 'string' || p.lastReset !== getToday()) return emptyState();
 		return {
-			votes_remaining: Math.max(0, Math.min(VOTE_LIMIT, parsed.votes_remaining)),
-			theses_remaining: Math.max(0, Math.min(THESIS_LIMIT, parsed.theses_remaining)),
-			lastReset: parsed.lastReset
+			weight_remaining: clamp(p.weight_remaining, WEIGHT_LIMIT),
+			theses_remaining: clamp(p.theses_remaining, THESIS_LIMIT),
+			support_args_remaining: clamp(p.support_args_remaining, SUPPORT_ARG_LIMIT),
+			reject_args_remaining: clamp(p.reject_args_remaining, REJECT_ARG_LIMIT),
+			lastReset: p.lastReset
 		};
 	} catch {
 		return emptyState();
 	}
+}
+
+function clamp(v: unknown, max: number): number {
+	if (typeof v !== 'number' || !Number.isFinite(v)) return max;
+	return Math.max(0, Math.min(max, v));
 }
 
 function saveBudget(state: BudgetState) {
@@ -67,30 +75,36 @@ function ensureToday() {
 }
 
 export const budgetStore = {
-	// ---- Votes ----
-	get votesRemaining() {
+	// ---- Vote weight pool (base votes are free) ----
+	get weightRemaining() {
 		ensureToday();
-		return _budget.votes_remaining;
+		return _budget.weight_remaining;
 	},
-	get votesLimit() {
-		return VOTE_LIMIT;
+	get weightLimit() {
+		return WEIGHT_LIMIT;
 	},
-	canAffordVotes(amount = 1): boolean {
+	// A vote of `weight` costs (weight - 1) points; base weight-1 is free.
+	weightCost(weight: number): number {
+		return Math.max(0, weight - 1);
+	},
+	canAffordWeight(weight: number): boolean {
 		ensureToday();
-		return _budget.votes_remaining >= amount;
+		return _budget.weight_remaining >= this.weightCost(weight);
 	},
-	spendVotes(amount = 1): boolean {
+	spendWeight(weight: number): boolean {
 		ensureToday();
-		if (_budget.votes_remaining < amount) return false;
-		_budget = { ..._budget, votes_remaining: _budget.votes_remaining - amount };
+		const cost = this.weightCost(weight);
+		if (_budget.weight_remaining < cost) return false;
+		_budget = { ..._budget, weight_remaining: _budget.weight_remaining - cost };
 		saveBudget(_budget);
 		return true;
 	},
-	refundVotes(amount = 1): void {
+	refundWeight(weight: number): void {
 		ensureToday();
+		const cost = this.weightCost(weight);
 		_budget = {
 			..._budget,
-			votes_remaining: Math.min(VOTE_LIMIT, _budget.votes_remaining + amount)
+			weight_remaining: Math.min(WEIGHT_LIMIT, _budget.weight_remaining + cost)
 		};
 		saveBudget(_budget);
 	},
@@ -123,14 +137,66 @@ export const budgetStore = {
 		saveBudget(_budget);
 	},
 
+	// ---- Arguments (per stance) ----
+	get supportArgsRemaining() {
+		ensureToday();
+		return _budget.support_args_remaining;
+	},
+	get rejectArgsRemaining() {
+		ensureToday();
+		return _budget.reject_args_remaining;
+	},
+	get argsLimit() {
+		return SUPPORT_ARG_LIMIT;
+	},
+	canCreateArgument(stance: 'support' | 'reject'): boolean {
+		ensureToday();
+		return stance === 'support'
+			? _budget.support_args_remaining > 0
+			: _budget.reject_args_remaining > 0;
+	},
+	spendArgument(stance: 'support' | 'reject'): boolean {
+		ensureToday();
+		if (stance === 'support') {
+			if (_budget.support_args_remaining <= 0) return false;
+			_budget = { ..._budget, support_args_remaining: _budget.support_args_remaining - 1 };
+		} else {
+			if (_budget.reject_args_remaining <= 0) return false;
+			_budget = { ..._budget, reject_args_remaining: _budget.reject_args_remaining - 1 };
+		}
+		saveBudget(_budget);
+		return true;
+	},
+	refundArgument(stance: 'support' | 'reject'): void {
+		ensureToday();
+		if (stance === 'support') {
+			_budget = {
+				..._budget,
+				support_args_remaining: Math.min(SUPPORT_ARG_LIMIT, _budget.support_args_remaining + 1)
+			};
+		} else {
+			_budget = {
+				..._budget,
+				reject_args_remaining: Math.min(REJECT_ARG_LIMIT, _budget.reject_args_remaining + 1)
+			};
+		}
+		saveBudget(_budget);
+	},
+
 	/**
-	 * Reconcile with server-side truth. `votesSpent` = count of today's
-	 * support/reject casts + weight bumps; `thesesCreated` = new theses today.
+	 * Reconcile with server-side truth. Values are "spent today" counts.
 	 */
-	syncFromServer(votesSpent: number, thesesCreated: number): void {
+	syncFromServer(status: {
+		weight_points?: { spent: number };
+		theses?: { spent: number };
+		support_args?: { spent: number };
+		reject_args?: { spent: number };
+	}): void {
 		_budget = {
-			votes_remaining: Math.max(0, VOTE_LIMIT - votesSpent),
-			theses_remaining: Math.max(0, THESIS_LIMIT - thesesCreated),
+			weight_remaining: Math.max(0, WEIGHT_LIMIT - (status.weight_points?.spent ?? 0)),
+			theses_remaining: Math.max(0, THESIS_LIMIT - (status.theses?.spent ?? 0)),
+			support_args_remaining: Math.max(0, SUPPORT_ARG_LIMIT - (status.support_args?.spent ?? 0)),
+			reject_args_remaining: Math.max(0, REJECT_ARG_LIMIT - (status.reject_args?.spent ?? 0)),
 			lastReset: getToday()
 		};
 		saveBudget(_budget);

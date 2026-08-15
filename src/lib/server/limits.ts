@@ -1,6 +1,7 @@
 // Server-side abuse guards: length caps + per-IP + per-user rate limits.
-// In-memory, MVP-scale. Bucket state resets on server restart, which is fine
-// while the data store itself is also in-memory.
+// In-memory, MVP-scale. Bucket state resets on server restart. Domain data
+// itself lives in SQLite (.data/quappe.db); only these ephemeral rate buckets
+// are in-memory. Daily participation budgets live in src/lib/server/budget.ts.
 
 import { json } from '@sveltejs/kit';
 

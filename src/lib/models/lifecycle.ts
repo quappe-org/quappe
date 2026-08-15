@@ -123,23 +123,34 @@ export function deriveLifecycleState(snap: ActivitySnapshot, nowMs: number): Lif
 	return 'discussed';
 }
 
-/** Quality score in [0..1]. Composite; see .project skill. */
+/** Quality score in [0..1]. Composite; see .project skill.
+ *
+ * Philosophy (deliberate): quality is the DEPTH and GROUNDEDNESS of the
+ * discourse, not mere agreement. A controversial-but-well-argued thesis should
+ * score HIGH — punishing polarisation would silence legitimate disagreement and
+ * stop good minority positions from germinating. So consensus is only a weak
+ * signal; argument depth, real engagement and evidence carry the weight.
+ */
 export function computeQualityScore(snap: ActivitySnapshot): number {
-	// consensus_strength: 0 (perfectly split) .. 1 (unanimous)
+	// consensus_strength: 0 (perfectly split) .. 1 (unanimous). Weak signal only —
+	// we do NOT want to reward echo chambers or penalise honest controversy.
 	const decisiveTotal = snap.support_votes + snap.reject_votes;
 	const supportRatio = decisiveTotal > 0 ? snap.support_votes / decisiveTotal : 0.5;
 	const consensus = Math.abs(supportRatio - 0.5) * 2;
 
-	// argument_depth: normalised to 7 as "saturated" argument pool
-	const argDepth = Math.min(1, snap.arg_count / 7);
+	// argument_depth: normalised to 8 (Fibonacci) as a "saturated" argument pool.
+	const argDepth = Math.min(1, snap.arg_count / 8);
 
-	// peer_engagement: normalised to 20 unique voters
-	const engagement = Math.min(1, snap.unique_voters / 20);
+	// peer_engagement: normalised to 21 (Fibonacci) unique voters. Counts people,
+	// not weight — Sybil-resistant and rewards genuine breadth of participation.
+	const engagement = Math.min(1, snap.unique_voters / 21);
 
-	// evidence_density: fraction of args with strong evidence
+	// evidence_density: fraction of args with strong evidence (study/authority).
+	// This is the heart of the vision — "qualify yourself" — so it weighs heavily.
 	const evidence = snap.arg_count > 0 ? snap.arg_with_evidence / snap.arg_count : 0;
 
-	const score = 0.4 * consensus + 0.3 * argDepth + 0.2 * engagement + 0.1 * evidence;
+	// Quality favours a deep, well-sourced, broadly-engaged debate over unanimity.
+	const score = 0.15 * consensus + 0.35 * argDepth + 0.25 * engagement + 0.25 * evidence;
 	return Math.max(0, Math.min(1, score));
 }
 

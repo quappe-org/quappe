@@ -146,6 +146,14 @@
 	"argpool_stance_support": "a favor",
 	"argpool_stance_reject": "en contra",
 
+	"variant_singular": "variante",
+	"variant_plural": "variantes",
+	"variant_pick_title": "Elige la mejor redacción",
+	"variant_sort_top": "Top",
+	"variant_sort_latest": "Recientes",
+	"variant_leading": "líder",
+	"variant_more": "+{count} más",
+
 	"related_title": "Tesis relacionadas",
 	"related_mode_semantic": "semántica",
 	"related_mode_thematic": "temática",
