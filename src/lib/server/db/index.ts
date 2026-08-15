@@ -34,7 +34,11 @@ export function getDb(): Database.Database {
 function migrate(db: Database.Database): void {
 	const alters = [
 		`ALTER TABLE theses    ADD COLUMN hashtags_json TEXT NOT NULL DEFAULT '[]'`,
-		`ALTER TABLE arguments ADD COLUMN hashtags_json TEXT`
+		`ALTER TABLE arguments ADD COLUMN hashtags_json TEXT`,
+		`ALTER TABLE theses    ADD COLUMN title_simple TEXT`,
+		`ALTER TABLE theses    ADD COLUMN description_simple TEXT`,
+		`ALTER TABLE theses    ADD COLUMN title_dense TEXT`,
+		`ALTER TABLE theses    ADD COLUMN description_dense TEXT`
 	];
 	for (const sql of alters) {
 		try {

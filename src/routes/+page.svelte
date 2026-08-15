@@ -149,6 +149,42 @@
 	let submitting = $state(false);
 	let createError = $state<string | null>(null);
 
+	// Optional author-provided readability registers (prose = the fields above).
+	let showVariants = $state(false);
+	let titleSimple = $state('');
+	let descriptionSimple = $state('');
+	let titleDense = $state('');
+	let descriptionDense = $state('');
+	let draftingSimple = $state(false);
+	let draftingDense = $state(false);
+
+	// LLM draft helper: fills a register from the current title/description.
+	// The author reviews/edits the result before it is saved — meaning stays theirs.
+	async function draftVariant(variant: 'simple' | 'dense') {
+		if (!title.trim() || !description.trim()) return;
+		if (variant === 'simple') draftingSimple = true;
+		else draftingDense = true;
+		try {
+			const res = await fetch('/api/theses/draft-variant', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ title: title.trim(), description: description.trim(), variant })
+			});
+			if (!res.ok) return;
+			const data = (await res.json()) as { title: string; description: string };
+			if (variant === 'simple') {
+				titleSimple = data.title;
+				descriptionSimple = data.description;
+			} else {
+				titleDense = data.title;
+				descriptionDense = data.description;
+			}
+		} finally {
+			draftingSimple = false;
+			draftingDense = false;
+		}
+	}
+
 	// Live "already exists?" hint while the user is typing the new thesis
 	let similarExisting = $state<Thesis[]>([]);
 	let similarLoading = $state(false);
@@ -229,6 +265,10 @@
 					title: title.trim(),
 					description: description.trim(),
 					categories: payloadCategories,
+					title_simple: titleSimple.trim() || undefined,
+					description_simple: descriptionSimple.trim() || undefined,
+					title_dense: titleDense.trim() || undefined,
+					description_dense: descriptionDense.trim() || undefined,
 					author_id: getUserId()
 				})
 			});
@@ -291,6 +331,11 @@
 			description = '';
 			selectedCategories = [];
 			similarExisting = [];
+			titleSimple = '';
+			descriptionSimple = '';
+			titleDense = '';
+			descriptionDense = '';
+			showVariants = false;
 			showForm = false;
 		} catch (err) {
 			budgetStore.refundThesis();
@@ -459,6 +504,38 @@
 							>{cat}</button>
 						{/each}
 					</div>
+				</div>
+
+				<div class="variants-section">
+					<button type="button" class="variants-toggle" onclick={() => (showVariants = !showVariants)} aria-expanded={showVariants}>
+						<svg class="variants-chevron" class:open={showVariants} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+						{m.home_create_variants_toggle()}
+					</button>
+					{#if showVariants}
+						<p class="variants-hint">{m.home_create_variants_hint()}</p>
+
+						<div class="variant-block">
+							<div class="variant-block-head">
+								<span class="variant-block-title">{m.rephrase_simple()}</span>
+								<button type="button" class="variant-draft-btn" disabled={draftingSimple || !title.trim() || !description.trim()} onclick={() => draftVariant('simple')}>
+									{draftingSimple ? m.home_create_variants_drafting() : m.home_create_variants_draft()}
+								</button>
+							</div>
+							<input type="text" bind:value={titleSimple} placeholder={m.home_create_title_label()} maxlength="200" />
+							<textarea bind:value={descriptionSimple} placeholder={m.home_create_desc_label()} maxlength="2000" rows="2"></textarea>
+						</div>
+
+						<div class="variant-block">
+							<div class="variant-block-head">
+								<span class="variant-block-title">{m.rephrase_dense()}</span>
+								<button type="button" class="variant-draft-btn" disabled={draftingDense || !title.trim() || !description.trim()} onclick={() => draftVariant('dense')}>
+									{draftingDense ? m.home_create_variants_drafting() : m.home_create_variants_draft()}
+								</button>
+							</div>
+							<input type="text" bind:value={titleDense} placeholder={m.home_create_title_label()} maxlength="200" />
+							<textarea bind:value={descriptionDense} placeholder={m.home_create_desc_label()} maxlength="2000" rows="2"></textarea>
+						</div>
+					{/if}
 				</div>
 
 				<div class="form-actions">
@@ -688,6 +765,96 @@
 	.form-actions {
 		display: flex;
 		gap: 0.5rem;
+	}
+
+	/* Optional reading variants */
+	.variants-section {
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+		border-top: 1px solid var(--color-border);
+		padding-top: 0.85rem;
+	}
+
+	.variants-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		background: none;
+		border: none;
+		padding: 0;
+		font-family: inherit;
+		font-size: var(--text-sm);
+		font-weight: 600;
+		color: var(--color-text-muted);
+		cursor: pointer;
+		align-self: flex-start;
+	}
+
+	.variants-toggle:hover {
+		color: var(--color-text);
+	}
+
+	.variants-chevron {
+		transition: transform var(--transition-fast);
+	}
+	.variants-chevron.open {
+		transform: rotate(90deg);
+	}
+
+	.variants-hint {
+		font-size: var(--text-xs);
+		color: var(--color-text-light);
+		line-height: 1.5;
+		margin: 0;
+	}
+
+	.variant-block {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		padding: 0.75rem;
+		background: var(--color-bg);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+
+	.variant-block-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+
+	.variant-block-title {
+		font-size: var(--text-xs);
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-text-muted);
+	}
+
+	.variant-draft-btn {
+		font-family: inherit;
+		font-size: var(--text-xs);
+		font-weight: 500;
+		padding: 0.2rem 0.6rem;
+		border-radius: var(--radius-sm);
+		background: transparent;
+		color: var(--color-primary);
+		border: 1px solid var(--color-primary);
+		cursor: pointer;
+		transition: background var(--transition-fast), color var(--transition-fast);
+	}
+
+	.variant-draft-btn:hover:not(:disabled) {
+		background: var(--color-primary);
+		color: #fff;
+	}
+
+	.variant-draft-btn:disabled {
+		opacity: 0.45;
+		cursor: default;
 	}
 
 	.create-error {

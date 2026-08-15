@@ -15,6 +15,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { localeStore } from '$lib/stores/locale.svelte';
+	import { registerForComplexity, pickVariant } from '$lib/models/variants';
 
 	let { data } = $props();
 
@@ -353,19 +354,17 @@
 		return thesis.lang !== localeStore.current;
 	});
 
-	// --- Rephrase (session-cached) — three registers ---
-	type RephraseVariant = 'simple' | 'prose' | 'dense';
-	let rephrased = $state<{ title: string; description: string } | null>(null);
-	let rephraseVariant = $state<RephraseVariant | null>(null);
-	let rephrasing = $state<RephraseVariant | null>(null);
+	// Which author-provided register to show, bound to the complexity slider.
+	// Falls back to the original when the chosen variant is absent.
+	let register = $derived<'simple' | 'prose' | 'dense'>(
+		registerForComplexity(complexityStore.settings.max_arguments)
+	);
+	let baseTitle = $derived(pickVariant(thesis, register, 'title'));
+	let baseDescription = $derived(pickVariant(thesis, register, 'description'));
 
-	// Display precedence: rephrase (if active) > translation > original.
-	let displayTitle = $derived(
-		rephrased?.title ?? translated?.title ?? thesis?.title ?? ''
-	);
-	let displayDescription = $derived(
-		rephrased?.description ?? translated?.description ?? thesis?.description ?? ''
-	);
+	// Display precedence: translation (of the chosen register) > register text.
+	let displayTitle = $derived(translated?.title ?? baseTitle);
+	let displayDescription = $derived(translated?.description ?? baseDescription);
 
 	async function toggleTranslate() {
 		if (!thesis) return;
@@ -383,27 +382,6 @@
 			translated = { title: data.title, description: data.description };
 		} finally {
 			translating = false;
-		}
-	}
-
-	async function setRephrase(variant: RephraseVariant) {
-		if (!thesis) return;
-		// Toggle off if the same variant is active.
-		if (rephraseVariant === variant) {
-			rephrased = null;
-			rephraseVariant = null;
-			return;
-		}
-		if (rephrasing) return;
-		rephrasing = variant;
-		try {
-			const res = await fetch(`/api/theses/${thesis.id}/rephrase?variant=${variant}`);
-			if (!res.ok) return;
-			const data = (await res.json()) as { title: string; description: string };
-			rephrased = { title: data.title, description: data.description };
-			rephraseVariant = variant;
-		} finally {
-			rephrasing = null;
 		}
 	}
 
@@ -547,31 +525,6 @@
 					{/if}
 				</div>
 				<p class="thesis-description">{displayDescription}</p>
-
-				<div class="rephrase-bar" role="group" aria-label={m.rephrase_label()}>
-					<span class="rephrase-hint">{m.rephrase_label()}</span>
-					<button
-						type="button"
-						class="rephrase-btn"
-						class:active={rephraseVariant === 'simple'}
-						disabled={rephrasing !== null}
-						onclick={() => setRephrase('simple')}
-					>{rephrasing === 'simple' ? m.rephrase_pending() : m.rephrase_simple()}</button>
-					<button
-						type="button"
-						class="rephrase-btn"
-						class:active={rephraseVariant === 'prose'}
-						disabled={rephrasing !== null}
-						onclick={() => setRephrase('prose')}
-					>{rephrasing === 'prose' ? m.rephrase_pending() : m.rephrase_prose()}</button>
-					<button
-						type="button"
-						class="rephrase-btn"
-						class:active={rephraseVariant === 'dense'}
-						disabled={rephrasing !== null}
-						onclick={() => setRephrase('dense')}
-					>{rephrasing === 'dense' ? m.rephrase_pending() : m.rephrase_dense()}</button>
-				</div>
 
 				<div class="thesis-meta-row">
 					{#each thesis.categories as category}
@@ -1056,51 +1009,6 @@
 
 	.translate-icon {
 		flex-shrink: 0;
-	}
-
-	/* Rephrase register switcher */
-	.rephrase-bar {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: 0.4rem;
-	}
-
-	.rephrase-hint {
-		font-size: var(--text-xs);
-		color: var(--color-text-light);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		margin-right: 0.15rem;
-	}
-
-	.rephrase-btn {
-		font-family: inherit;
-		font-size: var(--text-xs);
-		font-weight: 500;
-		padding: 0.25rem 0.65rem;
-		border-radius: 9999px;
-		background: transparent;
-		color: var(--color-text-muted);
-		border: 1px solid var(--color-border);
-		cursor: pointer;
-		transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
-	}
-
-	.rephrase-btn:hover:not(:disabled):not(.active) {
-		color: var(--color-text);
-		border-color: var(--color-text-muted);
-	}
-
-	.rephrase-btn.active {
-		background: var(--color-primary);
-		color: #fff;
-		border-color: var(--color-primary);
-	}
-
-	.rephrase-btn:disabled {
-		opacity: 0.55;
-		cursor: default;
 	}
 
 	/* Footer row: vote buttons + admin actions */

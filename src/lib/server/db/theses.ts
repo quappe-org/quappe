@@ -67,11 +67,13 @@ export function dbInsertThesis(t: Thesis): void {
 	const p = thesisInsertParams(t);
 	prepare(
 		`INSERT INTO theses
-		   (id, title, description, categories_json, hashtags_json, related_ids_json, archived,
+		   (id, title, description, title_simple, description_simple, title_dense, description_dense,
+		    categories_json, hashtags_json, related_ids_json, archived,
 		    lifecycle_state, lifecycle_since, lifecycle_quality, lang,
 		    created_at, updated_at, author_id, location)
 		 VALUES
-		   (@id, @title, @description, @categories_json, @hashtags_json, @related_ids_json, @archived,
+		   (@id, @title, @description, @title_simple, @description_simple, @title_dense, @description_dense,
+		    @categories_json, @hashtags_json, @related_ids_json, @archived,
 		    @lifecycle_state, @lifecycle_since, @lifecycle_quality, @lang,
 		    @created_at, @updated_at, @author_id, @location)`
 	).run(p);
@@ -159,11 +161,13 @@ export function dbHasThesis(id: string): boolean {
 export function dbInsertThesesBulk(theses: Thesis[]): void {
 	const stmt = prepare(
 		`INSERT INTO theses
-		   (id, title, description, categories_json, hashtags_json, related_ids_json, archived,
+		   (id, title, description, title_simple, description_simple, title_dense, description_dense,
+		    categories_json, hashtags_json, related_ids_json, archived,
 		    lifecycle_state, lifecycle_since, lifecycle_quality, lang,
 		    created_at, updated_at, author_id, location)
 		 VALUES
-		   (@id, @title, @description, @categories_json, @hashtags_json, @related_ids_json, @archived,
+		   (@id, @title, @description, @title_simple, @description_simple, @title_dense, @description_dense,
+		    @categories_json, @hashtags_json, @related_ids_json, @archived,
 		    @lifecycle_state, @lifecycle_since, @lifecycle_quality, @lang,
 		    @created_at, @updated_at, @author_id, @location)`
 	);

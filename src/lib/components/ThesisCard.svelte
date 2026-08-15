@@ -8,6 +8,8 @@
 	import VoteRow from '$lib/components/VoteRow.svelte';
 	import SwipeVote from '$lib/components/SwipeVote.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
+	import { complexityStore } from '$lib/stores/complexity.svelte';
+	import { registerForComplexity, pickVariant } from '$lib/models/variants';
 
 	let {
 		thesis,
@@ -65,8 +67,13 @@
 		return thesis.lang !== localeStore.current;
 	});
 
-	let displayTitle = $derived(translated?.title ?? thesis.title);
-	let displayDescription = $derived(translated?.description ?? thesis.description);
+	// Author-provided register bound to the complexity slider (fallback: original).
+	let register = $derived(registerForComplexity(complexityStore.settings.max_arguments));
+	let baseTitle = $derived(pickVariant(thesis, register, 'title'));
+	let baseDescription = $derived(pickVariant(thesis, register, 'description'));
+
+	let displayTitle = $derived(translated?.title ?? baseTitle);
+	let displayDescription = $derived(translated?.description ?? baseDescription);
 
 	async function toggleTranslate(e: MouseEvent) {
 		e.preventDefault();

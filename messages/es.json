@@ -335,11 +335,12 @@
 	"translate_show_original": "Ver original",
 	"translate_pending": "Traduciendo …",
 
-	"rephrase_label": "Leer como",
 	"rephrase_simple": "Simple",
-	"rephrase_prose": "Prosa",
 	"rephrase_dense": "Denso",
-	"rephrase_pending": "…",
+	"home_create_variants_toggle": "Añadir variantes de lectura (opcional)",
+	"home_create_variants_hint": "Ofrece formulaciones más simples o más densas. Los lectores ven la que coincide con su control de complejidad; si está vacía, se usa tu original.",
+	"home_create_variants_draft": "Borrador con IA",
+	"home_create_variants_drafting": "Redactando …",
 
 	"about_nav_intro": "Resumen",
 	"about_nav_lifecycle": "Ciclo de vida",

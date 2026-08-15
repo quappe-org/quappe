@@ -42,7 +42,16 @@ export const GET: RequestHandler = async ({ url }) => {
 
 export const POST: RequestHandler = async ({ request, getClientAddress, locals }) => {
 	const body = await request.json();
-	const { title, description, categories, location } = body;
+	const {
+		title,
+		description,
+		categories,
+		location,
+		title_simple,
+		description_simple,
+		title_dense,
+		description_dense
+	} = body;
 
 	const ip = getClientIp(request, getClientAddress());
 	const rate = checkRate(ip, locals.user_id, 'write_heavy');
@@ -59,11 +68,29 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals }
 	const catErr = checkCategories(categories);
 	if (catErr) return catErr;
 
+	// Optional readability variants — validate length only when present.
+	for (const [field, val] of [
+		['thesis_title', title_simple],
+		['thesis_description', description_simple],
+		['thesis_title', title_dense],
+		['thesis_description', description_dense]
+	] as const) {
+		if (val !== undefined && val !== null && val !== '') {
+			const err = checkLength(field, val);
+			if (err) return err;
+		}
+	}
+
 	// Server-side daily budget enforcement (authority; client store is a mirror).
 	const budgetErr = checkThesisBudget(locals.user_id);
 	if (budgetErr) return budgetErr;
 
-	const thesis = createThesis(title, description, categories, locals.user_id, location);
+	const thesis = createThesis(title, description, categories, locals.user_id, location, {
+		title_simple: title_simple || undefined,
+		description_simple: description_simple || undefined,
+		title_dense: title_dense || undefined,
+		description_dense: description_dense || undefined
+	});
 
 	// Fire-and-forget language detection — thesis is available immediately;
 	// `lang` fills in seconds later. Failure keeps `lang` undefined.

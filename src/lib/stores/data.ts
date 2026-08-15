@@ -183,13 +183,23 @@ export function createThesis(
 	description: string,
 	categories: Thesis['categories'],
 	author_id: string,
-	location?: string
+	location?: string,
+	variants?: {
+		title_simple?: string;
+		description_simple?: string;
+		title_dense?: string;
+		description_dense?: string;
+	}
 ): Thesis {
 	const created = nowIso();
 	const thesis: Thesis = {
 		id: generateId(),
 		title,
 		description,
+		title_simple: variants?.title_simple,
+		description_simple: variants?.description_simple,
+		title_dense: variants?.title_dense,
+		description_dense: variants?.description_dense,
 		categories,
 		hashtags: extractHashtagsFrom(title, description),
 		votes: [],

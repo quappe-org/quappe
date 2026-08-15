@@ -335,11 +335,12 @@
 	"translate_show_original": "Original zeigen",
 	"translate_pending": "Übersetze …",
 
-	"rephrase_label": "Lesen als",
 	"rephrase_simple": "Einfach",
-	"rephrase_prose": "Prosa",
 	"rephrase_dense": "Dicht",
-	"rephrase_pending": "…",
+	"home_create_variants_toggle": "Lesevarianten hinzufügen (optional)",
+	"home_create_variants_hint": "Gib einfachere oder dichtere Formulierungen an. Leser sehen die zu ihrem Komplexitäts-Regler passende; leer fällt auf dein Original zurück.",
+	"home_create_variants_draft": "Mit KI entwerfen",
+	"home_create_variants_drafting": "Entwerfe …",
 
 	"about_nav_intro": "Überblick",
 	"about_nav_lifecycle": "Lebenszyklus",
