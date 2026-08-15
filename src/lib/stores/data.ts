@@ -185,9 +185,7 @@ export function createThesis(
 	author_id: string,
 	location?: string,
 	variants?: {
-		title_simple?: string;
 		description_simple?: string;
-		title_dense?: string;
 		description_dense?: string;
 	}
 ): Thesis {
@@ -196,9 +194,7 @@ export function createThesis(
 		id: generateId(),
 		title,
 		description,
-		title_simple: variants?.title_simple,
 		description_simple: variants?.description_simple,
-		title_dense: variants?.title_dense,
 		description_dense: variants?.description_dense,
 		categories,
 		hashtags: extractHashtagsFrom(title, description),

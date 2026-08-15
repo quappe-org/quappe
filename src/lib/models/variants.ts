@@ -1,9 +1,10 @@
-// Readability registers for a thesis, bound to the complexity slider.
+// Readability registers for a thesis DESCRIPTION, bound to the complexity slider.
 //
 // The author may provide up to two extra registers besides the original:
 //   - simple : as short and plain as possible
 //   - dense  : as short and information-dense/precise as possible
-// The original title/description IS the "prose" (middle) register.
+// The original description IS the "prose" (middle) register. The title is
+// always canonical — only the description gets registers.
 //
 // The view chooses a register from the complexity slider and falls back to the
 // original whenever the chosen variant is absent. Nothing is generated at read
@@ -27,28 +28,14 @@ export function registerForComplexity(maxArguments: number): Register {
 	return 'dense';
 }
 
-// Pick the best available text for a register, falling back to the original.
-export function pickVariant(
-	thesis: Pick<
-		Thesis,
-		| 'title'
-		| 'description'
-		| 'title_simple'
-		| 'description_simple'
-		| 'title_dense'
-		| 'description_dense'
-	> | undefined,
-	register: Register,
-	field: 'title' | 'description'
+// Pick the best available description for a register, falling back to the
+// original. (Title has no registers — always use thesis.title directly.)
+export function pickDescription(
+	thesis: Pick<Thesis, 'description' | 'description_simple' | 'description_dense'> | undefined,
+	register: Register
 ): string {
 	if (!thesis) return '';
-	if (register === 'simple') {
-		const v = field === 'title' ? thesis.title_simple : thesis.description_simple;
-		if (v) return v;
-	} else if (register === 'dense') {
-		const v = field === 'title' ? thesis.title_dense : thesis.description_dense;
-		if (v) return v;
-	}
-	// prose / fallback → original
-	return field === 'title' ? thesis.title : thesis.description;
+	if (register === 'simple' && thesis.description_simple) return thesis.description_simple;
+	if (register === 'dense' && thesis.description_dense) return thesis.description_dense;
+	return thesis.description;
 }

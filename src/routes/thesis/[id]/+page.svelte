@@ -15,7 +15,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { localeStore } from '$lib/stores/locale.svelte';
-	import { registerForComplexity, pickVariant } from '$lib/models/variants';
+	import { registerForComplexity, pickDescription } from '$lib/models/variants';
 
 	let { data } = $props();
 
@@ -355,12 +355,12 @@
 	});
 
 	// Which author-provided register to show, bound to the complexity slider.
-	// Falls back to the original when the chosen variant is absent.
+	// Falls back to the original when the chosen variant is absent. Title stays canonical.
 	let register = $derived<'simple' | 'prose' | 'dense'>(
 		registerForComplexity(complexityStore.settings.max_arguments)
 	);
-	let baseTitle = $derived(pickVariant(thesis, register, 'title'));
-	let baseDescription = $derived(pickVariant(thesis, register, 'description'));
+	let baseTitle = $derived(thesis?.title ?? '');
+	let baseDescription = $derived(pickDescription(thesis, register));
 
 	// Display precedence: translation (of the chosen register) > register text.
 	let displayTitle = $derived(translated?.title ?? baseTitle);

@@ -150,38 +150,40 @@
 	let createError = $state<string | null>(null);
 
 	// Optional author-provided readability registers (prose = the fields above).
+	// Only the DESCRIPTION gets variants — the title stays canonical.
 	let showVariants = $state(false);
-	let titleSimple = $state('');
 	let descriptionSimple = $state('');
-	let titleDense = $state('');
 	let descriptionDense = $state('');
-	let draftingSimple = $state(false);
-	let draftingDense = $state(false);
+	let drafting = $state(false);
 
-	// LLM draft helper: fills a register from the current title/description.
+	// LLM draft helper: fills BOTH registers from the current title/description.
 	// The author reviews/edits the result before it is saved — meaning stays theirs.
-	async function draftVariant(variant: 'simple' | 'dense') {
+	async function draftVariants() {
 		if (!title.trim() || !description.trim()) return;
-		if (variant === 'simple') draftingSimple = true;
-		else draftingDense = true;
+		drafting = true;
 		try {
-			const res = await fetch('/api/theses/draft-variant', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ title: title.trim(), description: description.trim(), variant })
-			});
-			if (!res.ok) return;
-			const data = (await res.json()) as { title: string; description: string };
-			if (variant === 'simple') {
-				titleSimple = data.title;
-				descriptionSimple = data.description;
-			} else {
-				titleDense = data.title;
-				descriptionDense = data.description;
+			const [simpleRes, denseRes] = await Promise.all([
+				fetch('/api/theses/draft-variant', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ title: title.trim(), description: description.trim(), variant: 'simple' })
+				}),
+				fetch('/api/theses/draft-variant', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ title: title.trim(), description: description.trim(), variant: 'dense' })
+				})
+			]);
+			if (simpleRes.ok) {
+				const d = (await simpleRes.json()) as { description: string };
+				descriptionSimple = d.description;
+			}
+			if (denseRes.ok) {
+				const d = (await denseRes.json()) as { description: string };
+				descriptionDense = d.description;
 			}
 		} finally {
-			draftingSimple = false;
-			draftingDense = false;
+			drafting = false;
 		}
 	}
 
@@ -265,9 +267,7 @@
 					title: title.trim(),
 					description: description.trim(),
 					categories: payloadCategories,
-					title_simple: titleSimple.trim() || undefined,
 					description_simple: descriptionSimple.trim() || undefined,
-					title_dense: titleDense.trim() || undefined,
 					description_dense: descriptionDense.trim() || undefined,
 					author_id: getUserId()
 				})
@@ -331,9 +331,7 @@
 			description = '';
 			selectedCategories = [];
 			similarExisting = [];
-			titleSimple = '';
 			descriptionSimple = '';
-			titleDense = '';
 			descriptionDense = '';
 			showVariants = false;
 			showForm = false;
@@ -455,11 +453,6 @@
 					<input id="thesis-title" type="text" bind:value={title} oninput={onFormTyping} placeholder={m.home_create_title_placeholder()} maxlength="200" required />
 				</div>
 
-				<div class="form-group">
-					<label for="thesis-desc">{m.home_create_desc_label()}</label>
-					<textarea id="thesis-desc" bind:value={description} oninput={onFormTyping} placeholder={m.home_create_desc_placeholder()} maxlength="2000" required></textarea>
-				</div>
-
 				{#if similarLoading || similarExisting.length > 0}
 					<div class="similar-existing">
 						<div class="similar-head">
@@ -472,7 +465,7 @@
 							<ul class="similar-list">
 								{#each similarExisting as ex (ex.id)}
 									<li>
-										<a class="similar-link" href="/thesis/{ex.id}">
+										<a class="similar-link" href="/thesis/{ex.id}" target="_blank" rel="noopener">
 											<span class="similar-thesis-title">{ex.title}</span>
 											<span class="similar-cats">
 												{#each ex.categories.slice(0, 3) as cat}
@@ -488,6 +481,11 @@
 						{/if}
 					</div>
 				{/if}
+
+				<div class="form-group">
+					<label for="thesis-desc">{m.home_create_desc_label()}</label>
+					<textarea id="thesis-desc" bind:value={description} oninput={onFormTyping} placeholder={m.home_create_desc_placeholder()} maxlength="2000" required></textarea>
+				</div>
 
 				<div class="form-group">
 					<label for="thesis-categories">
@@ -513,27 +511,20 @@
 					</button>
 					{#if showVariants}
 						<p class="variants-hint">{m.home_create_variants_hint()}</p>
-
-						<div class="variant-block">
-							<div class="variant-block-head">
-								<span class="variant-block-title">{m.rephrase_simple()}</span>
-								<button type="button" class="variant-draft-btn" disabled={draftingSimple || !title.trim() || !description.trim()} onclick={() => draftVariant('simple')}>
-									{draftingSimple ? m.home_create_variants_drafting() : m.home_create_variants_draft()}
-								</button>
-							</div>
-							<input type="text" bind:value={titleSimple} placeholder={m.home_create_title_label()} maxlength="200" />
-							<textarea bind:value={descriptionSimple} placeholder={m.home_create_desc_label()} maxlength="2000" rows="2"></textarea>
+						<div class="variant-draft-row">
+							<button type="button" class="variant-draft-btn" disabled={drafting || !title.trim() || !description.trim()} onclick={draftVariants}>
+								{drafting ? m.home_create_variants_drafting() : m.home_create_variants_draft()}
+							</button>
 						</div>
 
 						<div class="variant-block">
-							<div class="variant-block-head">
-								<span class="variant-block-title">{m.rephrase_dense()}</span>
-								<button type="button" class="variant-draft-btn" disabled={draftingDense || !title.trim() || !description.trim()} onclick={() => draftVariant('dense')}>
-									{draftingDense ? m.home_create_variants_drafting() : m.home_create_variants_draft()}
-								</button>
-							</div>
-							<input type="text" bind:value={titleDense} placeholder={m.home_create_title_label()} maxlength="200" />
-							<textarea bind:value={descriptionDense} placeholder={m.home_create_desc_label()} maxlength="2000" rows="2"></textarea>
+							<span class="variant-block-title">{m.rephrase_simple()}</span>
+							<textarea bind:value={descriptionSimple} placeholder={m.home_create_desc_placeholder()} maxlength="2000" rows="2"></textarea>
+						</div>
+
+						<div class="variant-block">
+							<span class="variant-block-title">{m.rephrase_dense()}</span>
+							<textarea bind:value={descriptionDense} placeholder={m.home_create_desc_placeholder()} maxlength="2000" rows="2"></textarea>
 						</div>
 					{/if}
 				</div>
@@ -819,11 +810,9 @@
 		border-radius: var(--radius-md);
 	}
 
-	.variant-block-head {
+	.variant-draft-row {
 		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem;
+		justify-content: flex-end;
 	}
 
 	.variant-block-title {

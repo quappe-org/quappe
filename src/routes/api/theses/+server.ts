@@ -47,9 +47,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals }
 		description,
 		categories,
 		location,
-		title_simple,
 		description_simple,
-		title_dense,
 		description_dense
 	} = body;
 
@@ -68,15 +66,10 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals }
 	const catErr = checkCategories(categories);
 	if (catErr) return catErr;
 
-	// Optional readability variants — validate length only when present.
-	for (const [field, val] of [
-		['thesis_title', title_simple],
-		['thesis_description', description_simple],
-		['thesis_title', title_dense],
-		['thesis_description', description_dense]
-	] as const) {
+	// Optional readability description variants — validate length only when present.
+	for (const val of [description_simple, description_dense]) {
 		if (val !== undefined && val !== null && val !== '') {
-			const err = checkLength(field, val);
+			const err = checkLength('thesis_description', val);
 			if (err) return err;
 		}
 	}
@@ -86,9 +79,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals }
 	if (budgetErr) return budgetErr;
 
 	const thesis = createThesis(title, description, categories, locals.user_id, location, {
-		title_simple: title_simple || undefined,
 		description_simple: description_simple || undefined,
-		title_dense: title_dense || undefined,
 		description_dense: description_dense || undefined
 	});
 

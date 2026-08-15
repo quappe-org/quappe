@@ -13,9 +13,9 @@ import { checkLength, checkRate, getClientIp } from '$lib/server/limits';
 
 const INSTRUCTION: Record<string, string> = {
 	simple:
-		'Rewrite the title and description as short and simple as possible. Use plain, everyday language a child could follow. Prefer the fewest words. No jargon.',
+		'Rewrite the description as short and simple as possible. Use plain, everyday language a child could follow. Prefer the fewest words. No jargon.',
 	dense:
-		'Rewrite the title and description as short and information-dense as possible. Precise, technical, compressed — every word carries weight. Keep it rigorous but brief.'
+		'Rewrite the description as short and information-dense as possible. Precise, technical, compressed — every word carries weight. Keep it rigorous but brief.'
 };
 
 export const POST: RequestHandler = async ({ request, getClientAddress, locals }) => {
@@ -42,8 +42,9 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals }
 		return json({ error: 'LLM unavailable' }, { status: 503 });
 	}
 
-	const system = `You are an editor. ${INSTRUCTION[variant]} Keep the original meaning and stance intact — do not add or drop claims. Answer in the SAME language as the input. Output ONLY a compact JSON object with keys "title" and "description". No commentary.`;
-	const prompt = `Title: ${title}\nDescription: ${description}`;
+	// The title is context only; we rewrite the DESCRIPTION alone.
+	const system = `You are an editor. ${INSTRUCTION[variant]} Keep the original meaning and stance intact — do not add or drop claims. Answer in the SAME language as the input. Output ONLY a compact JSON object with a single key "description". No commentary.`;
+	const prompt = `Title (context, do not rewrite): ${title}\nDescription: ${description}`;
 
 	const res = await generate(prompt, { system, maxTokens: 500, temperature: 0.3 });
 	if (!res.ok) {
@@ -53,11 +54,11 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals }
 	const match = res.text.match(/\{[\s\S]*\}/);
 	if (!match) return json({ error: 'Draft response was not JSON' }, { status: 502 });
 	try {
-		const parsed = JSON.parse(match[0]) as { title?: string; description?: string };
-		if (!parsed.title || !parsed.description) {
-			return json({ error: 'Draft missing fields' }, { status: 502 });
+		const parsed = JSON.parse(match[0]) as { description?: string };
+		if (!parsed.description) {
+			return json({ error: 'Draft missing description' }, { status: 502 });
 		}
-		return json({ title: parsed.title, description: parsed.description, variant });
+		return json({ description: parsed.description, variant });
 	} catch {
 		return json({ error: 'Draft JSON parse failed' }, { status: 502 });
 	}

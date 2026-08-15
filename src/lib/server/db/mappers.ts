@@ -6,9 +6,7 @@ export interface ThesisRow {
 	id: string;
 	title: string;
 	description: string;
-	title_simple: string | null;
 	description_simple: string | null;
-	title_dense: string | null;
 	description_dense: string | null;
 	categories_json: string;
 	hashtags_json: string;
@@ -64,9 +62,7 @@ export function rowToThesis(row: ThesisRow, votes: Vote[]): Thesis {
 		id: row.id,
 		title: row.title,
 		description: row.description,
-		title_simple: row.title_simple ?? undefined,
 		description_simple: row.description_simple ?? undefined,
-		title_dense: row.title_dense ?? undefined,
 		description_dense: row.description_dense ?? undefined,
 		categories: JSON.parse(row.categories_json),
 		hashtags: row.hashtags_json ? JSON.parse(row.hashtags_json) : [],
@@ -115,9 +111,7 @@ export function thesisInsertParams(t: Thesis): ThesisRow {
 		id: t.id,
 		title: t.title,
 		description: t.description,
-		title_simple: t.title_simple ?? null,
 		description_simple: t.description_simple ?? null,
-		title_dense: t.title_dense ?? null,
 		description_dense: t.description_dense ?? null,
 		categories_json: JSON.stringify(t.categories),
 		hashtags_json: JSON.stringify(t.hashtags ?? []),

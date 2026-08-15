@@ -91,13 +91,11 @@ export interface Thesis {
 	id: string;
 	title: string;
 	description: string;
-	// Optional author-provided readability registers. The original title/
-	// description IS the "prose" register. When a register is absent, the view
-	// falls back to the original. These are authored (or author-approved), never
+	// Optional author-provided readability registers for the DESCRIPTION. The
+	// original description IS the "prose" register. When a register is absent,
+	// the view falls back to the original. Authored (or author-approved), never
 	// generated at read time — so meaning stays the author's responsibility.
-	title_simple?: string;
 	description_simple?: string;
-	title_dense?: string;
 	description_dense?: string;
 	categories: Category[];
 	hashtags: Hashtag[]; // user-typed #tags extracted from title+description
