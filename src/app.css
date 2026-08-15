@@ -181,15 +181,29 @@ html[data-invert='true'] iframe {
 
 /* ---- Accessibility modes (orthogonal to theme) ---- */
 
-/* Calm: reduced visual noise — flatten shadows, soften accents. Helps anyone
-   who finds a busy UI distracting (not a diagnosis label). */
+/* Calm: reduced visual noise. Helps anyone who finds a busy UI distracting
+   (not a diagnosis label). Desaturate loud accents, flatten depth, quiet the
+   decorative bands, and drop non-essential hover motion. */
 [data-calm='true'] {
 	--shadow-sm: none;
 	--shadow-md: 0 1px 2px rgba(0, 0, 0, 0.04);
 	--shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
+/* Desaturate the whole surface a touch — takes the edge off rainbow/unicorn. */
+[data-calm='true'] body {
+	filter: saturate(0.7);
+}
+/* Quiet the pulsing update badge and any card hover lift. */
 [data-calm='true'] .nav-badge {
 	animation: none !important;
+}
+[data-calm='true'] .thesis-card:hover {
+	transform: none !important;
+	box-shadow: var(--shadow-sm) !important;
+}
+/* Dim the decorative heat / lifecycle side bands (visual noise, not content). */
+[data-calm='true'] .side-band {
+	opacity: 0.45;
 }
 
 /* High contrast: strengthen text + borders for readability. */
@@ -204,7 +218,17 @@ html[data-invert='true'] iframe {
 	border-width: 2px;
 }
 
-/* Reduced motion: disable non-essential animation/transition. */
+/* Reduce motion — either the OS preference OR the explicit toggle.
+   Quappe's only conspicuous, repeating motion is the badge pulse; we also
+   neutralise transitions/animations and instant-scroll for anyone who asks. */
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after {
+		animation-duration: 0.001ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.001ms !important;
+		scroll-behavior: auto !important;
+	}
+}
 [data-reduced-motion='true'] *,
 [data-reduced-motion='true'] *::before,
 [data-reduced-motion='true'] *::after {

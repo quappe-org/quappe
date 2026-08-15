@@ -603,6 +603,8 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 0.75rem;
+		width: 100%;
+		text-align: left;
 		padding: 0.4rem 0.5rem;
 		background: transparent;
 		border: none;
@@ -612,6 +614,10 @@
 		font-size: var(--text-sm);
 		color: var(--color-text-muted);
 		transition: background var(--transition-fast), color var(--transition-fast);
+	}
+	.a11y-toggle-label {
+		flex: 1;
+		min-width: 0;
 	}
 	.a11y-toggle:hover { background: var(--color-bg); color: var(--color-text); }
 	.a11y-toggle.on { color: var(--color-text); }

@@ -129,6 +129,45 @@ Anonymous ID · role badge · language · complexity bounds · categories mgmt.
 - `data-invert="true"` on <html> flips everything (independent of theme).
 
 
+# Themes & accessibility modes
+
+Two ORTHOGONAL axes, both applied as attributes on <html>, both stored in
+localStorage, both surfaced in the header theme popover:
+
+1. **Aesthetic theme** (`data-theme`, store: `theme.svelte.ts`) — one of
+   rainbow (default, no attribute) · pastel · classic · unicorn · grayscale.
+   Pure palette swap via CSS variables.
+2. **Accessibility modes** (store: `a11y.svelte.ts`, plus the separate
+   `invert.svelte.ts`) — independent booleans that COMBINE with any theme:
+   - `data-invert` — invert all colors (dark-ish; re-inverts raster media).
+   - `data-calm` — reduced visual noise: desaturate the surface (`saturate .7`),
+     flatten shadows, remove card hover-lift, dim the decorative heat/lifecycle
+     side bands, stop the badge pulse.
+   - `data-contrast` — stronger text/border contrast, thicker card borders.
+   - `data-reduced-motion` — neutralise transitions/animations + instant scroll.
+
+## Naming decision (important — do not "simplify" back)
+Accessibility modes are named by FUNCTION, never by diagnosis or politics.
+The user asked for "ADHS / neurodivergent / conservative / unicorn" themes.
+We deliberately split that:
+- Aesthetic wishes → themes (unicorn kept; "conservative" became **classic**,
+  i.e. muted/editorial — a political label on a neutral-discourse platform sends
+  the wrong signal).
+- Access needs → functional modes (**calm** instead of "ADHS/neurodivergent").
+  Naming a mode after a diagnosis reduces people to that diagnosis, like calling
+  a ramp a "disabled mode". "Calm" helps anyone distracted by a busy UI (ADHD,
+  autism, migraine, or a noisy room) without labelling them. This is inclusive,
+  fits the humanist mission, and is the reason the modes exist.
+
+## Reduce-motion honesty
+Quappe has little real motion — the only conspicuous, repeating animation is the
+pulsing unread badge; the rest are subtle hover/popover transitions. So:
+- We respect the OS `prefers-reduced-motion` media query automatically (users
+  who set it system-wide need not find the toggle).
+- The manual toggle is an additive convenience. If richer motion is added later
+  (e.g. streamgraph transitions), both paths already cover it.
+
+
 # Interaction patterns
 
 - Voting toggles: same type+weight twice = retract. Weight cycles the Fibonacci
