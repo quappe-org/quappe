@@ -335,6 +335,12 @@
 	"translate_show_original": "Afficher l'original",
 	"translate_pending": "Traduction …",
 
+	"rephrase_label": "Lire en",
+	"rephrase_simple": "Simple",
+	"rephrase_prose": "Prose",
+	"rephrase_dense": "Dense",
+	"rephrase_pending": "…",
+
 	"about_nav_intro": "Aperçu",
 	"about_nav_lifecycle": "Cycle de vie",
 	"about_nav_heat": "Chaleur",
