@@ -283,11 +283,11 @@
 	.updates-page {
 		display: flex;
 		flex-direction: column;
-		gap: 0.9rem;
+		gap: 1.5rem;
 	}
 
 	.updates-page :global(.card) {
-		padding: 0.7rem 0.9rem;
+		padding: 0.75rem 1rem;
 	}
 
 	.page-head {

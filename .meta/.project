@@ -176,3 +176,43 @@ It needs a UID, but we want full anonymity (no visible username, only arguments 
 - Regional instances.
 - SSO for enterprise contexts.
 - Server-side event log / changelog persistence.
+
+
+# Design decisions parked for later (rationale kept so we don't re-litigate)
+
+## No Thesis forking — use relations → revision → merge instead
+Argument forks converge (one card, one vote per group, best wording wins).
+Thesis forks would DIVERGE: a thesis is a container for a whole discourse
+(votes + arguments), so forking it fragments the very consensus the platform
+exists to find. 40 people agreeing across 8 near-identical thesis variants =
+nobody reaches the 20-vote crystallisation threshold. That inverts the mission.
+
+Also: a "forked thesis" is indistinguishable from a "new, related thesis" — and
+we already model that with `related_thesis_ids` (graph edges). So the answer is
+not a fork tree but a stronger relation graph, maturing in three stages:
+
+1. **Relations first** — make "streams" on a topic visible. On create, when the
+   similarity search finds a near-duplicate, actively offer "link as related
+   thesis?". Visualise related theses as a cluster/stream. This is the data
+   groundwork everything else builds on.
+2. **Revision (owner cycle)** — the thesis owner can revise wording in place;
+   history tracked as a changelog. Convergent answer to fragmentation: the
+   discourse stays in ONE container, the phrasing just improves. (Needs
+   changelog persistence — Phase 2/3.)
+3. **Merge (active consensus work)** — merge several related theses; participants
+   are notified via the update feed and re-position themselves; the merge event
+   spikes activity/heat/germination so the topic resurfaces and pulls new
+   people in. Most powerful, most complex (merge semantics for votes/arguments,
+   re-positioning flow, abuse potential where someone merges strategically to
+   dilute an inconvenient thesis). Phase 3.
+
+Reason it's real-life-honest: there is no single canonical phrasing of a topic;
+related, coexisting discourses are natural. We embrace that via a network of
+related theses, NOT a genealogy of copies.
+
+## Meta / science reporting (later)
+Lifecycle, rules, quality metrics, heat and the activity streamgraph are, for
+users, primarily about *transparency*. Later they double as a data source for
+meta-reporting and external scientific correlation (e.g. how consensus forms,
+which evidence types move opinion). Keep the derived metrics clean and
+timestamped (ISO-8601) so they are analysable after the fact.

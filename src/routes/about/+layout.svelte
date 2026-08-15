@@ -22,7 +22,6 @@
 
 <section class="about-shell">
 	<aside class="about-side">
-		<img src="/dialog_network.png" alt={m.about_img_alt()} class="about-image" />
 		<nav class="about-nav" aria-label="About sections">
 			{#each links as l}
 				<a href={l.href} class="about-nav-item" class:active={isActive(l.href)}>
@@ -58,15 +57,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
-	}
-
-	.about-image {
-		width: 100%;
-		max-width: 180px;
-		height: auto;
-		display: block;
-		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-md);
 	}
 
 	.about-nav {

@@ -487,22 +487,18 @@
 					</div>
 				</form>
 			{:else}
-				<h1 class="thesis-title">{displayTitle}</h1>
-				<p class="thesis-description">{displayDescription}</p>
-
-				<div class="thesis-meta-row">
-					{#each thesis.categories as category}
-						<span class="tag">{category}</span>
-					{/each}
+				<div class="thesis-title-row">
+					<h1 class="thesis-title">{displayTitle}</h1>
 					{#if translateNeeded}
 						<button
 							type="button"
 							class="translate-btn"
+							class:active={translated}
 							onclick={toggleTranslate}
 							disabled={translating}
 							title={translated ? m.translate_show_original() : m.translate_to({ locale: (localeStore.current ?? '').toUpperCase() })}
 						>
-							<svg class="translate-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<svg class="translate-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 								<circle cx="12" cy="12" r="10"></circle>
 								<path d="M2 12h20"></path>
 								<path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
@@ -516,6 +512,13 @@
 							{/if}
 						</button>
 					{/if}
+				</div>
+				<p class="thesis-description">{displayDescription}</p>
+
+				<div class="thesis-meta-row">
+					{#each thesis.categories as category}
+						<span class="tag">{category}</span>
+					{/each}
 				</div>
 
 				{#if thesis.hashtags && thesis.hashtags.length > 0}
@@ -951,25 +954,41 @@
 		padding: 0.1rem 0.55rem;
 	}
 
+	.thesis-title-row {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
 	.translate-btn {
+		flex-shrink: 0;
 		display: inline-flex;
 		align-items: center;
-		gap: 0.3rem;
-		padding: 0.2rem 0.6rem;
+		gap: 0.35rem;
+		padding: 0.3rem 0.6rem;
 		font-size: var(--text-xs);
 		font-weight: 600;
-		border-radius: var(--radius-sm);
-		background: var(--color-primary);
-		color: #fff;
-		border: 1px solid var(--color-primary);
+		border-radius: var(--radius-md);
+		background: transparent;
+		color: var(--color-text-muted);
+		border: 1px solid var(--color-border);
 		font-family: inherit;
 		cursor: pointer;
-		transition: filter var(--transition-fast), transform var(--transition-fast);
+		white-space: nowrap;
+		transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
 	}
 
 	.translate-btn:hover:not(:disabled) {
-		filter: brightness(1.08);
-		transform: translateY(-1px);
+		color: var(--color-primary);
+		background: var(--color-primary-bg);
+		border-color: var(--color-primary);
+	}
+
+	.translate-btn.active {
+		color: var(--color-primary);
+		background: var(--color-primary-bg);
+		border-color: var(--color-primary);
 	}
 
 	.translate-btn:disabled {

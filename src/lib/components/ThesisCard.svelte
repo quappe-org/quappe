@@ -170,44 +170,37 @@
 		onclick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = '/about/lifecycle'; }}
 		onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); window.location.href = '/about/lifecycle'; } }}
 	></span>
-	<h3 class="thesis-title">{displayTitle}</h3>
+	<div class="thesis-title-row">
+		<h3 class="thesis-title">{displayTitle}</h3>
+		{#if needsTranslate}
+			<button
+				type="button"
+				class="translate-icon-btn"
+				class:active={translated}
+				onclick={toggleTranslate}
+				disabled={translating}
+				aria-label={translated ? m.translate_show_original() : m.translate_to({ locale: (localeStore.current ?? '').toUpperCase() })}
+				title={translated ? m.translate_show_original() : m.translate_to({ locale: (localeStore.current ?? '').toUpperCase() })}
+			>
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<circle cx="12" cy="12" r="10"></circle>
+					<path d="M2 12h20"></path>
+					<path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+				</svg>
+			</button>
+		{/if}
+	</div>
 	<p class="thesis-description">{displayDescription}</p>
 
 	<div class="thesis-categories">
 		{#each thesis.categories as category}
 			<span class="tag">{category}</span>
 		{/each}
-		{#if needsTranslate}
-			<button
-				type="button"
-				class="translate-pill"
-				onclick={toggleTranslate}
-				disabled={translating}
-				title={translated ? m.translate_show_original() : m.translate_to({ locale: (localeStore.current ?? '').toUpperCase() })}
-			>
-				<svg class="translate-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-					<circle cx="12" cy="12" r="10"></circle>
-					<path d="M2 12h20"></path>
-					<path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-				</svg>
-				{#if translated}
-					{m.translate_show_original()}
-				{:else}
-					{m.translate_to({ locale: (localeStore.current ?? '').toUpperCase() })}
-				{/if}
-			</button>
-		{/if}
 	</div>
 
 	{#if thesis.hashtags && thesis.hashtags.length > 0}
-		<div class="thesis-hashtags">
-			{#each thesis.hashtags.slice(0, 5) as tag}
-				<span class="hashtag-tag">#{tag}</span>
-			{/each}
-			{#if thesis.hashtags.length > 5}
-				<span class="hashtag-more">+{thesis.hashtags.length - 5}</span>
-			{/if}
-		</div>
+		<!-- Hashtags are filter metadata, not feed-decision info — shown on the
+		     detail page only, to keep the feed card calm (progressive disclosure). -->
 	{/if}
 
 	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
@@ -313,6 +306,13 @@
 		color: var(--color-primary);
 	}
 
+	.thesis-title-row {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+
 	.thesis-title {
 		font-size: var(--text-lg);
 		font-weight: 600;
@@ -323,10 +323,10 @@
 	.thesis-description {
 		font-size: var(--text-sm);
 		color: var(--color-text-muted);
-		line-height: 1.5;
+		line-height: 1.55;
 		display: -webkit-box;
-		-webkit-line-clamp: 3;
-		line-clamp: 3;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
 	}
@@ -337,58 +337,35 @@
 		gap: 0.375rem;
 	}
 
-	.thesis-hashtags {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.3rem;
-	}
-
-	.hashtag-tag {
-		display: inline-flex;
-		align-items: center;
-		font-size: 0.7rem;
-		background: #ecfeff;
-		color: #0e7490;
-		border: 1px solid #a5f3fc;
-		border-radius: 9999px;
-		padding: 0.05rem 0.5rem;
-	}
-
-	.hashtag-more {
-		font-size: 0.7rem;
-		color: var(--color-text-light);
-		font-family: var(--font-mono);
-		align-self: center;
-	}
-
-	.translate-pill {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-		padding: 0.2rem 0.6rem;
-		font-size: var(--text-xs);
-		font-weight: 600;
-		border-radius: var(--radius-sm);
-		background: var(--color-primary);
-		color: #fff;
-		border: 1px solid var(--color-primary);
-		font-family: inherit;
-		cursor: pointer;
-		transition: filter var(--transition-fast), transform var(--transition-fast);
-	}
-
-	.translate-pill:hover:not(:disabled) {
-		filter: brightness(1.08);
-		transform: translateY(-1px);
-	}
-
-	.translate-pill:disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
-	}
-
-	.translate-icon {
+	.translate-icon-btn {
 		flex-shrink: 0;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.75rem;
+		height: 1.75rem;
+		margin-top: 0.05rem;
+		border-radius: 50%;
+		background: transparent;
+		color: var(--color-text-light);
+		border: none;
+		cursor: pointer;
+		transition: color var(--transition-fast), background var(--transition-fast);
+	}
+
+	.translate-icon-btn:hover:not(:disabled) {
+		color: var(--color-primary);
+		background: var(--color-primary-bg);
+	}
+
+	.translate-icon-btn.active {
+		color: var(--color-primary);
+		background: var(--color-primary-bg);
+	}
+
+	.translate-icon-btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 
 	.badge-arguments {

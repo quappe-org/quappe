@@ -255,11 +255,11 @@
 	.my-page {
 		display: flex;
 		flex-direction: column;
-		gap: 0.9rem;
+		gap: 1.5rem;
 	}
 
 	.my-page :global(.card) {
-		padding: 0.9rem 1rem;
+		padding: var(--space-lg);
 	}
 
 	.page-head {
