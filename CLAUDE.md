@@ -67,6 +67,7 @@ The `handle` hook wraps every request in `paraglideMiddleware` (locale from URL 
 
 - **Do not reintroduce in-memory Maps for domain data.** The migration to SQLite was deliberate — every read and write goes through `data.ts` → `src/lib/server/db/*`. If a new query is needed, add a `dbGet*` helper alongside the others.
 - Consumer modules (`+server.ts` handlers, `hooks.server.ts`, `pulse.ts`, `similarity.ts`, `argument-categorization.ts`) only import from `$lib/stores/data`. Keep the façade's exports and signatures stable.
+- **UI stays presentation-only (split-ready).** Svelte components and client stores must NOT import `data.ts`, `src/lib/server/*`, or any DB module. The UI talks to the server exclusively through page `load` functions and `/api/*` endpoints. This keeps `quappe-web` cleanly separable from `quappe-service` later (see the "Quappe as a platform" north star in `.meta/.project`) — treat the API as the contract.
 - `better-sqlite3` is declared in Vite's `ssr.external` and `optimizeDeps.exclude`. If you add another native module, add it in both places.
 - ISO-8601 strings are the canonical timestamp format (they sort lexicographically, and `getActivityCalendar` relies on `iso.slice(0,10)`).
 - Domain design decisions are documented in `.meta/*.skill` files — update them when you change a decision.

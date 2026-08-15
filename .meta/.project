@@ -216,3 +216,25 @@ users, primarily about *transparency*. Later they double as a data source for
 meta-reporting and external scientific correlation (e.g. how consensus forms,
 which evidence types move opinion). Keep the derived metrics clean and
 timestamped (ISO-8601) so they are analysable after the fact.
+
+## Quappe as a platform (north star, not a now-todo)
+The long-term shape is several independent building blocks around ONE API
+contract, which is what makes the `quappe-org` umbrella meaningful:
+
+- **quappe-service** — the API + SQLite/DB + all domain logic (the single source
+  of truth). Everything else is a consumer.
+- **quappe-web** — a presentation-only frontend that consumes the API. No domain
+  logic in the client; it renders and calls endpoints. This is what allows
+  multiple frontends and 3rd-party clients (the API already exists).
+- **quappe-monitoring** (ops) and **quappe-analytics** (meta/science reporting) —
+  further consumers of the same API / event stream.
+
+Why NOT split the repo yet: today it is a single developer on an MVP. SvelteKit
+already separates server (load, form actions, API routes) from client, and we
+*already* have an API. A physical split (service/web) only pays off once a
+second frontend or a second team/deployment exists — until then it doubles
+deployment, CI and type-sync for no current benefit.
+
+How we stay split-ready without splitting: the UI consumes ONLY the API — no
+component imports `data.ts` or server DB modules directly (see technical rules
+in CLAUDE.md). That keeps the eventual split a clean cut, not open-heart surgery.

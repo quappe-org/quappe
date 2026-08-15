@@ -345,6 +345,12 @@
 </script>
 
 <section class="page">
+	<!-- Editorial masthead -->
+	<header class="masthead">
+		<h1 class="masthead-title">{m.home_masthead_title()}</h1>
+		<p class="masthead-sub">{m.home_masthead_sub()}</p>
+	</header>
+
 	<!-- Search -->
 	<div class="search-wrap">
 		<div class="search-box">
@@ -585,6 +591,32 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.5rem;
+	}
+
+	/* Editorial masthead */
+	.masthead {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		padding-bottom: 0.5rem;
+	}
+
+	.masthead-title {
+		font-family: var(--font-serif);
+		font-size: clamp(2rem, 5vw, 3rem);
+		font-weight: 600;
+		line-height: 1.05;
+		letter-spacing: -0.02em;
+		color: var(--color-text);
+		margin: 0;
+	}
+
+	.masthead-sub {
+		font-size: var(--text-lg);
+		color: var(--color-text-muted);
+		line-height: 1.5;
+		margin: 0;
+		max-width: 52ch;
 	}
 
 	.section {

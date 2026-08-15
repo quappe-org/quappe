@@ -23,6 +23,17 @@
 
 	let mounted = $state(false);
 
+	// Top-down shell: transient popovers replace the old permanent sidebar.
+	let menuOpen = $state(false);      // overflow menu (about/settings/pulse + theme)
+	let budgetOpen = $state(false);    // budget popover
+	let sliderOpen = $state(false);    // complexity popover
+
+	function closeAllPopovers() {
+		menuOpen = false;
+		budgetOpen = false;
+		sliderOpen = false;
+	}
+
 	function handleComplexityChange(settings: ComplexitySettings) {
 		complexityStore.set(settings);
 	}
@@ -36,6 +47,12 @@
 		localeStore.refresh();
 	});
 
+	// Close any open popover on navigation.
+	$effect(() => {
+		currentPath;
+		closeAllPopovers();
+	});
+
 	function isActive(path: string): boolean {
 		if (path === '/') return currentPath === '/';
 		if (path === '/my') return currentPath === '/my';
@@ -45,11 +62,12 @@
 	let unreadCount = $derived(updatesSeen.unreadCount(updatesStore.events) + forkFeedStore.pending.length);
 
 	async function newThesis() {
+		closeAllPopovers();
 		uiIntents.requestNewThesis();
 		if (currentPath !== '/') await goto('/');
 	}
 
-	// ---- Budget expand ----
+	// ---- Budget ----
 	interface BudgetEventLite {
 		kind: 'vote' | 'thesis' | 'argument';
 		at: string;
@@ -72,7 +90,6 @@
 		weight_points: BudgetBucketLite;
 		events: BudgetEventLite[];
 	}
-	let budgetExpanded = $state(false);
 	let budgetData = $state<BudgetLite | null>(null);
 	let budgetFetchedAt = 0;
 	const BUDGET_TTL_MS = 60_000;
@@ -106,13 +123,32 @@
 	});
 
 	function toggleBudget() {
-		budgetExpanded = !budgetExpanded;
-		if (budgetExpanded) ensureBudgetLoaded();
+		const next = !budgetOpen;
+		closeAllPopovers();
+		budgetOpen = next;
+		if (budgetOpen) ensureBudgetLoaded();
 	}
+
+	function toggleSlider() {
+		const next = !sliderOpen;
+		closeAllPopovers();
+		sliderOpen = next;
+	}
+
+	function toggleMenu() {
+		const next = !menuOpen;
+		closeAllPopovers();
+		menuOpen = next;
+	}
+
+	// Lowest remaining creation bucket → the number shown on the budget pill.
+	let budgetPillValue = $derived(
+		Math.min(budgetStore.thesesRemaining, budgetStore.supportArgsRemaining, budgetStore.rejectArgsRemaining)
+	);
 
 	function fmtTime(iso: string): string {
 		try {
-			return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+			return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 		} catch {
 			return iso;
 		}
@@ -125,149 +161,124 @@
 	}
 </script>
 
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape') closeAllPopovers(); }} />
+
 <div class="app">
+	<!-- ROW 0: top navigation bar -->
 	<header class="topbar">
 		<div class="topbar-inner">
-			<a href="/" class="brand">
-				<Logo size={24} />
-				<span>Quappe</span>
+			<a href="/" class="brand" onclick={closeAllPopovers}>
+				<Logo size={26} />
+				<span class="brand-name">Quappe</span>
 			</a>
-			<button class="menu-toggle" aria-label="Menu" onclick={() => document.body.classList.toggle('nav-open')}>
-				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-			</button>
+
+			<nav class="topnav" aria-label="Primary">
+				<a href="/" class="topnav-item" class:active={isActive('/')}>{m.nav_trending()}</a>
+				<a href="/top" class="topnav-item" class:active={isActive('/top')}>{m.nav_top()}</a>
+				<a href="/my" class="topnav-item" class:active={isActive('/my')}>{m.nav_my_theses()}</a>
+				<a href="/my/updates" class="topnav-item topnav-updates" class:active={isActive('/my/updates')}>
+					{m.nav_updates()}
+					{#if mounted && unreadCount > 0}<span class="nav-badge">{unreadCount}</span>{/if}
+				</a>
+			</nav>
+
+			<div class="actions">
+				<button class="action-btn action-new" onclick={newThesis} title={m.nav_new_thesis_hint()}>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+					<span class="action-new-label">{m.nav_new_thesis()}</span>
+				</button>
+
+				<!-- Complexity -->
+				<div class="pop-wrap">
+					<button class="action-btn icon-only" class:on={sliderOpen} onclick={toggleSlider} title={m.panel_complexity_title()} aria-label={m.panel_complexity_title()} aria-expanded={sliderOpen}>
+						<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+					</button>
+					{#if sliderOpen}
+						<div class="popover pop-slider">
+							<h3 class="pop-title">{m.panel_complexity_title()}</h3>
+							<ComplexitySlider onchange={handleComplexityChange} />
+						</div>
+					{/if}
+				</div>
+
+				<!-- Budget -->
+				<div class="pop-wrap">
+					<button class="action-btn budget-pill" class:on={budgetOpen} onclick={toggleBudget} title={m.panel_budget_title()} aria-expanded={budgetOpen}>
+						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+						{#if mounted}<span class="budget-pill-num" class:low={budgetPillValue === 0}>{budgetPillValue}</span>{/if}
+					</button>
+					{#if budgetOpen}
+						<div class="popover pop-budget">
+							<h3 class="pop-title">{m.panel_budget_title()}</h3>
+							<p class="pop-hint">{m.panel_budget_hint()}</p>
+							<div class="budget-list">
+								<div class="budget-row">
+									<span class="budget-label">{m.panel_budget_theses()}</span>
+									<span class="budget-bar"><span class="budget-bar-fill" style="width: {(budgetStore.thesesRemaining / budgetStore.thesesLimit) * 100}%"></span></span>
+									<span class="budget-count" class:low={budgetStore.thesesRemaining === 0}>{budgetStore.thesesRemaining}/{budgetStore.thesesLimit}</span>
+								</div>
+								<div class="budget-row">
+									<span class="budget-label">{m.panel_budget_support_args()}</span>
+									<span class="budget-bar"><span class="budget-bar-fill" style="width: {(budgetStore.supportArgsRemaining / budgetStore.argsLimit) * 100}%"></span></span>
+									<span class="budget-count" class:low={budgetStore.supportArgsRemaining === 0}>{budgetStore.supportArgsRemaining}/{budgetStore.argsLimit}</span>
+								</div>
+								<div class="budget-row">
+									<span class="budget-label">{m.panel_budget_reject_args()}</span>
+									<span class="budget-bar"><span class="budget-bar-fill" style="width: {(budgetStore.rejectArgsRemaining / budgetStore.argsLimit) * 100}%"></span></span>
+									<span class="budget-count" class:low={budgetStore.rejectArgsRemaining === 0}>{budgetStore.rejectArgsRemaining}/{budgetStore.argsLimit}</span>
+								</div>
+								<div class="budget-row">
+									<span class="budget-label">{m.panel_budget_weight()}</span>
+									<span class="budget-bar"><span class="budget-bar-fill" style="width: {(budgetStore.weightRemaining / budgetStore.weightLimit) * 100}%"></span></span>
+									<span class="budget-count" class:low={budgetStore.weightRemaining === 0}>{budgetStore.weightRemaining}/{budgetStore.weightLimit}</span>
+								</div>
+							</div>
+							{#if budgetData && budgetData.events.length > 0}
+								<ul class="budget-events">
+									{#each budgetData.events.slice(0, 4) as ev}
+										<li class="budget-event">
+											<time class="budget-event-time">{fmtTime(ev.at)}</time>
+											<a class="budget-event-label" href="/thesis/{ev.thesis_id}">{eventLabel(ev)}</a>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+							<a href="/my#budget" class="pop-link" onclick={closeAllPopovers}>{m.panel_budget_details_link()}</a>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Theme quick toggle (invert / dark-ish) -->
+				<button class="action-btn icon-only" onclick={() => invertStore.toggle()} title={m.panel_invert_title()} aria-label={m.panel_invert_title()}>
+					<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 0 12 6 6 0 0 1 0-12z"></path><circle cx="12" cy="12" r="9"></circle></svg>
+				</button>
+
+				<!-- Overflow menu -->
+				<div class="pop-wrap">
+					<button class="action-btn icon-only" class:on={menuOpen} onclick={toggleMenu} title="Menu" aria-label="Menu" aria-expanded={menuOpen}>
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg>
+					</button>
+					{#if menuOpen}
+						<div class="popover pop-menu">
+							<a href="/pulse" class="menu-item" class:active={isActive('/pulse')} onclick={closeAllPopovers}>{m.nav_community_pulse()}</a>
+							<a href="/about" class="menu-item" class:active={isActive('/about')} onclick={closeAllPopovers}>{m.nav_about()}</a>
+							<a href="/settings" class="menu-item" class:active={isActive('/settings')} onclick={closeAllPopovers}>{m.nav_settings()}</a>
+						</div>
+					{/if}
+				</div>
+			</div>
 		</div>
 	</header>
 
-	<div class="shell">
-		<!-- LEFT SIDEBAR: Brand + Nav + New thesis + Fork feed + Budget + Complexity + About/Settings -->
-		<aside class="sidebar sidebar-left">
-			<a href="/" class="brand brand-sidebar">
-				<Logo size={28} />
-				<span>Quappe</span>
-			</a>
-			<nav class="nav">
-				<a href="/" class="nav-item" class:active={isActive('/')}>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
-					{m.nav_trending()}
-				</a>
-				<a href="/top" class="nav-item" class:active={isActive('/top')}>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-					{m.nav_top()}
-				</a>
-				<a href="/my" class="nav-item" class:active={isActive('/my')}>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-					{m.nav_my_theses()}
-				</a>
-				<a href="/my/updates" class="nav-item" class:active={isActive('/my/updates')}>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-					{m.nav_updates()}
-					{#if mounted && unreadCount > 0}
-						<span class="nav-badge">{unreadCount}</span>
-					{/if}
-				</a>
-				<a href="/pulse" class="nav-item" class:active={isActive('/pulse')}>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-9 4 18 3-9h4"></path></svg>
-					{m.nav_community_pulse()}
-				</a>
+	<!-- Backdrop closes popovers on outside click -->
+	{#if menuOpen || budgetOpen || sliderOpen}
+		<button class="popover-backdrop" aria-label="Close" onclick={closeAllPopovers}></button>
+	{/if}
 
-				<button
-					class="new-thesis-btn"
-					onclick={newThesis}
-					title={m.nav_new_thesis_hint()}
-				>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-					{m.nav_new_thesis()}
-				</button>
-		</nav>
-
-		<div class="panel budget-panel">
-				<button class="budget-header" onclick={toggleBudget} aria-expanded={budgetExpanded}>
-					<h3 class="panel-title">{m.panel_budget_title()}</h3>
-					<svg class="budget-chevron" class:budget-chevron-open={budgetExpanded} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-				</button>
-				<p class="panel-hint">{m.panel_budget_hint()}</p>
-				<div class="budget-list">
-					<div class="budget-row">
-						<span class="budget-label">{m.panel_budget_theses()}</span>
-						<span class="budget-bar">
-							<span class="budget-bar-fill" style="width: {(budgetStore.thesesRemaining / budgetStore.thesesLimit) * 100}%"></span>
-						</span>
-						<span class="budget-count" class:low={budgetStore.thesesRemaining === 0}>{budgetStore.thesesRemaining}/{budgetStore.thesesLimit}</span>
-					</div>
-					<div class="budget-row">
-						<span class="budget-label">{m.panel_budget_support_args()}</span>
-						<span class="budget-bar">
-							<span class="budget-bar-fill" style="width: {(budgetStore.supportArgsRemaining / budgetStore.argsLimit) * 100}%"></span>
-						</span>
-						<span class="budget-count" class:low={budgetStore.supportArgsRemaining === 0}>{budgetStore.supportArgsRemaining}/{budgetStore.argsLimit}</span>
-					</div>
-					<div class="budget-row">
-						<span class="budget-label">{m.panel_budget_reject_args()}</span>
-						<span class="budget-bar">
-							<span class="budget-bar-fill" style="width: {(budgetStore.rejectArgsRemaining / budgetStore.argsLimit) * 100}%"></span>
-						</span>
-						<span class="budget-count" class:low={budgetStore.rejectArgsRemaining === 0}>{budgetStore.rejectArgsRemaining}/{budgetStore.argsLimit}</span>
-					</div>
-					<div class="budget-row">
-						<span class="budget-label">{m.panel_budget_weight()}</span>
-						<span class="budget-bar">
-							<span class="budget-bar-fill" style="width: {(budgetStore.weightRemaining / budgetStore.weightLimit) * 100}%"></span>
-						</span>
-						<span class="budget-count" class:low={budgetStore.weightRemaining === 0}>{budgetStore.weightRemaining}/{budgetStore.weightLimit}</span>
-					</div>
-				</div>
-
-				{#if budgetExpanded}
-					<div class="budget-expand">
-						{#if !budgetData}
-							<p class="budget-empty">{m.panel_budget_loading()}</p>
-						{:else if budgetData.events.length === 0}
-							<p class="budget-empty">{m.panel_budget_empty()}</p>
-						{:else}
-							<ul class="budget-events">
-								{#each budgetData.events.slice(0, 5) as ev}
-									<li class="budget-event">
-										<time class="budget-event-time">{fmtTime(ev.at)}</time>
-										<a class="budget-event-label" href="/thesis/{ev.thesis_id}">{eventLabel(ev)}</a>
-									</li>
-								{/each}
-								{#if budgetData.events.length > 5}
-									<li class="budget-event budget-more">{m.panel_budget_more_events({ count: budgetData.events.length - 5 })}</li>
-								{/if}
-							</ul>
-						{/if}
-						<a href="/my#budget" class="budget-details-link">{m.panel_budget_details_link()}</a>
-					</div>
-				{/if}
-			</div>
-
-			<div class="panel">
-				<h3 class="panel-title">{m.panel_complexity_title()}</h3>
-				<ComplexitySlider onchange={handleComplexityChange} />
-			</div>
-
-			<div class="nav-separator" aria-hidden="true"></div>
-
-			<nav class="nav nav-secondary">
-				<a href="/about" class="nav-item" class:active={isActive('/about')}>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
-					{m.nav_about()}
-				</a>
-				<a href="/settings" class="nav-item" class:active={isActive('/settings')}>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<circle cx="12" cy="12" r="3"></circle>
-						<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68 1.65 1.65 0 0 0 9 3.17V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-					</svg>
-					{m.nav_settings()}
-				</a>
-			</nav>
-		</aside>
-
-		<!-- MAIN CONTENT -->
-		<main class="main">
-			{@render children()}
-		</main>
-	</div>
+	<!-- ROW 1+: main content, centred editorial column -->
+	<main class="main">
+		{@render children()}
+	</main>
 </div>
 
 <style>
@@ -277,117 +288,88 @@
 		flex-direction: column;
 	}
 
+	/* ---- Top bar ---- */
 	.topbar {
-		display: none;
-		background: var(--color-surface);
-		border-bottom: 1px solid var(--color-border);
-		padding: 0.75rem 1rem;
 		position: sticky;
 		top: 0;
 		z-index: 100;
+		background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+		backdrop-filter: saturate(1.4) blur(10px);
+		-webkit-backdrop-filter: saturate(1.4) blur(10px);
+		border-bottom: 1px solid var(--color-border);
 	}
 
 	.topbar-inner {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 0.7rem 1.5rem;
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
+		gap: 1.5rem;
 	}
 
 	.brand {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
-		font-size: var(--text-xl);
+		font-size: var(--text-lg);
 		font-weight: 700;
 		color: var(--color-text);
 		text-decoration: none;
 		letter-spacing: -0.01em;
-	}
-
-	.brand-sidebar {
-		padding: 0.5rem 0.75rem 1rem;
-		border-bottom: 1px solid var(--color-border);
-		margin-bottom: 0.25rem;
+		flex-shrink: 0;
 	}
 
 	.brand:hover {
 		color: var(--color-primary);
 	}
 
-	.menu-toggle {
-		background: none;
-		border: none;
-		color: var(--color-text);
-		cursor: pointer;
-		padding: 0.25rem;
-	}
-
-	.shell {
-		flex: 1;
-		display: grid;
-		grid-template-columns: 240px 1fr;
-		gap: 2.5rem;
-		max-width: 1400px;
-		width: 100%;
-		margin: 0 auto;
-		padding: 2rem 2rem;
-	}
-
-	.sidebar {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-	}
-
-	.sidebar-left {
-		position: sticky;
-		top: 1.5rem;
-		align-self: flex-start;
-		max-height: calc(100vh - 2rem);
-		overflow-y: auto;
-	}
-
-	.nav {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-
-	.nav-item {
+	/* ---- Primary nav (centre) ---- */
+	.topnav {
 		display: flex;
 		align-items: center;
-		gap: 0.625rem;
-		padding: 0.5rem 0.75rem;
+		gap: 0.25rem;
+		margin-right: auto;
+	}
+
+	.topnav-item {
+		position: relative;
+		padding: 0.4rem 0.7rem;
 		font-size: var(--text-sm);
 		font-weight: 500;
 		color: var(--color-text-muted);
 		text-decoration: none;
 		border-radius: var(--radius-md);
-		transition: background var(--transition-fast), color var(--transition-fast);
+		transition: color var(--transition-fast), background var(--transition-fast);
+		white-space: nowrap;
 	}
 
-	.nav-item:hover {
-		background: var(--color-bg);
+	.topnav-item:hover {
 		color: var(--color-text);
+		background: var(--color-bg);
 	}
 
-	.nav-item.active {
-		background: var(--color-primary-bg);
+	.topnav-item.active {
 		color: var(--color-primary);
 		font-weight: 600;
+	}
+
+	.topnav-updates {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
 	}
 
 	.nav-badge {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		min-width: 1.1rem;
-		height: 1.1rem;
+		min-width: 1.05rem;
+		height: 1.05rem;
 		padding: 0 0.3rem;
-		margin-left: auto;
 		background: var(--color-primary);
 		color: white;
-		font-size: 0.65rem;
+		font-size: 0.62rem;
 		font-weight: 700;
 		border-radius: 999px;
 		line-height: 1;
@@ -399,76 +381,142 @@
 		50% { transform: scale(1.15); }
 	}
 
-	.nav-item.active .nav-badge {
-		background: white;
+	/* ---- Actions (right) ---- */
+	.actions {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		flex-shrink: 0;
+	}
+
+	.action-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.4rem;
+		height: 2.1rem;
+		padding: 0 0.7rem;
+		font-family: inherit;
+		font-size: var(--text-sm);
+		font-weight: 500;
+		color: var(--color-text-muted);
+		background: transparent;
+		border: 1px solid transparent;
+		border-radius: var(--radius-md);
+		cursor: pointer;
+		transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+	}
+
+	.action-btn:hover {
+		background: var(--color-bg);
+		color: var(--color-text);
+	}
+
+	.action-btn.on {
+		background: var(--color-primary-bg);
 		color: var(--color-primary);
 	}
 
-	.new-thesis-btn {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem 0.75rem;
-		margin-top: 0.5rem;
-		font-family: inherit;
-		font-size: var(--text-sm);
-		font-weight: 600;
+	.action-btn.icon-only {
+		width: 2.1rem;
+		padding: 0;
+	}
+
+	.action-new {
 		color: white;
 		background: var(--color-primary);
-		border: 1px solid var(--color-primary);
-		border-radius: var(--radius-md);
-		cursor: pointer;
-		transition: background var(--transition-fast), border-color var(--transition-fast);
+		border-color: var(--color-primary);
+		font-weight: 600;
 	}
 
-	.new-thesis-btn:hover:not(:disabled) {
+	.action-new:hover {
 		background: var(--color-primary-hover);
 		border-color: var(--color-primary-hover);
+		color: white;
 	}
 
-	.new-thesis-btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
+	.budget-pill {
+		gap: 0.3rem;
 	}
 
-	.nav-separator {
-		height: 1px;
-		background: var(--color-border);
-		margin: 0.5rem 0.5rem;
+	.budget-pill-num {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 600;
 	}
 
-	.nav-secondary {
-		gap: 0.25rem;
+	.budget-pill-num.low {
+		color: var(--color-reject);
 	}
 
-	.main {
-		min-width: 0;
+	/* ---- Popovers ---- */
+	.pop-wrap {
+		position: relative;
 	}
 
-	.panel {
+	.popover-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 105;
+		background: transparent;
+		border: none;
+		cursor: default;
+	}
+
+	.popover {
+		position: absolute;
+		top: calc(100% + 0.5rem);
+		right: 0;
+		z-index: 110;
+		min-width: 260px;
 		background: var(--color-surface);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
-		padding: 0.85rem 1rem;
+		box-shadow: var(--shadow-lg);
+		padding: 0.9rem 1rem;
 		display: flex;
 		flex-direction: column;
 		gap: 0.6rem;
 	}
 
-	.panel-title {
+	.pop-slider { min-width: 280px; }
+	.pop-menu { min-width: 180px; padding: 0.4rem; gap: 0.1rem; }
+
+	.pop-title {
 		font-size: var(--text-sm);
 		font-weight: 600;
 		color: var(--color-text);
 		margin: 0;
 	}
 
-	.panel-hint {
+	.pop-hint {
 		font-size: var(--text-xs);
 		color: var(--color-text-light);
 		margin: 0;
 		line-height: 1.4;
 	}
 
+	.pop-link {
+		font-size: var(--text-xs);
+		color: var(--color-primary);
+		text-decoration: none;
+		align-self: flex-end;
+	}
+	.pop-link:hover { text-decoration: underline; }
+
+	.menu-item {
+		display: block;
+		padding: 0.5rem 0.7rem;
+		font-size: var(--text-sm);
+		color: var(--color-text-muted);
+		text-decoration: none;
+		border-radius: var(--radius-sm);
+		transition: background var(--transition-fast), color var(--transition-fast);
+	}
+	.menu-item:hover { background: var(--color-bg); color: var(--color-text); }
+	.menu-item.active { color: var(--color-primary); font-weight: 600; }
+
+	/* ---- Budget list (inside popover) ---- */
 	.budget-list {
 		display: flex;
 		flex-direction: column;
@@ -477,7 +525,7 @@
 
 	.budget-row {
 		display: grid;
-		grid-template-columns: 70px 1fr 42px;
+		grid-template-columns: 72px 1fr 42px;
 		align-items: center;
 		gap: 0.4rem;
 	}
@@ -492,7 +540,6 @@
 		background: var(--color-bg);
 		border-radius: 3px;
 		overflow: hidden;
-		position: relative;
 	}
 
 	.budget-bar-fill {
@@ -508,93 +555,13 @@
 		color: var(--color-text-muted);
 		text-align: right;
 	}
-
-	.budget-count.low {
-		color: var(--color-reject);
-	}
-
-	@media (max-width: 1024px) {
-		.shell {
-			grid-template-columns: 200px 1fr;
-			gap: 1.75rem;
-			padding: 1.25rem 1.25rem;
-		}
-	}
-
-	@media (max-width: 768px) {
-		.topbar {
-			display: block;
-		}
-		.shell {
-			grid-template-columns: 1fr;
-			gap: 1.25rem;
-			padding: 1rem;
-		}
-		.sidebar-left {
-			display: none;
-		}
-		:global(body.nav-open) .sidebar-left {
-			display: flex;
-			position: fixed;
-			top: 56px;
-			left: 0;
-			width: 240px;
-			height: calc(100vh - 56px);
-			background: var(--color-surface);
-			border-right: 1px solid var(--color-border);
-			padding: 1rem;
-			z-index: 90;
-			overflow-y: auto;
-		}
-	}
-
-	/* Budget expand */
-	.budget-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		width: 100%;
-		background: none;
-		border: none;
-		padding: 0;
-		margin: 0;
-		cursor: pointer;
-		color: inherit;
-		font: inherit;
-		text-align: left;
-	}
-
-	.budget-header:hover .panel-title {
-		color: var(--color-primary);
-	}
-
-	.budget-chevron {
-		color: var(--color-text-muted);
-		transition: transform var(--transition-fast);
-	}
-
-	.budget-chevron-open {
-		transform: rotate(180deg);
-	}
-
-	.budget-expand {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		padding-top: 0.5rem;
-		border-top: 1px dashed var(--color-border);
-	}
-
-	.budget-empty {
-		font-size: var(--text-xs);
-		color: var(--color-text-muted);
-		margin: 0;
-	}
+	.budget-count.low { color: var(--color-reject); }
 
 	.budget-events {
 		list-style: none;
 		margin: 0;
-		padding: 0;
+		padding: 0.5rem 0 0;
+		border-top: 1px dashed var(--color-border);
 		display: flex;
 		flex-direction: column;
 		gap: 0.3rem;
@@ -620,24 +587,35 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
+	.budget-event-label:hover { color: var(--color-primary); }
 
-	.budget-event-label:hover {
-		color: var(--color-primary);
+	/* ---- Main content: centred editorial column ---- */
+	.main {
+		flex: 1;
+		width: 100%;
+		max-width: 1000px;
+		margin: 0 auto;
+		padding: 2.5rem 1.5rem 4rem;
+		min-width: 0;
 	}
 
-	.budget-more {
-		color: var(--color-text-light);
-		font-style: italic;
-	}
-
-	.budget-details-link {
-		font-size: var(--text-xs);
-		color: var(--color-primary);
-		text-decoration: none;
-		align-self: flex-end;
-	}
-
-	.budget-details-link:hover {
-		text-decoration: underline;
+	/* ---- Responsive ---- */
+	@media (max-width: 768px) {
+		.topbar-inner {
+			padding: 0.6rem 1rem;
+			gap: 0.75rem;
+		}
+		.brand-name { display: none; }
+		.topnav {
+			gap: 0;
+			overflow-x: auto;
+			scrollbar-width: none;
+		}
+		.topnav::-webkit-scrollbar { display: none; }
+		.topnav-item { padding: 0.4rem 0.5rem; }
+		.action-new-label { display: none; }
+		.action-new { width: 2.1rem; padding: 0; }
+		.main { padding: 1.5rem 1rem 3rem; }
+		.popover { position: fixed; top: auto; bottom: 0; left: 0; right: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; min-width: 0; }
 	}
 </style>

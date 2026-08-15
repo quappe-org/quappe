@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Thesis, VoteSummary, VoteType } from '$lib/models/types';
 	import { getUserId } from '$lib/stores/user';
-	import { abbreviateNumber } from '$lib/utils/format';
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { localeStore } from '$lib/stores/locale.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -177,6 +176,17 @@
 		onclick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = '/about/lifecycle'; }}
 		onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); window.location.href = '/about/lifecycle'; } }}
 	></span>
+	<div class="thesis-eyebrow">
+		{#if thesis.categories.length > 0}
+			<span class="eyebrow-cat">{thesis.categories[0]}</span>
+			<span class="eyebrow-sep">·</span>
+		{/if}
+		<span class="eyebrow-state">{thesis.lifecycle?.state ?? 'seedling'}</span>
+		{#if argumentCount > 0}
+			<span class="eyebrow-sep">·</span>
+			<span class="eyebrow-args">{argumentCount} {argumentCount === 1 ? m.card_argument_one() : m.card_argument_many()}</span>
+		{/if}
+	</div>
 	<div class="thesis-title-row">
 		<h3 class="thesis-title">{displayTitle}</h3>
 		{#if needsTranslate}
@@ -237,12 +247,6 @@
 				showButtons={showVoteButtons}
 				oncast={castVote}
 			/>
-			<span class="badge badge-arguments" title="Arguments">
-				<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-				</svg>
-				{abbreviateNumber(argumentCount)}
-			</span>
 		</div>
 	</div>
 	</a>
@@ -252,9 +256,9 @@
 	.thesis-card {
 		display: flex;
 		flex-direction: column;
-		gap: 0.85rem;
+		gap: 1rem;
 		position: relative;
-		padding: 1.15rem 1.25rem 1.15rem calc(1.25rem + 16px);
+		padding: 1.5rem 1.5rem 1.5rem calc(1.5rem + 10px);
 		transition: box-shadow var(--transition-base), transform var(--transition-fast);
 		text-decoration: none;
 		color: inherit;
@@ -269,7 +273,7 @@
 		position: absolute;
 		top: 0;
 		bottom: 0;
-		width: 8px;
+		width: 5px;
 		background: var(--color-border);
 	}
 	.heat-band {
@@ -281,7 +285,7 @@
 		filter: brightness(0.85);
 	}
 	.lifecycle-band-strip {
-		left: 8px;
+		left: 5px;
 		cursor: pointer;
 		transition: filter var(--transition-fast);
 	}
@@ -313,6 +317,26 @@
 		color: var(--color-primary);
 	}
 
+	/* Editorial eyebrow: small uppercase meta line above the headline */
+	.thesis-eyebrow {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		font-size: 0.7rem;
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--color-text-light);
+	}
+
+	.eyebrow-cat {
+		color: var(--color-primary);
+	}
+
+	.eyebrow-sep {
+		opacity: 0.5;
+	}
+
 	.thesis-title-row {
 		display: flex;
 		align-items: flex-start;
@@ -321,20 +345,22 @@
 	}
 
 	.thesis-title {
-		font-size: var(--text-lg);
+		font-family: var(--font-serif);
+		font-size: 1.35rem;
 		font-weight: 600;
-		line-height: 1.35;
+		line-height: 1.25;
 		letter-spacing: -0.01em;
+		color: var(--color-text);
 		transition: color var(--transition-fast);
 	}
 
 	.thesis-description {
 		font-size: var(--text-sm);
 		color: var(--color-text-muted);
-		line-height: 1.55;
+		line-height: 1.6;
 		display: -webkit-box;
-		-webkit-line-clamp: 2;
-		line-clamp: 2;
+		-webkit-line-clamp: 3;
+		line-clamp: 3;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
 	}
@@ -374,19 +400,6 @@
 	.translate-icon-btn:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
-	}
-
-	.badge-arguments {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
-		padding: 0.125rem 0.5rem;
-		font-size: var(--text-xs);
-		font-weight: 500;
-		border-radius: var(--radius-sm);
-		background: var(--color-bg);
-		color: var(--color-text-muted);
-		border: 1px solid var(--color-border);
 	}
 
 	.thesis-footer {

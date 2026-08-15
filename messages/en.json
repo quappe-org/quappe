@@ -42,6 +42,8 @@
 	"lang_es": "Español",
 
 	"home_search_placeholder": "Search theses…",
+	"home_masthead_title": "Where positions take shape",
+	"home_masthead_sub": "Propose a thesis, weigh the arguments, find where you agree — and disagree with respect.",
 	"home_search_searching_aria": "Searching",
 	"home_search_mode_semantic": "Semantic search",
 	"home_search_mode_fulltext": "Full-text search",
@@ -71,6 +73,8 @@
 	"home_create_cancel": "Cancel",
 
 	"home_list_count": "{visible} of {total}",
+	"card_argument_one": "argument",
+	"card_argument_many": "arguments",
 	"home_list_empty_filtered": "No theses in category \"{category}\".",
 	"home_list_empty": "No theses yet. Be the first to create one!",
 	"home_list_limit_note": "Adjust the complexity slider to see more theses.",
