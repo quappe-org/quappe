@@ -3,8 +3,7 @@
 // Design:
 // - URLs are extracted from the argument content by regex and returned as a list.
 // - Evidence type is derived from the URL domain(s) using a small whitelist.
-// - Users only explicitly choose ONE thing: whether this is emotional (Herzensangelegenheit).
-//   Emotional overrides everything - it's a human signal, not a fact claim.
+// - Arguments without a recognised source default to a 'logical' attribute.
 
 import type { ArgumentAttribute, EvidenceType } from '$lib/models/types';
 
@@ -75,19 +74,14 @@ export interface DerivedEvidence {
 }
 
 /**
- * Derive argument attributes from raw content and a user-supplied "isEmotional" flag.
+ * Derive argument attributes from raw content.
  *
- * - Emotional flag wins - it produces exactly one attribute of type 'emotional' (no URL).
- * - Otherwise, we extract all URLs, classify each, and produce one attribute per URL.
- *   The best-ranked evidence type (study > authority > logical) is used when picking
- *   the primary type for badge display.
- * - No URLs + not emotional -> a single 'logical' attribute (default text argument).
+ * - Extract all URLs, classify each, and produce one attribute per URL.
+ *   The best-ranked evidence type (study > authority > logical) is used when
+ *   picking the primary type for badge display.
+ * - No URLs -> a single 'logical' attribute (default text argument).
  */
-export function deriveArgumentAttributes(content: string, isEmotional: boolean): DerivedEvidence {
-	if (isEmotional) {
-		return { attributes: [{ evidence_type: 'emotional' }], urls: [] };
-	}
-
+export function deriveArgumentAttributes(content: string): DerivedEvidence {
 	const urls = extractUrls(content);
 	if (urls.length === 0) {
 		return { attributes: [{ evidence_type: 'logical' }], urls: [] };
@@ -107,7 +101,6 @@ export function primaryEvidenceType(attributes: ArgumentAttribute[]): EvidenceTy
 		study: 4,
 		authority: 3,
 		experiential: 2,
-		emotional: 2,
 		logical: 1
 	};
 	let best: EvidenceType = 'logical';

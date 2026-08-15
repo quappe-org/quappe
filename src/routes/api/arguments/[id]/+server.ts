@@ -12,14 +12,14 @@ export const GET: RequestHandler = async ({ params }) => {
 
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	const body = await request.json();
-	const { content, is_emotional } = body;
+	const { content } = body;
 
 	// If content is updated we re-derive attributes from it.
 	let attributes = undefined;
 	if (typeof content === 'string') {
 		const err = checkLength('argument_content', content);
 		if (err) return err;
-		attributes = deriveArgumentAttributes(content, Boolean(is_emotional)).attributes;
+		attributes = deriveArgumentAttributes(content).attributes;
 	}
 
 	const result = updateArgument(params.id, { content, attributes }, locals.user_id);

@@ -28,7 +28,7 @@ export interface ActivitySnapshot {
 	neutral_votes: number;
 	unique_voters: number;
 	arg_count: number;
-	arg_with_evidence: number; // args with study/authority/experiential (not just emotional/logical)
+	arg_with_evidence: number; // args with strong evidence (study/authority), not plain logical
 }
 
 /** Compute activity snapshot from a thesis + its arguments. O(V + A + AV). */

@@ -215,7 +215,6 @@
 	let argFormMode = $state<ArgFormMode>('new');
 	let argContent = $state('');
 	let argStance = $state<ArgumentStance>('support');
-	let argIsEmotional = $state(false);
 	let argForkedFromId = $state<string | undefined>(undefined);
 	let argEditingId = $state<string | undefined>(undefined);
 	let argSubmitting = $state(false);
@@ -225,7 +224,6 @@
 		argFormMode = 'new';
 		argStance = stance;
 		argContent = '';
-		argIsEmotional = false;
 		argForkedFromId = undefined;
 		argEditingId = undefined;
 		argError = null;
@@ -236,7 +234,6 @@
 		argFormMode = 'fork';
 		argStance = source.stance;
 		argContent = source.content;
-		argIsEmotional = source.attributes.some((a) => a.evidence_type === 'emotional');
 		argForkedFromId = source.id;
 		argEditingId = undefined;
 		showArgForm = true;
@@ -246,7 +243,6 @@
 		argFormMode = 'edit';
 		argStance = target.stance;
 		argContent = target.content;
-		argIsEmotional = target.attributes.some((a) => a.evidence_type === 'emotional');
 		argForkedFromId = target.forked_from_id;
 		argEditingId = target.id;
 		showArgForm = true;
@@ -285,7 +281,6 @@
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
 						content: argContent.trim(),
-						is_emotional: argIsEmotional,
 						user_id: getUserId()
 					})
 				});
@@ -320,7 +315,6 @@
 					thesis_id: thesis.id,
 					content: argContent.trim(),
 					stance: argStance,
-					is_emotional: argIsEmotional,
 					forked_from_id: argForkedFromId,
 					author_id: getUserId()
 				})
@@ -618,11 +612,6 @@
 						<label for="arg-content">{m.argform_content_label()} <span class="hint-inline">{m.argform_content_hint()}</span></label>
 						<textarea id="arg-content" bind:value={argContent} placeholder={m.argform_content_placeholder()} maxlength="800" required></textarea>
 					</div>
-
-					<label class="emotional-check">
-						<input type="checkbox" bind:checked={argIsEmotional} />
-						<span>{m.argform_emotional_label()} <span class="hint-inline">{m.argform_emotional_hint()}</span></span>
-					</label>
 
 					<div class="form-actions">
 						<button class="btn btn-primary" type="submit" disabled={argSubmitting}>
@@ -1095,19 +1084,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
-	}
-
-	.emotional-check {
-		display: flex;
-		align-items: baseline;
-		gap: 0.5rem;
-		font-size: var(--text-sm);
-		color: var(--color-text);
-		cursor: pointer;
-	}
-
-	.emotional-check input {
-		accent-color: #ec4899;
 	}
 
 	.form-actions {

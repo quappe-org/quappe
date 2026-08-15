@@ -23,14 +23,12 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals }
 		thesis_id,
 		content,
 		stance,
-		forked_from_id,
-		is_emotional
+		forked_from_id
 	}: {
 		thesis_id: string;
 		content: string;
 		stance: 'support' | 'reject';
 		forked_from_id?: string;
-		is_emotional?: boolean;
 	} = body;
 
 	const ip = getClientIp(request, getClientAddress());
@@ -52,7 +50,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals }
 	const budgetErr = checkArgumentBudget(locals.user_id, stance);
 	if (budgetErr) return budgetErr;
 
-	const { attributes } = deriveArgumentAttributes(content, Boolean(is_emotional));
+	const { attributes } = deriveArgumentAttributes(content);
 	const result = createArgument(thesis_id, content, attributes, locals.user_id, stance, forked_from_id);
 
 	if ('error' in result) {

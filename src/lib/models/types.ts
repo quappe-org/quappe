@@ -21,7 +21,7 @@ export const DEFAULT_CATEGORIES: Category[] = [
 	'other'
 ];
 
-export type EvidenceType = 'emotional' | 'study' | 'authority' | 'logical' | 'experiential';
+export type EvidenceType = 'study' | 'authority' | 'logical' | 'experiential';
 
 export interface Meta {
 	created_at: string; // ISO timestamp

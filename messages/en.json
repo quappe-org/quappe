@@ -118,8 +118,6 @@
 	"argform_content_label": "Your argument",
 	"argform_content_hint": "Links are auto-detected. Just paste URLs into your text.",
 	"argform_content_placeholder": "State your reasoning. Paste sources as URLs — they will be classified automatically.",
-	"argform_emotional_label": "This is an emotional argument",
-	"argform_emotional_hint": "(Herzensangelegenheit — a heart matter. Overrides evidence detection.)",
 	"argform_submit_new": "Submit",
 	"argform_submit_fork": "Submit fork",
 	"argform_submit_edit": "Save changes",

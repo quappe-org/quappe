@@ -1,7 +1,6 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
 	"paraglide_smoke_test": "Quappe parle français.",
-
 	"nav_trending": "Tendances",
 	"nav_top": "Top",
 	"nav_my_theses": "Mes thèses",
@@ -12,14 +11,12 @@
 	"nav_new_thesis": "Nouvelle thèse",
 	"nav_new_thesis_disabled_hint": "Budget quotidien des thèses épuisé",
 	"nav_new_thesis_hint": "Créer une nouvelle thèse",
-
 	"panel_fork_updates_title": "Mises à jour de forks",
 	"panel_fork_updates_hint": "Des arguments pour lesquels vous avez voté ont été forkés.",
 	"panel_fork_updates_old_label": "Ancien",
 	"panel_fork_updates_new_label": "Nouveau",
 	"panel_fork_updates_keep_old": "Garder l'ancien",
 	"panel_fork_updates_switch_new": "Passer au nouveau",
-
 	"panel_budget_title": "Budget quotidien",
 	"panel_budget_hint": "Votes et nouvelles thèses. Réinitialisé chaque jour.",
 	"panel_budget_weight": "Poids supplémentaire",
@@ -32,15 +29,12 @@
 	"panel_budget_more_events": "… et {count} de plus",
 	"panel_budget_details_link": "Voir les détails →",
 	"panel_budget_event_thesis": "Thèse : {title}",
-
 	"panel_complexity_title": "Complexité",
 	"panel_language_title": "Langue",
-
 	"lang_en": "English",
 	"lang_de": "Deutsch",
 	"lang_fr": "Français",
 	"lang_es": "Español",
-
 	"home_search_placeholder": "Rechercher des thèses…",
 	"home_search_searching_aria": "Recherche en cours",
 	"home_search_mode_semantic": "Recherche sémantique",
@@ -48,14 +42,11 @@
 	"home_search_mode_combined": "Recherche",
 	"home_search_hits": "{count} résultats",
 	"home_search_no_matches": "Aucun résultat pour « {query} ».",
-
 	"home_suggestion_label": "Suggéré :",
 	"home_suggestion_apply": "Appliquer",
 	"home_suggestion_dismiss_aria": "Ignorer",
-
 	"home_filter_title": "Filtrer",
 	"home_filter_clear": "Effacer",
-
 	"home_create_title": "Créer une thèse",
 	"home_create_close_aria": "Fermer",
 	"home_create_title_label": "Titre",
@@ -69,19 +60,16 @@
 	"home_create_submit": "Créer la thèse",
 	"home_create_submitting": "Création...",
 	"home_create_cancel": "Annuler",
-
 	"home_list_count": "{visible} sur {total}",
 	"home_list_empty_filtered": "Aucune thèse dans la catégorie « {category} ».",
 	"home_list_empty": "Pas encore de thèses. Soyez le premier à en créer une !",
 	"home_list_limit_note": "Ajustez le curseur de complexité pour voir plus de thèses.",
-
 	"error_too_many_requests": "Trop de requêtes — patientez un instant puis réessayez.",
 	"error_thesis_limit_reached": "Limite quotidienne atteinte (7 thèses/jour). Réessayez demain.",
 	"error_text_too_long": "Texte trop long — veuillez le raccourcir.",
 	"error_invalid_input": "Saisie invalide.",
 	"error_not_allowed": "Non autorisé.",
 	"error_server_generic": "Le serveur a répondu {status}. Veuillez réessayer.",
-
 	"thesis_back": "← Retour",
 	"thesis_archived_banner": "Cette thèse a été archivée.",
 	"thesis_activity_title": "Activité : {title}",
@@ -101,14 +89,12 @@
 	"thesis_admin_unarchive": "Désarchiver",
 	"thesis_admin_confirm_archive": "Archiver cette thèse ?",
 	"thesis_admin_confirm_unarchive": "Désarchiver cette thèse ?",
-
 	"danger_zone_title": "Zone à risque",
 	"danger_zone_hint": "Actions qui modifient la visibilité de cette thèse. Réversibles, mais visibles pour tous.",
 	"danger_zone_archive_title": "Archiver la thèse",
 	"danger_zone_archive_desc": "Elle disparaît des listes et n'accepte plus arguments ni votes. Le contenu existant reste lisible.",
 	"danger_zone_unarchive_title": "Désarchiver la thèse",
 	"danger_zone_unarchive_desc": "Elle revient dans les listes. Arguments et votes redeviennent possibles.",
-
 	"argform_title_new": "Nouvel argument",
 	"argform_title_fork": "Forker et adapter",
 	"argform_title_edit": "Modifier l'argument",
@@ -118,14 +104,11 @@
 	"argform_content_label": "Votre argument",
 	"argform_content_hint": "Les liens sont détectés automatiquement. Collez simplement les URL dans votre texte.",
 	"argform_content_placeholder": "Formulez votre raisonnement. Collez vos sources en URL — elles seront classées automatiquement.",
-	"argform_emotional_label": "C'est un argument émotionnel",
-	"argform_emotional_hint": "(Affaire de cœur — remplace la détection de preuves.)",
 	"argform_submit_new": "Soumettre",
 	"argform_submit_fork": "Soumettre le fork",
 	"argform_submit_edit": "Enregistrer les modifications",
 	"argform_submitting": "Envoi...",
 	"argform_cancel": "Annuler",
-
 	"argcol_supporting": "Pour",
 	"argcol_rejecting": "Contre",
 	"argcol_add_arg": "+ argument",
@@ -139,13 +122,11 @@
 	"argcol_add_disabled_reject": "Budget quotidien des arguments contre épuisé",
 	"argcol_empty_support": "Aucun argument pour pour le moment.",
 	"argcol_empty_reject": "Aucun argument contre pour le moment.",
-
 	"argpool_title": "Autres arguments",
 	"argpool_hint": "Triés par adhésion et fraîcheur. Avec un soutien suffisant, ils rejoignent les colonnes du haut.",
 	"argpool_empty": "Aucun autre argument — les colonnes du haut montrent déjà tout.",
 	"argpool_stance_support": "pour",
 	"argpool_stance_reject": "contre",
-
 	"variant_singular": "variante",
 	"variant_plural": "variantes",
 	"variant_pick_title": "Choisissez la meilleure formulation",
@@ -153,21 +134,17 @@
 	"variant_sort_latest": "Récentes",
 	"variant_leading": "en tête",
 	"variant_more": "+{count} de plus",
-
 	"related_title": "Thèses liées",
 	"related_mode_semantic": "sémantique",
 	"related_mode_thematic": "thématique",
 	"related_mode_semantic_title": "Classées par similarité sémantique",
 	"related_mode_thematic_title": "Classées par catégories partagées",
-
 	"not_found_thesis_title": "Thèse introuvable",
 	"not_found_back_home": "Retour à l'accueil",
-
 	"my_page_title": "Mes thèses",
 	"my_page_subtitle": "Thèses que vous avez créées ou pour lesquelles vous avez voté.",
 	"my_platform_activity": "Activité de la plateforme",
 	"my_empty_state": "Vous n'avez pas encore participé. Votez ou créez une thèse !",
-
 	"my_standpoint_title": "Où j'en suis",
 	"my_standpoint_sub": "Bilan de réflexion sur votre travail — aucun jugement, juste un repère.",
 	"my_standpoint_generate": "Générer le rapport",
@@ -180,7 +157,6 @@
 	"my_standpoint_regenerate": "Régénérer",
 	"my_standpoint_server_error": "Le serveur a répondu {status}",
 	"my_standpoint_unknown_error": "Erreur inconnue",
-
 	"my_budget_title": "Votre journée",
 	"my_budget_sub": "Ce que vous avez dépensé aujourd'hui (limite : {limit} par catégorie).",
 	"my_budget_loading": "Chargement …",
@@ -201,7 +177,6 @@
 	"my_section_authored": "Vos thèses",
 	"my_section_voted": "Thèses sur lesquelles vous avez voté",
 	"complexity_slider_hint": "Ajustez le curseur de complexité pour en voir plus ou moins.",
-
 	"pulse_page_title": "Pouls communautaire",
 	"pulse_page_subtitle": "Ce qui anime la communauté — observé, pas jugé.",
 	"pulse_server_error": "Le serveur a répondu {status}",
@@ -223,7 +198,6 @@
 	"pulse_complex_metric": "{args} args",
 	"pulse_cat_metric": "{theses} thèses · {args} args · {pct} % pour",
 	"pulse_empty_all": "Rien pour l'instant.",
-
 	"about_img_alt": "Un réseau de dialogues reliés",
 	"about_title": "À propos de Quappe",
 	"about_lead": "Quappe est une plateforme d'argumentation. Thèses, arguments, preuves — pas de guerres de commentaires, pas de traînées enflammées, pas d'insultes anonymes déguisées en opinions.",
@@ -281,7 +255,6 @@
 	"about_license_note_html": "Ce n'est délibérément <strong>pas de l'open source approuvé OSI</strong>. Nous voulons que le code soit visible et améliorable — mais nous ne voulons pas que quiconque monétise les mêmes schémas antisociaux que nous cherchons à quitter.",
 	"about_license_links_html": "Sources et détails : <a href=\"https://github.com/quappe-org/quappe\" target=\"_blank\" rel=\"noopener noreferrer\">github.com/quappe-org/quappe</a>",
 	"about_cta_start": "Commencer à explorer",
-
 	"settings_id_title": "Votre identifiant anonyme",
 	"settings_id_hint": "C'est votre identité unique. Stockée localement, jamais partagée visiblement.",
 	"settings_role_title": "Rôle",
@@ -305,14 +278,12 @@
 	"settings_admin_link": "Console des logs serveur →",
 	"settings_about_title": "À propos de Quappe",
 	"settings_about_hint": "Quappe est une plateforme d'argumentation. Énoncez des thèses, fournissez des arguments et trouvez du terrain d'entente par un débat structuré. Pas de noms d'utilisateur. Pas de guerres de commentaires. Juste des arguments.",
-
 	"top_filter_title": "Filtrer",
 	"top_filter_clear": "× Effacer",
 	"top_list_count": "{visible} sur {total}",
 	"top_empty_filtered": "Aucune thèse dans la catégorie « {category} ».",
 	"top_empty": "Pas encore de thèses.",
 	"top_limit_note": "Ajustez le curseur de complexité pour voir plus de thèses.",
-
 	"updates_page_title": "Nouveautés",
 	"updates_page_subtitle": "Comment les autres réagissent à votre contenu — la base pour affiner vos arguments.",
 	"updates_loading": "Chargement …",
@@ -330,11 +301,9 @@
 	"updates_type_fork": "Fork",
 	"updates_type_newarg": "Argument",
 	"updates_type_lifecycle": "Cycle",
-
 	"translate_to": "Traduire → {locale}",
 	"translate_show_original": "Afficher l'original",
 	"translate_pending": "Traduction …",
-
 	"rephrase_simple": "Simple",
 	"rephrase_dense": "Dense",
 	"register_reading_simple": "Lecture : simple",
@@ -344,7 +313,6 @@
 	"home_create_variants_hint": "Proposez des formulations plus simples ou plus denses. Les lecteurs voient celle qui correspond à leur curseur de complexité ; vide, on revient à votre original.",
 	"home_create_variants_draft": "Brouillon par IA",
 	"home_create_variants_drafting": "Rédaction …",
-
 	"about_nav_intro": "Aperçu",
 	"about_nav_lifecycle": "Cycle de vie",
 	"about_nav_heat": "Chaleur",
@@ -352,7 +320,6 @@
 	"about_nav_fork": "Fork",
 	"about_nav_complexity": "Complexité",
 	"about_nav_transparency": "Transparence",
-
 	"about_explore_title": "Aller plus loin",
 	"about_explore_intro": "Chaque mécanique a sa propre page.",
 	"about_explore_lifecycle_desc": "Comment une thèse passe de germination à cristallisée — ou s'estompe.",
@@ -361,7 +328,6 @@
 	"about_explore_fork_desc": "Quand et comment forker l'argument de quelqu'un d'autre.",
 	"about_explore_complexity_desc": "Le curseur qui décide combien d'éléments vous voyez.",
 	"about_explore_transparency_desc": "Identité, stockage des données, usage des LLM, licence.",
-
 	"about_heat_title": "Chaleur",
 	"about_heat_lead": "L'activité récente d'une thèse — visible sous forme de bande colorée à gauche de chaque carte.",
 	"about_heat_what_title": "Ce qu'elle mesure",
@@ -377,7 +343,6 @@
 	"about_heat_cold_desc": "Ratio < 0,5 — calme. L'intérêt actuel est épuisé.",
 	"about_heat_why_title": "Pourquoi c'est utile",
 	"about_heat_why_p": "La chaleur est un signal, pas un classement. Une thèse froide peut être bien argumentée ; une thèse chaude peut n'être qu'une flambée. Utilisez la chaleur pour choisir où votre contribution compte le plus maintenant.",
-
 	"about_voting_title": "Vote",
 	"about_voting_lead": "Trois types de vote, un budget, et des votes pondérés pour ce qui compte vraiment.",
 	"about_voting_kinds_title": "Les trois types",
@@ -393,7 +358,6 @@
 	"about_voting_weighted_p": "Vous pouvez mettre plusieurs votes sur un même élément pour marquer l'intensité. Un vote pondéré consomme plus de budget mais reste une seule voix.",
 	"about_voting_change_title": "Changer d'avis",
 	"about_voting_change_p": "Vous pouvez changer ou retirer votre vote à tout moment. C'est le dernier qui compte.",
-
 	"about_fork_title": "Fork",
 	"about_fork_lead": "Quand l'argument de quelqu'un approche de ce que vous pensez sans y coller, vous le forkez au lieu d'en écrire un nouveau.",
 	"about_fork_when_title": "Quand forker",
@@ -404,7 +368,6 @@
 	"about_fork_step_3": "Enregistrez. Votre fork apparaît à côté de l'original, avec un lien vers la source.",
 	"about_fork_feed_title": "Le flux de forks",
 	"about_fork_feed_p_html": "Si vous avez voté sur l'argument original et que quelqu'un le forke, le fork apparaît dans le panneau orange <strong>Mises à jour de forks</strong> dans la barre latérale. Vous pouvez garder votre vote initial ou passer à la nouvelle version.",
-
 	"about_complexity_title": "Complexité",
 	"about_complexity_lead": "Un curseur décide combien vous voyez : peu pour vous concentrer, plus pour élargir.",
 	"about_complexity_what_title": "Ce que fait le curseur",
@@ -415,9 +378,7 @@
 	"about_complexity_effect_3_html": "<strong>Colonnes de mises à jour</strong> (/my/updates) : les N réactions les plus récentes par catégorie.",
 	"about_complexity_tip_title": "Astuce",
 	"about_complexity_tip_p": "Commencez bas, montez quand vous voulez la longue traîne. Le curseur est par session — pas de conflit entre utilisateurs sur le même appareil.",
-
 	"about_transp_license_link": "Licence & politique",
-
 	"panel_theme_title": "Thème",
 	"panel_theme_rainbow": "Rainbow",
 	"panel_theme_pastel": "Pastel",

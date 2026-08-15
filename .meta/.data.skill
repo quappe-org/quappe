@@ -157,20 +157,21 @@ Landing page renders categories as size-scaled tiles (drill-down).
 
 # Argument evidence auto-detection
 
-Users no longer pick an evidence type in the UI. They write their argument and optionally
-mark it as **emotional** (single checkbox: "Herzensangelegenheit" — heart matter).
+Users do not pick an evidence type in the UI. They write their argument; the
+evidence type is derived entirely from the content.
 
 Server-side derivation (`lib/utils/evidence.ts`):
-- Emotional checkbox wins entirely → single attribute `{ evidence_type: 'emotional' }`, no URL parsing.
-- Otherwise: extract URLs from the raw content by regex.
+- Extract URLs from the raw content by regex.
   - Each URL is classified by domain:
     - `study`: `.edu`, `.ac.*`, `doi.org`, `arxiv.org`, `nature.com`, `sciencemag.org`, `pubmed`, `nih.gov`, `who.int`, `sciencedirect.com`, `plos*.org`, `cochrane*.org`, `mpg.de`, `fraunhofer.de`, ...
     - `authority`: `.gov`, `europa.eu`, `wikipedia.org`, `bundestag.de`, `bundesregierung.de`, `oecd.org`, `imf.org`, `worldbank.org`, `destatis.de`, `ipcc.ch`, `unicef.org`, ...
     - Everything else (including no URL): `logical`.
 - One attribute per URL. The "primary" type for badge display is the best-ranked type
-  (study > authority > experiential/emotional > logical).
+  (study > authority > experiential > logical).
 
-The user only chooses stance (support/reject) and the emotional flag. Everything else is derived.
+Evidence types: `study | authority | logical | experiential`. There is no
+"emotional" type — emotion is expressed through voting (weight), not a badge.
+The user only chooses stance (support/reject). Everything else is derived.
 
 
 # Similarity (future)

@@ -523,7 +523,6 @@
 	.evidence-study        { background: #dcfce7; color: #14532d; border-color: #86efac; }
 	.evidence-authority    { background: #ede9fe; color: #4c1d95; border-color: #c4b5fd; }
 	.evidence-experiential { background: #ffedd5; color: #7c2d12; border-color: #fdba74; }
-	.evidence-emotional    { background: #fce7f3; color: #831843; border-color: #f9a8d4; }
 	.evidence-logical      { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
 
 	.arg-cat {

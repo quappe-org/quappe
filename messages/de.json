@@ -1,7 +1,6 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
 	"paraglide_smoke_test": "Quappe spricht Deutsch.",
-
 	"nav_trending": "Aktuell",
 	"nav_top": "Top",
 	"nav_my_theses": "Meine Thesen",
@@ -12,14 +11,12 @@
 	"nav_new_thesis": "Neue These",
 	"nav_new_thesis_disabled_hint": "Tages­budget für Thesen aufgebraucht",
 	"nav_new_thesis_hint": "Neue These erstellen",
-
 	"panel_fork_updates_title": "Fork-Updates",
 	"panel_fork_updates_hint": "Argumente, für die du gestimmt hast, wurden geforkt.",
 	"panel_fork_updates_old_label": "Alt",
 	"panel_fork_updates_new_label": "Neu",
 	"panel_fork_updates_keep_old": "Alt behalten",
 	"panel_fork_updates_switch_new": "Zum neuen wechseln",
-
 	"panel_budget_title": "Tages­budget",
 	"panel_budget_hint": "Stimmen und neue Thesen. Setzt sich täglich zurück.",
 	"panel_budget_weight": "Extra-Gewicht",
@@ -32,15 +29,12 @@
 	"panel_budget_more_events": "… und {count} weitere",
 	"panel_budget_details_link": "Details anzeigen →",
 	"panel_budget_event_thesis": "These: {title}",
-
 	"panel_complexity_title": "Komplexität",
 	"panel_language_title": "Sprache",
-
 	"lang_en": "English",
 	"lang_de": "Deutsch",
 	"lang_fr": "Français",
 	"lang_es": "Español",
-
 	"home_search_placeholder": "Thesen durchsuchen…",
 	"home_search_searching_aria": "Suche läuft",
 	"home_search_mode_semantic": "Semantische Suche",
@@ -48,14 +42,11 @@
 	"home_search_mode_combined": "Suche",
 	"home_search_hits": "{count} Treffer",
 	"home_search_no_matches": "Keine Treffer für „{query}“.",
-
 	"home_suggestion_label": "Vorschlag:",
 	"home_suggestion_apply": "Übernehmen",
 	"home_suggestion_dismiss_aria": "Verwerfen",
-
 	"home_filter_title": "Filter",
 	"home_filter_clear": "Leeren",
-
 	"home_create_title": "These erstellen",
 	"home_create_close_aria": "Schließen",
 	"home_create_title_label": "Titel",
@@ -69,19 +60,16 @@
 	"home_create_submit": "These erstellen",
 	"home_create_submitting": "Wird erstellt...",
 	"home_create_cancel": "Abbrechen",
-
 	"home_list_count": "{visible} von {total}",
 	"home_list_empty_filtered": "Keine Thesen in Kategorie „{category}“.",
 	"home_list_empty": "Noch keine Thesen. Sei die/der Erste!",
 	"home_list_limit_note": "Bewege den Komplexitäts-Regler, um mehr Thesen zu sehen.",
-
 	"error_too_many_requests": "Zu viele Anfragen — bitte kurz warten und erneut versuchen.",
 	"error_thesis_limit_reached": "Tageslimit erreicht (7 Thesen/Tag). Morgen wieder.",
 	"error_text_too_long": "Text zu lang — bitte kürzen.",
 	"error_invalid_input": "Ungültige Eingabe.",
 	"error_not_allowed": "Nicht erlaubt.",
 	"error_server_generic": "Server antwortete mit {status}. Bitte erneut versuchen.",
-
 	"thesis_back": "← Zurück",
 	"thesis_archived_banner": "Diese These wurde archiviert.",
 	"thesis_activity_title": "Aktivität: {title}",
@@ -101,14 +89,12 @@
 	"thesis_admin_unarchive": "Reaktivieren",
 	"thesis_admin_confirm_archive": "Diese These archivieren?",
 	"thesis_admin_confirm_unarchive": "Diese These reaktivieren?",
-
 	"danger_zone_title": "Gefahrenzone",
 	"danger_zone_hint": "Aktionen, die die Sichtbarkeit dieser These verändern. Rückgängig machbar, aber für alle sichtbar.",
 	"danger_zone_archive_title": "These archivieren",
 	"danger_zone_archive_desc": "Verschwindet aus Listen und keine neuen Argumente/Votes mehr. Bestehende Inhalte bleiben lesbar.",
 	"danger_zone_unarchive_title": "These reaktivieren",
 	"danger_zone_unarchive_desc": "Landet wieder in den Listen. Argumente und Votes werden wieder möglich.",
-
 	"argform_title_new": "Neues Argument",
 	"argform_title_fork": "Forken & anpassen",
 	"argform_title_edit": "Argument bearbeiten",
@@ -118,14 +104,11 @@
 	"argform_content_label": "Dein Argument",
 	"argform_content_hint": "Links werden automatisch erkannt. Füge URLs einfach in den Text ein.",
 	"argform_content_placeholder": "Formuliere deine Begründung. Füge Quellen als URLs ein — sie werden automatisch klassifiziert.",
-	"argform_emotional_label": "Das ist ein emotionales Argument",
-	"argform_emotional_hint": "(Herzensangelegenheit. Überschreibt die Evidenz-Erkennung.)",
 	"argform_submit_new": "Absenden",
 	"argform_submit_fork": "Fork absenden",
 	"argform_submit_edit": "Änderungen speichern",
 	"argform_submitting": "Wird gesendet...",
 	"argform_cancel": "Abbrechen",
-
 	"argcol_supporting": "Pro",
 	"argcol_rejecting": "Contra",
 	"argcol_add_arg": "+ Argument",
@@ -139,13 +122,11 @@
 	"argcol_add_disabled_reject": "Tages­budget für Contra-Argumente aufgebraucht",
 	"argcol_empty_support": "Noch keine Pro-Argumente.",
 	"argcol_empty_reject": "Noch keine Contra-Argumente.",
-
 	"argpool_title": "Weitere Argumente",
 	"argpool_hint": "Sortiert nach Zustimmung und Neuigkeit. Mit genug Rückhalt steigen sie oben in die Top-Spalten auf.",
 	"argpool_empty": "Keine weiteren Argumente — die Top-Spalten zeigen bereits alles.",
 	"argpool_stance_support": "pro",
 	"argpool_stance_reject": "contra",
-
 	"variant_singular": "Variante",
 	"variant_plural": "Varianten",
 	"variant_pick_title": "Beste Formulierung wählen",
@@ -153,21 +134,17 @@
 	"variant_sort_latest": "Neueste",
 	"variant_leading": "führend",
 	"variant_more": "+{count} weitere",
-
 	"related_title": "Verwandte Thesen",
 	"related_mode_semantic": "semantisch",
 	"related_mode_thematic": "thematisch",
 	"related_mode_semantic_title": "Nach semantischer Ähnlichkeit sortiert",
 	"related_mode_thematic_title": "Nach gemeinsamen Kategorien sortiert",
-
 	"not_found_thesis_title": "These nicht gefunden",
 	"not_found_back_home": "Zurück zur Startseite",
-
 	"my_page_title": "Meine Thesen",
 	"my_page_subtitle": "Thesen, die du erstellt oder für die du gestimmt hast.",
 	"my_platform_activity": "Plattform-Aktivität",
 	"my_empty_state": "Du hast dich noch nicht beteiligt. Stimme ab oder erstelle eine These!",
-
 	"my_standpoint_title": "Wo ich stehe",
 	"my_standpoint_sub": "Reflexions-Bericht zu deiner bisherigen Arbeit — kein Vorwurf, nur ein Blick zurück.",
 	"my_standpoint_generate": "Bericht erstellen",
@@ -180,7 +157,6 @@
 	"my_standpoint_regenerate": "Neu generieren",
 	"my_standpoint_server_error": "Server antwortete mit {status}",
 	"my_standpoint_unknown_error": "Unbekannter Fehler",
-
 	"my_budget_title": "Dein Tag",
 	"my_budget_sub": "Was du heute vom Budget ausgegeben hast (Limit: {limit} pro Kategorie).",
 	"my_budget_loading": "Wird geladen …",
@@ -201,7 +177,6 @@
 	"my_section_authored": "Deine Thesen",
 	"my_section_voted": "Thesen, die du bewertet hast",
 	"complexity_slider_hint": "Komplexitäts-Slider anpassen, um mehr oder weniger zu sehen.",
-
 	"pulse_page_title": "Community-Puls",
 	"pulse_page_subtitle": "Was die Community bewegt — beobachtet, nicht bewertet.",
 	"pulse_server_error": "Server antwortete mit {status}",
@@ -223,7 +198,6 @@
 	"pulse_complex_metric": "{args} Argumente",
 	"pulse_cat_metric": "{theses} Thesen · {args} Argumente · {pct}% pro",
 	"pulse_empty_all": "Noch nichts.",
-
 	"about_img_alt": "Ein Netzwerk verbundener Dialoge",
 	"about_title": "Über Quappe",
 	"about_lead": "Quappe ist eine Argumentations-Plattform. Thesen, Argumente, Belege — keine Kommentar-Kriege, keine Flammenspuren, keine anonymen Beleidigungen als Meinung getarnt.",
@@ -281,7 +255,6 @@
 	"about_license_note_html": "Das ist bewusst <strong>keine OSI-anerkannte Open Source</strong>. Wir wollen den Code sichtbar und verbesserbar — aber wir wollen nicht, dass jemand dieselben anti-sozialen Muster monetarisiert, die wir hinter uns lassen wollen.",
 	"about_license_links_html": "Quellen und Details: <a href=\"https://github.com/quappe-org/quappe\" target=\"_blank\" rel=\"noopener noreferrer\">github.com/quappe-org/quappe</a>",
 	"about_cta_start": "Loslegen",
-
 	"settings_id_title": "Deine anonyme ID",
 	"settings_id_hint": "Das ist deine eindeutige Identität. Sie wird lokal gespeichert und nie sichtbar geteilt.",
 	"settings_role_title": "Rolle",
@@ -305,14 +278,12 @@
 	"settings_admin_link": "Server-Log-Konsole →",
 	"settings_about_title": "Über Quappe",
 	"settings_about_hint": "Quappe ist eine Argumentations-Plattform. Stelle Thesen auf, liefere Argumente und finde Gemeinsamkeit durch strukturierten Diskurs. Keine Nutzernamen. Keine Kommentar-Kriege. Nur Argumente.",
-
 	"top_filter_title": "Filter",
 	"top_filter_clear": "× Leeren",
 	"top_list_count": "{visible} von {total}",
 	"top_empty_filtered": "Keine Thesen in Kategorie „{category}“.",
 	"top_empty": "Noch keine Thesen.",
 	"top_limit_note": "Bewege den Komplexitäts-Regler, um mehr Thesen zu sehen.",
-
 	"updates_page_title": "Updates",
 	"updates_page_subtitle": "Wie andere auf deine Inhalte reagieren — die Grundlage, um deine Argumente zu schärfen.",
 	"updates_loading": "Wird geladen …",
@@ -330,11 +301,9 @@
 	"updates_type_fork": "Fork",
 	"updates_type_newarg": "Argument",
 	"updates_type_lifecycle": "Lifecycle",
-
 	"translate_to": "Übersetzen → {locale}",
 	"translate_show_original": "Original zeigen",
 	"translate_pending": "Übersetze …",
-
 	"rephrase_simple": "Einfach",
 	"rephrase_dense": "Dicht",
 	"register_reading_simple": "Lesart: einfach",
@@ -344,7 +313,6 @@
 	"home_create_variants_hint": "Gib einfachere oder dichtere Formulierungen an. Leser sehen die zu ihrem Komplexitäts-Regler passende; leer fällt auf dein Original zurück.",
 	"home_create_variants_draft": "Mit KI entwerfen",
 	"home_create_variants_drafting": "Entwerfe …",
-
 	"about_nav_intro": "Überblick",
 	"about_nav_lifecycle": "Lebenszyklus",
 	"about_nav_heat": "Hitze",
@@ -352,7 +320,6 @@
 	"about_nav_fork": "Forken",
 	"about_nav_complexity": "Komplexität",
 	"about_nav_transparency": "Transparenz",
-
 	"about_explore_title": "Vertiefen",
 	"about_explore_intro": "Jede Mechanik hat eine eigene Seite.",
 	"about_explore_lifecycle_desc": "Wie eine These vom Seedling zum Kristallisierten wird — oder verblasst.",
@@ -361,7 +328,6 @@
 	"about_explore_fork_desc": "Wann und wie du das Argument eines anderen forkst.",
 	"about_explore_complexity_desc": "Der Regler, der entscheidet, wie viele Einträge du siehst.",
 	"about_explore_transparency_desc": "Identität, Datenspeicherung, LLM-Nutzung, Lizenz.",
-
 	"about_heat_title": "Hitze",
 	"about_heat_lead": "Wie viel Aktivität eine These gerade hat — sichtbar als farbiges Band links an jeder Thesen-Karte.",
 	"about_heat_what_title": "Was gemessen wird",
@@ -377,7 +343,6 @@
 	"about_heat_cold_desc": "Verhältnis < 0,5 — ruhig. Das Interesse ist derzeit erschöpft.",
 	"about_heat_why_title": "Warum es zählt",
 	"about_heat_why_p": "Hitze ist ein Signal, kein Ranking. Eine kalte These kann gut ausdiskutiert sein; eine heiße kann frisch aufflammen. Nutze Hitze, um zu entscheiden, wo dein Beitrag gerade am meisten bewirkt.",
-
 	"about_voting_title": "Voten",
 	"about_voting_lead": "Drei Stimmarten, ein Budget, und gewichtete Stimmen für das, was dir besonders wichtig ist.",
 	"about_voting_kinds_title": "Die drei Arten",
@@ -393,7 +358,6 @@
 	"about_voting_weighted_p": "Du kannst mehrere Stimmen auf einen einzigen Eintrag setzen, um Nachdruck zu geben. Eine gewichtete Stimme zieht mehr vom Budget ab — bleibt aber eine Stimme.",
 	"about_voting_change_title": "Meinung ändern",
 	"about_voting_change_p": "Du kannst dein Vote jederzeit ändern oder zurückziehen. Es zählt das jeweils letzte.",
-
 	"about_fork_title": "Forken",
 	"about_fork_lead": "Wenn ein Argument fast trifft, was du sagen willst, aber Feinjustierung braucht, forkst du es — statt eins von Null zu schreiben.",
 	"about_fork_when_title": "Wann forken",
@@ -404,7 +368,6 @@
 	"about_fork_step_3": "Speichern. Dein Fork steht neben dem Original, mit Rücklink zur Quelle.",
 	"about_fork_feed_title": "Der Fork-Feed",
 	"about_fork_feed_p_html": "Hast du das Original-Argument gevotet und jemand forkt es, erscheint der Fork im orangen <strong>Fork-Updates</strong>-Panel in der Sidebar. Du kannst dein Vote behalten oder auf die neue Version wechseln.",
-
 	"about_complexity_title": "Komplexität",
 	"about_complexity_lead": "Ein Regler bestimmt, wie viel du siehst: wenig für Fokus, viel für Breite.",
 	"about_complexity_what_title": "Was der Regler macht",
@@ -415,9 +378,7 @@
 	"about_complexity_effect_3_html": "<strong>Update-Spalten</strong> (/my/updates) zeigen die N neuesten Reaktionen pro Kategorie.",
 	"about_complexity_tip_title": "Tipp",
 	"about_complexity_tip_p": "Fang niedrig an, dreh hoch, wenn du den Long Tail willst. Der Regler gilt pro Sitzung — mehrere Nutzer am gleichen Gerät bekommen sich nicht in die Quere.",
-
 	"about_transp_license_link": "Lizenz & Nutzung",
-
 	"panel_theme_title": "Farbschema",
 	"panel_theme_rainbow": "Rainbow",
 	"panel_theme_pastel": "Pastell",
