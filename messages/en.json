@@ -424,7 +424,14 @@
 	"panel_theme_rainbow": "Rainbow",
 	"panel_theme_pastel": "Pastel",
 	"panel_theme_grayscale": "Grays",
+	"panel_theme_classic": "Classic",
+	"panel_theme_unicorn": "Unicorn",
 	"panel_invert_title": "Invert colors",
 	"panel_invert_on": "On",
-	"panel_invert_off": "Off"
+	"panel_invert_off": "Off",
+	"panel_a11y_title": "Accessibility",
+	"panel_a11y_invert": "Invert colors",
+	"panel_a11y_calm": "Calm (less visual noise)",
+	"panel_a11y_contrast": "High contrast",
+	"panel_a11y_motion": "Reduce motion"
 }

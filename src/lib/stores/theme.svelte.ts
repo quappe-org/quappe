@@ -1,10 +1,11 @@
 // User's chosen color theme. Applied by setting `data-theme` on <html>.
-// Three options: rainbow (default), pastel, grayscale. Persisted in localStorage.
+// Aesthetic palettes only — accessibility modes (calm/contrast/reduced-motion)
+// are orthogonal and live in a11y.svelte.ts. Persisted in localStorage.
 
-export type Theme = 'rainbow' | 'pastel' | 'grayscale';
+export type Theme = 'rainbow' | 'pastel' | 'grayscale' | 'classic' | 'unicorn';
 
 const KEY = 'quappe_theme';
-const VALID: readonly Theme[] = ['rainbow', 'pastel', 'grayscale'] as const;
+const VALID: readonly Theme[] = ['rainbow', 'pastel', 'grayscale', 'classic', 'unicorn'] as const;
 
 function loadTheme(): Theme {
 	if (typeof window === 'undefined') return 'rainbow';

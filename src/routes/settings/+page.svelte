@@ -2,7 +2,6 @@
 	import { getUserId } from '$lib/stores/user';
 	import { categoriesStore } from '$lib/stores/categories.svelte';
 	import { complexityBoundsStore } from '$lib/stores/complexity-bounds.svelte';
-	import { themeStore, type Theme } from '$lib/stores/theme.svelte';
 	import { getLocale, setLocale, locales, type Locale } from '$lib/paraglide/runtime';
 	import { localeStore } from '$lib/stores/locale.svelte';
 	import { onMount } from 'svelte';
@@ -29,24 +28,6 @@
 		setLocale(locale);
 		localeStore.refresh();
 	}
-
-	const themes: { id: Theme; label: () => string; colors: string[] }[] = [
-		{
-			id: 'rainbow',
-			label: () => m.panel_theme_rainbow(),
-			colors: ['#4f46e5', '#16a34a', '#dc2626', '#64748b', '#e2e8f0']
-		},
-		{
-			id: 'pastel',
-			label: () => m.panel_theme_pastel(),
-			colors: ['#8b7bd9', '#7ab89c', '#d98a8a', '#8b8aa3', '#ecebe7']
-		},
-		{
-			id: 'grayscale',
-			label: () => m.panel_theme_grayscale(),
-			colors: ['#2b2b2b', '#3d3d3d', '#7a7a7a', '#a0a0a0', '#dedede']
-		}
-	];
 
 	// Category management
 	let newCategory = $state('');
@@ -102,31 +83,6 @@
 					onclick={() => switchLocale(loc)}
 				>
 					{localeLabels[loc]}
-				</button>
-			{/each}
-		</div>
-	</div>
-
-	<div class="card stack">
-		<div class="setting-group">
-			<h3 class="setting-label">{m.panel_theme_title()}</h3>
-		</div>
-		<div class="pill-group" role="group" aria-label={m.panel_theme_title()}>
-			{#each themes as t}
-				<button
-					type="button"
-					class="pill-btn theme-btn"
-					class:active={mounted && themeStore.current === t.id}
-					aria-pressed={mounted && themeStore.current === t.id}
-					title={t.label()}
-					onclick={() => themeStore.set(t.id)}
-				>
-					<span class="theme-swatches" aria-hidden="true">
-						{#each t.colors as c}
-							<span class="theme-swatch" style="background: {c}"></span>
-						{/each}
-					</span>
-					<span class="theme-btn-label">{t.label()}</span>
 				</button>
 			{/each}
 		</div>
@@ -452,39 +408,5 @@
 		color: white;
 		border-color: var(--color-primary);
 		cursor: default;
-	}
-
-	/* Theme buttons with color preview */
-	.theme-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.theme-swatches {
-		display: inline-flex;
-		align-items: center;
-	}
-
-	.theme-swatch {
-		width: 0.85rem;
-		height: 0.85rem;
-		border-radius: 50%;
-		border: 1.5px solid var(--color-surface);
-		box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
-		margin-left: -0.28rem;
-	}
-
-	.theme-swatch:first-child {
-		margin-left: 0;
-	}
-
-	.theme-btn.active .theme-swatch {
-		border-color: rgba(255, 255, 255, 0.9);
-		box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
-	}
-
-	.theme-btn-label {
-		line-height: 1;
 	}
 </style>

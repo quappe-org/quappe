@@ -9,6 +9,7 @@
 	import { updatesSeen } from '$lib/stores/updates-seen.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { invertStore } from '$lib/stores/invert.svelte';
+	import { a11yStore } from '$lib/stores/a11y.svelte';
 	import { localeStore } from '$lib/stores/locale.svelte';
 	import { bootstrapUserId } from '$lib/stores/user';
 	import ComplexitySlider from '$lib/components/ComplexitySlider.svelte';
@@ -24,15 +25,26 @@
 	let mounted = $state(false);
 
 	// Top-down shell: transient popovers replace the old permanent sidebar.
-	let menuOpen = $state(false);      // overflow menu (about/settings/pulse + theme)
+	let menuOpen = $state(false);      // overflow menu (about/settings)
 	let budgetOpen = $state(false);    // budget popover
 	let sliderOpen = $state(false);    // complexity popover
+	let themeOpen = $state(false);     // theme + a11y popover
 
 	function closeAllPopovers() {
 		menuOpen = false;
 		budgetOpen = false;
 		sliderOpen = false;
+		themeOpen = false;
 	}
+
+	// Aesthetic themes shown in the theme popover (label + representative swatch).
+	const themeOptions: { id: import('$lib/stores/theme.svelte').Theme; label: () => string; swatch: string }[] = [
+		{ id: 'rainbow', label: () => m.panel_theme_rainbow(), swatch: '#4f46e5' },
+		{ id: 'pastel', label: () => m.panel_theme_pastel(), swatch: '#8b7bd9' },
+		{ id: 'classic', label: () => m.panel_theme_classic(), swatch: '#705c3b' },
+		{ id: 'unicorn', label: () => m.panel_theme_unicorn(), swatch: '#d946ef' },
+		{ id: 'grayscale', label: () => m.panel_theme_grayscale(), swatch: '#2b2b2b' }
+	];
 
 	function handleComplexityChange(settings: ComplexitySettings) {
 		complexityStore.set(settings);
@@ -113,6 +125,7 @@
 		mounted = true;
 		themeStore.init();
 		invertStore.init();
+		a11yStore.init();
 		localeStore.refresh();
 		bootstrapUserId().then(() => {
 			ensureBudgetLoaded();
@@ -139,6 +152,12 @@
 		const next = !menuOpen;
 		closeAllPopovers();
 		menuOpen = next;
+	}
+
+	function toggleTheme() {
+		const next = !themeOpen;
+		closeAllPopovers();
+		themeOpen = next;
 	}
 
 	// Lowest remaining creation bucket → the number shown on the budget pill.
@@ -180,6 +199,7 @@
 					{m.nav_updates()}
 					{#if mounted && unreadCount > 0}<span class="nav-badge">{unreadCount}</span>{/if}
 				</a>
+				<a href="/pulse" class="topnav-item" class:active={isActive('/pulse')}>{m.nav_community_pulse()}</a>
 			</nav>
 
 			<div class="actions">
@@ -195,7 +215,10 @@
 					</button>
 					{#if sliderOpen}
 						<div class="popover pop-slider">
-							<h3 class="pop-title">{m.panel_complexity_title()}</h3>
+							<div class="pop-title-row">
+								<h3 class="pop-title">{m.panel_complexity_title()}</h3>
+								<a href="/about/complexity" class="pop-help" onclick={closeAllPopovers} title={m.nav_about()} aria-label={m.nav_about()}>?</a>
+							</div>
 							<ComplexitySlider onchange={handleComplexityChange} />
 						</div>
 					{/if}
@@ -209,7 +232,10 @@
 					</button>
 					{#if budgetOpen}
 						<div class="popover pop-budget">
-							<h3 class="pop-title">{m.panel_budget_title()}</h3>
+							<div class="pop-title-row">
+								<h3 class="pop-title">{m.panel_budget_title()}</h3>
+								<a href="/about/voting" class="pop-help" onclick={closeAllPopovers} title={m.nav_about()} aria-label={m.nav_about()}>?</a>
+							</div>
 							<p class="pop-hint">{m.panel_budget_hint()}</p>
 							<div class="budget-list">
 								<div class="budget-row">
@@ -248,10 +274,51 @@
 					{/if}
 				</div>
 
-				<!-- Theme quick toggle (invert / dark-ish) -->
-				<button class="action-btn icon-only" onclick={() => invertStore.toggle()} title={m.panel_invert_title()} aria-label={m.panel_invert_title()}>
-					<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 0 12 6 6 0 0 1 0-12z"></path><circle cx="12" cy="12" r="9"></circle></svg>
-				</button>
+				<!-- Theme + accessibility -->
+				<div class="pop-wrap">
+					<button class="action-btn icon-only" class:on={themeOpen} onclick={toggleTheme} title={m.panel_theme_title()} aria-label={m.panel_theme_title()} aria-expanded={themeOpen}>
+						<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"></circle><circle cx="17.5" cy="10.5" r="2.5"></circle><circle cx="8.5" cy="7.5" r="2.5"></circle><circle cx="6.5" cy="12.5" r="2.5"></circle><path d="M12 2a10 10 0 0 0 0 20 3 3 0 0 0 3-3 2 2 0 0 1 2-2h1a4 4 0 0 0 4-4 10 10 0 0 0-10-11z"></path></svg>
+					</button>
+					{#if themeOpen}
+						<div class="popover pop-theme">
+							<h3 class="pop-title">{m.panel_theme_title()}</h3>
+							<div class="theme-grid">
+								{#each themeOptions as t}
+									<button
+										class="theme-choice"
+										class:active={mounted && themeStore.current === t.id}
+										onclick={() => themeStore.set(t.id)}
+									>
+										<span class="theme-choice-swatch" style="background: {t.swatch}"></span>
+										<span class="theme-choice-label">{t.label()}</span>
+									</button>
+								{/each}
+							</div>
+
+							<div class="pop-divider"></div>
+
+							<h3 class="pop-title">{m.panel_a11y_title()}</h3>
+							<div class="a11y-list">
+								<button class="a11y-toggle" class:on={mounted && invertStore.on} onclick={() => invertStore.toggle()}>
+									<span class="a11y-toggle-label">{m.panel_a11y_invert()}</span>
+									<span class="a11y-switch" class:on={mounted && invertStore.on}></span>
+								</button>
+								<button class="a11y-toggle" class:on={mounted && a11yStore.is('calm')} onclick={() => a11yStore.toggle('calm')}>
+									<span class="a11y-toggle-label">{m.panel_a11y_calm()}</span>
+									<span class="a11y-switch" class:on={mounted && a11yStore.is('calm')}></span>
+								</button>
+								<button class="a11y-toggle" class:on={mounted && a11yStore.is('contrast')} onclick={() => a11yStore.toggle('contrast')}>
+									<span class="a11y-toggle-label">{m.panel_a11y_contrast()}</span>
+									<span class="a11y-switch" class:on={mounted && a11yStore.is('contrast')}></span>
+								</button>
+								<button class="a11y-toggle" class:on={mounted && a11yStore.is('reducedMotion')} onclick={() => a11yStore.toggle('reducedMotion')}>
+									<span class="a11y-toggle-label">{m.panel_a11y_motion()}</span>
+									<span class="a11y-switch" class:on={mounted && a11yStore.is('reducedMotion')}></span>
+								</button>
+							</div>
+						</div>
+					{/if}
+				</div>
 
 				<!-- Overflow menu -->
 				<div class="pop-wrap">
@@ -260,7 +327,6 @@
 					</button>
 					{#if menuOpen}
 						<div class="popover pop-menu">
-							<a href="/pulse" class="menu-item" class:active={isActive('/pulse')} onclick={closeAllPopovers}>{m.nav_community_pulse()}</a>
 							<a href="/about" class="menu-item" class:active={isActive('/about')} onclick={closeAllPopovers}>{m.nav_about()}</a>
 							<a href="/settings" class="menu-item" class:active={isActive('/settings')} onclick={closeAllPopovers}>{m.nav_settings()}</a>
 						</div>
@@ -271,7 +337,7 @@
 	</header>
 
 	<!-- Backdrop closes popovers on outside click -->
-	{#if menuOpen || budgetOpen || sliderOpen}
+	{#if menuOpen || budgetOpen || sliderOpen || themeOpen}
 		<button class="popover-backdrop" aria-label="Close" onclick={closeAllPopovers}></button>
 	{/if}
 
@@ -457,7 +523,7 @@
 	.popover-backdrop {
 		position: fixed;
 		inset: 0;
-		z-index: 105;
+		z-index: 99;
 		background: transparent;
 		border: none;
 		cursor: default;
@@ -481,12 +547,134 @@
 
 	.pop-slider { min-width: 280px; }
 	.pop-menu { min-width: 180px; padding: 0.4rem; gap: 0.1rem; }
+	.pop-theme { min-width: 240px; }
+
+	.pop-divider {
+		height: 1px;
+		background: var(--color-border);
+		margin: 0.1rem 0;
+	}
+
+	/* Theme choices */
+	.theme-grid {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+	}
+
+	.theme-choice {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0.4rem 0.5rem;
+		background: transparent;
+		border: none;
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+		font-family: inherit;
+		font-size: var(--text-sm);
+		color: var(--color-text-muted);
+		transition: background var(--transition-fast), color var(--transition-fast);
+	}
+	.theme-choice:hover { background: var(--color-bg); color: var(--color-text); }
+	.theme-choice.active { color: var(--color-text); font-weight: 600; }
+
+	.theme-choice-swatch {
+		width: 1rem;
+		height: 1rem;
+		border-radius: 50%;
+		border: 1.5px solid var(--color-surface);
+		box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+		flex-shrink: 0;
+	}
+	.theme-choice.active .theme-choice-swatch {
+		box-shadow: 0 0 0 2px var(--color-primary);
+	}
+
+	/* A11y toggles */
+	.a11y-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
+	}
+
+	.a11y-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.4rem 0.5rem;
+		background: transparent;
+		border: none;
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+		font-family: inherit;
+		font-size: var(--text-sm);
+		color: var(--color-text-muted);
+		transition: background var(--transition-fast), color var(--transition-fast);
+	}
+	.a11y-toggle:hover { background: var(--color-bg); color: var(--color-text); }
+	.a11y-toggle.on { color: var(--color-text); }
+
+	.a11y-switch {
+		position: relative;
+		width: 2rem;
+		height: 1.1rem;
+		border-radius: 999px;
+		background: var(--color-border);
+		flex-shrink: 0;
+		transition: background var(--transition-fast);
+	}
+	.a11y-switch::after {
+		content: '';
+		position: absolute;
+		top: 2px;
+		left: 2px;
+		width: calc(1.1rem - 4px);
+		height: calc(1.1rem - 4px);
+		border-radius: 50%;
+		background: white;
+		transition: transform var(--transition-fast);
+	}
+	.a11y-switch.on {
+		background: var(--color-primary);
+	}
+	.a11y-switch.on::after {
+		transform: translateX(0.9rem);
+	}
 
 	.pop-title {
 		font-size: var(--text-sm);
 		font-weight: 600;
 		color: var(--color-text);
 		margin: 0;
+	}
+
+	.pop-title-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+
+	.pop-help {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.3rem;
+		height: 1.3rem;
+		border-radius: 50%;
+		background: var(--color-bg);
+		color: var(--color-text-muted);
+		font-size: 0.75rem;
+		font-weight: 700;
+		text-decoration: none;
+		flex-shrink: 0;
+		transition: background var(--transition-fast), color var(--transition-fast);
+	}
+	.pop-help:hover {
+		background: var(--color-primary-bg);
+		color: var(--color-primary);
 	}
 
 	.pop-hint {

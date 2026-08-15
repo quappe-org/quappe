@@ -389,5 +389,12 @@
 	"panel_theme_grayscale": "Grises",
 	"panel_invert_title": "Invertir colores",
 	"panel_invert_on": "Sí",
-	"panel_invert_off": "No"
+	"panel_invert_off": "No",
+	"panel_theme_classic": "Clásico",
+	"panel_theme_unicorn": "Unicornio",
+	"panel_a11y_title": "Accesibilidad",
+	"panel_a11y_invert": "Invertir colores",
+	"panel_a11y_calm": "Tranquilo (menos ruido visual)",
+	"panel_a11y_contrast": "Alto contraste",
+	"panel_a11y_motion": "Reducir movimiento"
 }

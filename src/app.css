@@ -131,6 +131,89 @@ html[data-invert='true'] iframe {
 	filter: grayscale(1);
 }
 
+/* Theme: Classic — muted, editorial, low-saturation (serious/newspaper feel) */
+[data-theme='classic'] {
+	--color-bg: #f7f5f0;
+	--color-surface: #fffdf8;
+	--color-border: #e4dfd3;
+	--color-text: #2b2925;
+	--color-text-muted: #6f6a60;
+	--color-text-light: #a8a293;
+
+	--color-support: #4a7c59;
+	--color-support-bg: #eef3ee;
+	--color-support-border: #cadbcd;
+	--color-reject: #9c4a3c;
+	--color-reject-bg: #f5eeec;
+	--color-reject-border: #e2cbc5;
+	--color-neutral: #8a8577;
+	--color-neutral-bg: #f2f0ea;
+	--color-neutral-border: #ddd8cc;
+
+	--color-primary: #705c3b;
+	--color-primary-hover: #5c4a2e;
+	--color-primary-bg: #f0ebe0;
+}
+
+/* Theme: Unicorn — playful, bright, high-chroma pastels */
+[data-theme='unicorn'] {
+	--color-bg: #fdf4ff;
+	--color-surface: #ffffff;
+	--color-border: #f0d9f7;
+	--color-text: #4a2a5e;
+	--color-text-muted: #9b6fb0;
+	--color-text-light: #c9a6d6;
+
+	--color-support: #2dd4bf;
+	--color-support-bg: #ecfdf9;
+	--color-support-border: #99f6e4;
+	--color-reject: #fb7185;
+	--color-reject-bg: #fff1f3;
+	--color-reject-border: #fecdd3;
+	--color-neutral: #c084fc;
+	--color-neutral-bg: #faf5ff;
+	--color-neutral-border: #e9d5ff;
+
+	--color-primary: #d946ef;
+	--color-primary-hover: #c026d3;
+	--color-primary-bg: #fdf0ff;
+}
+
+/* ---- Accessibility modes (orthogonal to theme) ---- */
+
+/* Calm: reduced visual noise — flatten shadows, soften accents. Helps anyone
+   who finds a busy UI distracting (not a diagnosis label). */
+[data-calm='true'] {
+	--shadow-sm: none;
+	--shadow-md: 0 1px 2px rgba(0, 0, 0, 0.04);
+	--shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+[data-calm='true'] .nav-badge {
+	animation: none !important;
+}
+
+/* High contrast: strengthen text + borders for readability. */
+[data-contrast='true'] {
+	--color-text: #000000;
+	--color-text-muted: #333333;
+	--color-text-light: #555555;
+	--color-border: #888888;
+}
+[data-contrast='true'] .card,
+[data-contrast='true'] .thesis-card {
+	border-width: 2px;
+}
+
+/* Reduced motion: disable non-essential animation/transition. */
+[data-reduced-motion='true'] *,
+[data-reduced-motion='true'] *::before,
+[data-reduced-motion='true'] *::after {
+	animation-duration: 0.001ms !important;
+	animation-iteration-count: 1 !important;
+	transition-duration: 0.001ms !important;
+	scroll-behavior: auto !important;
+}
+
 /* Reset */
 *,
 *::before,

@@ -389,5 +389,12 @@
 	"panel_theme_grayscale": "Gris",
 	"panel_invert_title": "Inverser les couleurs",
 	"panel_invert_on": "Activé",
-	"panel_invert_off": "Désactivé"
+	"panel_invert_off": "Désactivé",
+	"panel_theme_classic": "Classique",
+	"panel_theme_unicorn": "Licorne",
+	"panel_a11y_title": "Accessibilité",
+	"panel_a11y_invert": "Inverser les couleurs",
+	"panel_a11y_calm": "Calme (moins de bruit visuel)",
+	"panel_a11y_contrast": "Contraste élevé",
+	"panel_a11y_motion": "Réduire les animations"
 }
