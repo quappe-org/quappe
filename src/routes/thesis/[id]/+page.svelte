@@ -362,6 +362,17 @@
 	let baseTitle = $derived(thesis?.title ?? '');
 	let baseDescription = $derived(pickDescription(thesis, register));
 
+	// Is the currently shown description an author-provided variant (not the
+	// original)? Drives a small "you're reading: …" indicator so the slider
+	// effect is legible instead of feeling magical. Hidden while a translation
+	// is active (translation supersedes the register text).
+	let activeVariant = $derived.by<'simple' | 'dense' | null>(() => {
+		if (!thesis || translated) return null;
+		if (register === 'simple' && thesis.description_simple) return 'simple';
+		if (register === 'dense' && thesis.description_dense) return 'dense';
+		return null;
+	});
+
 	// Display precedence: translation (of the chosen register) > register text.
 	let displayTitle = $derived(translated?.title ?? baseTitle);
 	let displayDescription = $derived(translated?.description ?? baseDescription);
@@ -525,6 +536,13 @@
 					{/if}
 				</div>
 				<p class="thesis-description">{displayDescription}</p>
+
+				{#if activeVariant}
+					<p class="register-indicator" title={m.register_indicator_hint()}>
+						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+						{activeVariant === 'simple' ? m.register_reading_simple() : m.register_reading_dense()}
+					</p>
+				{/if}
 
 				<div class="thesis-meta-row">
 					{#each thesis.categories as category}
@@ -1009,6 +1027,21 @@
 
 	.translate-icon {
 		flex-shrink: 0;
+	}
+
+	/* Register indicator — "you're reading: simple/dense" (slider-bound) */
+	.register-indicator {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		align-self: flex-start;
+		font-size: var(--text-xs);
+		color: var(--color-text-muted);
+		background: var(--color-primary-bg);
+		border: 1px solid var(--color-border);
+		border-radius: 9999px;
+		padding: 0.15rem 0.6rem;
+		margin: 0;
 	}
 
 	/* Footer row: vote buttons + admin actions */

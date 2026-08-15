@@ -337,6 +337,9 @@
 
 	"rephrase_simple": "Simple",
 	"rephrase_dense": "Dense",
+	"register_reading_simple": "Reading: simple",
+	"register_reading_dense": "Reading: dense",
+	"register_indicator_hint": "This wording follows your complexity slider. Move it to read simpler or denser.",
 	"home_create_variants_toggle": "Add reading variants (optional)",
 	"home_create_variants_hint": "Provide simpler or denser wordings. Readers see the one matching their complexity slider; empty falls back to your original.",
 	"home_create_variants_draft": "Draft with AI",

@@ -337,6 +337,9 @@
 
 	"rephrase_simple": "Einfach",
 	"rephrase_dense": "Dicht",
+	"register_reading_simple": "Lesart: einfach",
+	"register_reading_dense": "Lesart: dicht",
+	"register_indicator_hint": "Diese Formulierung folgt deinem Komplexitäts-Regler. Verschiebe ihn für einfacher oder dichter.",
 	"home_create_variants_toggle": "Lesevarianten hinzufügen (optional)",
 	"home_create_variants_hint": "Gib einfachere oder dichtere Formulierungen an. Leser sehen die zu ihrem Komplexitäts-Regler passende; leer fällt auf dein Original zurück.",
 	"home_create_variants_draft": "Mit KI entwerfen",

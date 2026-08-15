@@ -337,6 +337,9 @@
 
 	"rephrase_simple": "Simple",
 	"rephrase_dense": "Denso",
+	"register_reading_simple": "Lectura: simple",
+	"register_reading_dense": "Lectura: denso",
+	"register_indicator_hint": "Esta redacción sigue tu control de complejidad. Muévelo para leer más simple o más denso.",
 	"home_create_variants_toggle": "Añadir variantes de lectura (opcional)",
 	"home_create_variants_hint": "Ofrece formulaciones más simples o más densas. Los lectores ven la que coincide con su control de complejidad; si está vacía, se usa tu original.",
 	"home_create_variants_draft": "Borrador con IA",
