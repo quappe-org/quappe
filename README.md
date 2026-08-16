@@ -1,5 +1,21 @@
 # Quappe
 
+> ## ⚠️ Deprecated — this monorepo has been split
+>
+> Quappe now lives as separate repositories under
+> [**quappe-org**](https://github.com/quappe-org):
+>
+> - [**quappe-service**](https://github.com/quappe-org/quappe-service) — API + storage + all domain logic (the contract)
+> - [**quappe-web**](https://github.com/quappe-org/quappe-web) — the browser UI (presentation-only)
+> - [**quappe-docs**](https://github.com/quappe-org/quappe-docs) — the idea, mechanics, design decisions
+> - quappe-ops / quappe-insight — operations & analytics (later)
+>
+> This repository is kept for history and is **archived / read-only**. New work
+> happens in the repos above. See `quappe-service/openapi.yaml` for the API
+> contract.
+
+---
+
 An argumentation platform. Theses, arguments, evidence — no comment wars,
 no flame trails, no anonymous insults masked as opinion.
 
