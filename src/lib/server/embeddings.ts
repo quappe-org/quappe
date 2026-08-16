@@ -1,8 +1,13 @@
 // Multilingual embedding model (server-only)
 // Model: Xenova/multilingual-e5-small — 120MB, 100+ languages, CPU/WASM, no GPU needed
 // Lazy-loaded on first use to avoid blocking server startup.
+//
+// Uses @huggingface/transformers (the maintained successor to the archived
+// @xenova/transformers). Same pipeline/env API; the HuggingFace model id stays
+// under the Xenova/ namespace. This migration also pulls in the fixed
+// onnxruntime/protobufjs versions that resolved the audit advisories.
 
-import { env, pipeline } from '@xenova/transformers';
+import { env, pipeline } from '@huggingface/transformers';
 
 // Cache model files in .cache dir relative to project root so they survive restarts
 env.cacheDir = './.cache/transformers';
@@ -19,7 +24,7 @@ async function getPipeline(): Promise<FeatureExtractionPipeline> {
 	if (_loading) return _loading;
 
 	_loading = pipeline('feature-extraction', 'Xenova/multilingual-e5-small', {
-		quantized: true // use 8-bit quantized model (~30MB instead of 120MB)
+		dtype: 'q8' // 8-bit quantized model (~30MB instead of 120MB)
 	}) as Promise<FeatureExtractionPipeline>;
 
 	_pipeline = await _loading;

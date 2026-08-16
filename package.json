@@ -1,7 +1,7 @@
 {
 	"name": "quappe",
 	"private": true,
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
@@ -28,11 +28,11 @@
 		"vite": "^8.0.16"
 	},
 	"dependencies": {
-		"@xenova/transformers": "^2.17.2",
+		"@huggingface/transformers": "^4.2.0",
 		"better-sqlite3": "^12.11.1"
 	},
 	"allowScripts": {
-		"@xenova/transformers@2.17.2": true,
+		"@huggingface/transformers": true,
 		"better-sqlite3@12.11.1": true
 	}
 }
