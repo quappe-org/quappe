@@ -1,10 +1,12 @@
 import Database from 'better-sqlite3';
-import { readFileSync, mkdirSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+// Inline the schema at build time (?raw) instead of reading it at runtime.
+// A runtime readFileSync relative to import.meta.url breaks once Vite bundles
+// the server into build/server/chunks/* - the .sql asset isn't copied along.
+import schemaSql from './schema.sql?raw';
 
 const DB_PATH = process.env.QUAPPE_DB_PATH ?? resolve(process.cwd(), '.data/quappe.db');
-const SCHEMA_PATH = resolve(dirname(fileURLToPath(import.meta.url)), './schema.sql');
 
 let _db: Database.Database | null = null;
 const _stmtCache = new Map<string, Database.Statement>();
@@ -20,7 +22,7 @@ export function getDb(): Database.Database {
 	db.pragma('foreign_keys = ON');
 	db.pragma('busy_timeout = 5000');
 
-	const schema = readFileSync(SCHEMA_PATH, 'utf-8');
+	const schema = schemaSql;
 	db.exec(schema);
 
 	migrate(db);

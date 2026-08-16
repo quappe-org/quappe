@@ -13,4 +13,10 @@ declare global {
 	}
 }
 
+// Vite ?raw imports (e.g. the SQL schema inlined at build time).
+declare module '*.sql?raw' {
+	const content: string;
+	export default content;
+}
+
 export {};

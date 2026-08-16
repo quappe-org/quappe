@@ -9,8 +9,9 @@
 
 import { env, pipeline } from '@huggingface/transformers';
 
-// Cache model files in .cache dir relative to project root so they survive restarts
-env.cacheDir = './.cache/transformers';
+// Cache model files so they survive restarts. Defaults to a project-root dir;
+// override with TRANSFORMERS_CACHE (e.g. a mounted data volume in production).
+env.cacheDir = process.env.TRANSFORMERS_CACHE ?? './.cache/transformers';
 // Disable local model checks so it always fetches from hub if not cached
 env.allowLocalModels = false;
 
