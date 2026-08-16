@@ -38,6 +38,10 @@ function decisionKey(originalId: string, forkId: string): string {
 
 class ForkFeedStore {
 	pending = $state<ForkDecision[]>([]);
+	// Reactive mirror of the decided-keys set so derived UI (e.g. the updates
+	// page, which also shows SERVER-sourced fork cards not in `pending`) can
+	// react when a decision is made.
+	decidedKeys = $state<Set<string>>(loadDecisions());
 
 	update(args: Argument[], thesisTitle: string): void {
 		if (typeof window === 'undefined') return;
@@ -80,8 +84,14 @@ class ForkFeedStore {
 		}
 	}
 
+	isDecided(originalId: string, forkId: string): boolean {
+		return this.decidedKeys.has(decisionKey(originalId, forkId));
+	}
+
 	resolve(originalId: string, forkId: string): void {
-		saveDecision(decisionKey(originalId, forkId));
+		const key = decisionKey(originalId, forkId);
+		saveDecision(key);
+		this.decidedKeys = new Set([...this.decidedKeys, key]);
 		this.pending = this.pending.filter(
 			(d) => !(d.original_id === originalId && d.fork_id === forkId)
 		);

@@ -44,6 +44,9 @@
 			if (!e.original_argument_id || !e.fork_argument_id) continue;
 			const key = `${e.original_argument_id}::${e.fork_argument_id}`;
 			if (seen.has(key)) continue;
+			// Skip decisions the user has already made (covers server-sourced
+			// cards too, which aren't in forkFeedStore.pending).
+			if (forkFeedStore.isDecided(e.original_argument_id, e.fork_argument_id)) continue;
 			seen.add(key);
 			cards.push({
 				key,
@@ -114,19 +117,32 @@
 	}
 
 	function handleKeepOriginal(card: ForkCard) {
+		// Keep the vote where it is (on the original). Just record the decision
+		// so the card stops surfacing.
 		forkFeedStore.resolve(card.original_id, card.fork_id);
-		// After resolving, clamp index if needed
-		if (forkIndex >= forkCards.length - 1 && forkIndex > 0) forkIndex--;
 	}
 
-	function handleSwitchToFork(card: ForkCard) {
-		// TODO: could cast a vote on the fork via API here
+	async function handleSwitchToFork(card: ForkCard) {
+		// Record the decision immediately for instant UI feedback…
 		forkFeedStore.resolve(card.original_id, card.fork_id);
-		if (forkIndex >= forkCards.length - 1 && forkIndex > 0) forkIndex--;
+		// …then migrate the user's support to the fork. The server enforces one
+		// vote per fork group, so a support vote here moves it off the original.
+		try {
+			await fetch(`/api/arguments/${card.fork_id}/vote`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ type: 'support', weight: 1 })
+			});
+		} catch {
+			// non-fatal — the decision is already recorded
+		}
 	}
 
-	// Carousel state for fork cards
+	// Carousel state for fork cards — kept in range as cards resolve away.
 	let forkIndex = $state(0);
+	$effect(() => {
+		if (forkIndex > forkCards.length - 1) forkIndex = Math.max(0, forkCards.length - 1);
+	});
 </script>
 
 <section class="updates-page">
